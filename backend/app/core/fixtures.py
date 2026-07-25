@@ -114,8 +114,40 @@ def sarvam_tts() -> Dict[str, Any]:
     }
 
 
+VOICE_INTENT_JSON: Dict[str, Any] = {
+    "intent": "approve",
+    "subject": "Meridian Life Sciences",
+    "reason": None,
+    "confidence": 0.93,
+}
+
+
 def sarvam_llm(content: str) -> Dict[str, Any]:
     return {"choices": [{"message": {"content": content}}]}
+
+
+def sarvam_llm_for(messages: list) -> Dict[str, Any]:
+    """Pick a canned completion that matches what was actually asked.
+
+    Returning one fixed payload for every prompt makes fixture mode lie:
+    the voice-intent parser would receive licence-extraction JSON and
+    misbehave in ways the real API never would. Dispatch on the system
+    prompt so each caller gets a response of the shape it expects.
+    """
+    import json as _json
+
+    system = ""
+    for message in messages or []:
+        if message.get("role") == "system":
+            system = message.get("content") or ""
+            break
+
+    if "spoken shop-floor instructions" in system:
+        payload = VOICE_INTENT_JSON
+    else:
+        payload = EXTRACTED_LICENCE_JSON
+
+    return sarvam_llm(_json.dumps(payload))
 
 
 def sarvam_translate(text: str) -> Dict[str, Any]:

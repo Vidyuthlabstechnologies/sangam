@@ -166,6 +166,28 @@ async def create_escrow(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.get("/escrow/{escrow_id}", response_model=dict)
+async def get_escrow(
+    escrow_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    current_actor: Actor = Depends(get_current_actor),
+):
+    result = await session.execute(select(Escrow).where(Escrow.id == escrow_id))
+    escrow = result.scalar_one_or_none()
+    if not escrow:
+        raise HTTPException(status_code=404, detail="Escrow not found")
+    return {
+        "id": str(escrow.id),
+        "workflow_id": str(escrow.workflow_id) if escrow.workflow_id else None,
+        "payment_id": str(escrow.payment_id) if escrow.payment_id else None,
+        "amount": escrow.amount,
+        "status": escrow.status.value,
+        "release_condition": escrow.release_condition,
+        "release_trigger": escrow.release_trigger,
+        "released_at": escrow.released_at.isoformat() if escrow.released_at else None,
+    }
+
+
 @router.post("/escrow/{escrow_id}/release", response_model=dict)
 async def release_escrow(
     escrow_id: UUID,

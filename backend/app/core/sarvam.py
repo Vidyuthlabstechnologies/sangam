@@ -231,9 +231,9 @@ class SarvamAI:
         max_tokens: Optional[int] = None,
     ) -> SarvamLLMResult:
         if self.use_fixtures:
-            # Returns the structured licence extraction, so the document
-            # pipeline parses real JSON rather than a placeholder string.
-            data = fixtures.sarvam_llm(json.dumps(fixtures.EXTRACTED_LICENCE_JSON))
+            # Dispatch on the prompt so each caller gets a response of the
+            # shape it expects, rather than one payload for every request.
+            data = fixtures.sarvam_llm_for(messages)
             return SarvamLLMResult(
                 content=data["choices"][0]["message"]["content"],
                 model=model,
