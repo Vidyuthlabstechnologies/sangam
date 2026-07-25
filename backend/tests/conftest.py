@@ -14,6 +14,18 @@ from app.main import app
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test_sangam.db"
 
+# Force fixture mode for the whole suite. Without this, settings loads the
+# real .env and tests would hit live Sarvam (billable) and live Razorpay
+# (money movement). Tests must never depend on, or touch, external services.
+settings.use_fixtures = True
+
+
+@pytest.fixture(autouse=True)
+def _force_fixture_mode(monkeypatch):
+    """Belt-and-braces: re-assert fixture mode per test in case a test
+    mutates settings and fails before restoring it."""
+    monkeypatch.setattr(settings, "use_fixtures", True)
+
 
 @pytest.fixture(scope="session")
 def event_loop():

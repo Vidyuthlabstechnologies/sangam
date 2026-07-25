@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.config import settings
+from app.core import fixtures
 from app.models.payment import (
     Payment, PaymentStatus, PaymentMethod,
     Escrow, EscrowStatus,
@@ -24,12 +25,12 @@ class RazorpayService:
         key_id = settings.razorpay_key_id
         key_secret = settings.razorpay_key_secret
 
-        if not key_id or not key_secret:
-            raise ValueError(
-                "Razorpay credentials required. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET."
-            )
-
-        self.client = razorpay.Client(auth=(key_id, key_secret))
+        # Absent credentials mean fixture mode, not a hard failure. This is
+        # deliberate for payments specifically: escrow release is automatic,
+        # so development and tests must never be able to reach a live
+        # gateway by accident.
+        self.use_fixtures = settings.use_fixtures or not (key_id and key_secret)
+        self.client = None if self.use_fixtures else razorpay.Client(auth=(key_id, key_secret))
 
     async def create_order(
         self,
@@ -39,10 +40,14 @@ class RazorpayService:
         notes: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         amount_paise = int(amount * 100)
+        receipt_id = receipt or str(uuid.uuid4())
+        if self.use_fixtures:
+            return fixtures.razorpay_order(amount_paise, receipt_id)
+
         order_data = {
             "amount": amount_paise,
             "currency": currency,
-            "receipt": receipt or str(uuid.uuid4()),
+            "receipt": receipt_id,
             "notes": notes or {},
         }
         order = self.client.order.create(order_data)
@@ -54,6 +59,8 @@ class RazorpayService:
         amount: float,
     ) -> Dict[str, Any]:
         amount_paise = int(amount * 100)
+        if self.use_fixtures:
+            return fixtures.razorpay_payment(payment_id)
         return self.client.payment.capture(payment_id, amount_paise)
 
     async def verify_payment(
@@ -91,12 +98,17 @@ class RazorpayService:
         payment_id: str,
         amount: Optional[float] = None,
     ) -> Dict[str, Any]:
+        if self.use_fixtures:
+            return fixtures.razorpay_refund(payment_id)
+
         params = {}
         if amount is not None:
             params["amount"] = int(amount * 100)
         return self.client.payment.refund(payment_id, params)
 
     async def get_payment_details(self, payment_id: str) -> Dict[str, Any]:
+        if self.use_fixtures:
+            return fixtures.razorpay_payment(payment_id)
         return self.client.payment.fetch(payment_id)
 
     async def create_upi_intent_order(
@@ -107,10 +119,14 @@ class RazorpayService:
         receipt: Optional[str] = None,
     ) -> Dict[str, Any]:
         amount_paise = int(amount * 100)
+        receipt_id = receipt or str(uuid.uuid4())
+        if self.use_fixtures:
+            return fixtures.razorpay_order(amount_paise, receipt_id, upi=True)
+
         order_data = {
             "amount": amount_paise,
             "currency": currency,
-            "receipt": receipt or str(uuid.uuid4()),
+            "receipt": receipt_id,
             "method": {
                 "upi": {
                     "flow": "intent",
