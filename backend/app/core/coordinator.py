@@ -1,6 +1,7 @@
 from __future__ import annotations
 import uuid
 import asyncio
+import logging
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional, Dict, Any, Callable, Awaitable
@@ -16,6 +17,9 @@ from app.models.approval import Approval, ApprovalStrategy, ApprovalStatus
 from app.models.exception import ExceptionWorkflow, ExceptionTrigger, ExceptionSeverity
 from app.core.approval_engine import ApprovalEngine
 from app.core.audit import AuditService
+from app.core.safe_eval import safe_evaluate, UnsafeExpressionError
+
+logger = logging.getLogger("sangam.coordinator")
 
 
 class ExecutionPattern(str, Enum):
@@ -247,13 +251,21 @@ class Coordinator:
 
 
 class ConditionEvaluator:
+    """Evaluates workflow branch conditions against runtime context.
+
+    Delegates to app.core.safe_eval, which parses to an AST and walks an
+    explicit allowlist. A rejected or malformed condition evaluates False
+    so a bad condition cannot halt workflow execution.
+    """
+
     def __init__(self, context: Dict[str, Any]):
         self.context = context
 
     def evaluate(self, condition: str) -> bool:
-        if not condition:
-            return True
         try:
-            return bool(eval(condition, {"__builtins__": {}}, self.context))
-        except Exception:
+            return safe_evaluate(condition, self.context)
+        except UnsafeExpressionError:
+            logger.warning(
+                "Rejected unsafe workflow condition: %r", condition, exc_info=True
+            )
             return False
