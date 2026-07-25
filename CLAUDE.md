@@ -90,3 +90,22 @@ Jetpack Compose, single-activity (`MainActivity.kt` → `SangamNavHost.kt`), pac
 ### SDKs
 
 `sdk/python/sangam_sdk.py` and `sdk/typescript/sangam-client.ts` are thin, single-file client wrappers over the same `/api/v1` surface consumed by web/android — check these when the public API contract changes, since they're not auto-generated from the OpenAPI schema.
+
+## External integrations
+
+`SARVAM_API_KEY` and `RAZORPAY_*` live in `backend/.env` (gitignored). **Never use `rzp_live_` keys in development** — escrow release is automatic, so a logic bug moves real money. Test keys start with `rzp_test_`.
+
+**Fixture mode** (`app/core/fixtures.py`): when a service's credentials are absent or `USE_FIXTURES=true`, the Sarvam and Razorpay clients return deterministic canned responses through identical code paths. `tests/conftest.py` forces it on suite-wide — without that, tests make billable Sarvam calls and reach a live gateway. Enabling live keys is a config change, never a code change.
+
+Three integration shapes are easy to get wrong and are documented in code comments where they matter:
+- Sarvam doc digitisation needs create → `upload-files` → PUT to the presigned Azure blob (`x-ms-blob-type: BlockBlob`) → `start`. Status reports `job_state`; output is a ZIP fetched via `POST {job_id}/download-files`.
+- `sarvam-30b` is a reasoning model: budget `max_tokens` generously (4096 is the starter-tier ceiling) or `content` comes back null.
+- Razorpay Orders takes `method` as a **string**; a nested object is rejected.
+
+## Conventions worth preserving
+
+- Workflow conditions run through `app/core/safe_eval.py` (AST allowlist). Never reintroduce `eval()` — conditions are attacker-influenced data.
+- `POST /payments/webhook` is authenticated solely by its HMAC signature over the **raw** request bytes. Do not parse the body into a Pydantic model before verifying; re-serialising changes the digest.
+- Model classes must be imported in `app/models/__init__.py` or `Base.metadata.create_all` silently skips their tables.
+- Extractions below `CONFIDENCE_REVIEW_THRESHOLD` are never auto-promoted to licences; a human confirms them. A mis-read expiry date means shipping against a lapsed licence.
+- Android debug builds need `src/debug/res/xml/network_security_config.xml` to reach a local HTTP backend; keep cleartext scoped to loopback so release stays HTTPS-only.
