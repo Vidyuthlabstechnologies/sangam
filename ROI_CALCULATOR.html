@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sangam Pharma Compliance ROI Calculator</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1a1a2e; background: #f8fafc; }
+        .container { max-width: 900px; margin: 0 auto; padding: 2rem; }
+        .calculator-card { background: white; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); padding: 2.5rem; }
+        .header { text-align: center; margin-bottom: 2rem; }
+        .header h1 { font-size: 2rem; font-weight: 700; color: #1a1a2e; margin-bottom: 0.5rem; }
+        .header p { color: #64748b; font-size: 1.1rem; }
+        .section { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid #e2e8f0; }
+        .section:last-of-type { border-bottom: none; }
+        .section h2 { font-size: 1.25rem; font-weight: 600; color: #1a1a2e; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+        .input-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+        .input-field { display: flex; flex-direction: column; gap: 0.25rem; }
+        .input-field label { font-size: 0.875rem; font-weight: 500; color: #475569; }
+        .input-field input, .input-field select { padding: 0.75rem 1rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 1rem; background: white; transition: border-color 0.2s, box-shadow 0.2s; }
+        .input-field input:focus, .input-field select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+        .input-field .unit { position: absolute; right: 1rem; top: 2.75rem; color: #94a3b8; pointer-events: none; }
+        .input-field-wrapper { position: relative; }
+        .results { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 12px; padding: 2rem; color: white; margin-top: 1.5rem; }
+        .results h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: 1.5rem; opacity: 0.9; }
+        .result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+        .result-item { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 1.25rem; }
+        .result-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.6; margin-bottom: 0.5rem; }
+        .result-value { font-size: 1.75rem; font-weight: 700; }
+        .result-value.positive { color: #34d399; }
+        .result-value.negative { color: #f87171; }
+        .result-value.neutral { color: #fbbf24; }
+        .breakdown { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); }
+        .breakdown h4 { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; opacity: 0.9; }
+        .breakdown-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; }
+        .breakdown-item { display: flex; justify-content: space-between; padding: 0.75rem; background: rgba(255,255,255,0.03); border-radius: 6px; }
+        .breakdown-label { opacity: 0.7; }
+        .breakdown-value { font-weight: 600; }
+        .cta { text-align: center; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); }
+        .btn { display: inline-block; padding: 1rem 2rem; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; font-weight: 600; border-radius: 8px; text-decoration: none; transition: transform 0.2s, box-shadow 0.2s; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(59,130,246,0.3); }
+        .badge { display: inline-block; padding: 0.25rem 0.75rem; background: rgba(59,130,246,0.2); color: #3b82f6; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+        .disclaimer { margin-top: 2rem; padding: 1rem; background: rgba(255,255,255,0.03); border-radius: 8px; font-size: 0.8rem; opacity: 0.7; }
+        @media (max-width: 640px) { .container { padding: 1rem; } .calculator-card { padding: 1.5rem; } .input-group { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="calculator-card">
+            <div class="header">
+                <span class="badge">Pharma Compliance ROI Calculator</span>
+                <h1>Sangam Compliance ROI Calculator</h1>
+                <p>Estimate your annual savings from automating pharma regulatory compliance</p>
+            </div>
+
+            <div class="section">
+                <h2><span>🏭</span> Company Profile</h2>
+                <div class="input-group">
+                    <div class="input-field">
+                        <label>Annual Revenue (₹ Cr)</label>
+                        <div class="input-field-wrapper">
+                            <input type="number" id="revenue" value="500" min="50" max="5000" step="50">
+                        </div>
+                    </div>
+                    <div class="input-field">
+                        <label>Segment</label>
+                        <select id="segment">
+                            <option value="formulations">Formulations</option>
+                            <option value="api">API Manufacturing</option>
+                            <option value="cdmo">CDMO</option>
+                            <option value="nutraceutical">Nutraceutical</option>
+                        </select>
+                    </div>
+                    <div class="input-field">
+                        <label>CDSCO-Licensed Facilities</label>
+                        <input type="number" id="facilities" value="2" min="1" max="10" step="1">
+                    </div>
+                    <div class="input-field">
+                        <label>Active Vendors</label>
+                        <input type="number" id="vendors" value="300" min="50" max="5000" step="50">
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2><span>👥</span> Team & Time Costs</h2>
+                <div class="input-group">
+                    <div class="input-field">
+                        <label>Compliance Team Size (FTEs)</label>
+                        <input type="number" id="teamSize" value="4" min="1" max="50" step="1">
+                    </div>
+                    <div class="input-field">
+                        <label>Avg Hourly Cost (₹)</label>
+                        <div class="input-field-wrapper">
+                            <input type="number" id="hourlyCost" value="800" min="300" max="3000" step="100">
+                        </div>
+                    </div>
+                    <div class="input-field">
+                        <label>Hours/Month Manual Compliance</label>
+                        <input type="number" id="manualHours" value="180" min="20" max="500" step="10">
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2><span>💸</span> Current Pain Costs</h2>
+                <div class="input-group">
+                    <div class="input-field">
+                        <label>Audit Prep Weeks per Audit</label>
+                        <input type="number" id="auditWeeks" value="3" min="1" max="8" step="0.5">
+                    </div>
+                    <div class="input-field">
+                        <label>Audits per Year</label>
+                        <input type="number" id="auditsPerYear" value="3" min="1" max="12" step="1">
+                    </div>
+                    <div class="input-field">
+                        <label>NPPA Penalties/Year (₹ Lakhs)</label>
+                        <input type="number" id="nppaPenalties" value="50" min="0" max="1000" step="5">
+                    </div>
+                    <div class="input-field">
+                        <label>Vendor Disputes/Year (₹ Lakhs)</label>
+                        <input type="number" id="vendorDisputes" value="20" min="0" max="500" step="5">
+                    </div>
+                    <div class="input-field">
+                        <label>Failed Stability Batches/Year (₹ Lakhs)</label>
+                        <input type="number" id="stabilityLoss" value="15" min="0" max="200" step="5">
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2><span>🤖</span> Sangam Impact Assumptions</h2>
+                <div class="input-group">
+                    <div class="input-field">
+                        <label>Manual Hours Reduced (%)</label>
+                        <input type="number" id="hoursReduction" value="85" min="50" max="95" step="5">
+                    </div>
+                    <div class="input-field">
+                        <label>Audit Prep Time Reduced (%)</label>
+                        <input type="number" id="auditReduction" value="80" min="50" max="95" step="5">
+                    </div>
+                    <div class="input-field">
+                        <label>NPPA Penalties Avoided (%)</label>
+                        <input type="number" id="nppaAvoided" value="95" min="50" max="100" step="5">
+                    </div>
+                    <div class="input-field">
+                        <label>Vendor Disputes Reduced (%)</label>
+                        <input type="number" id="disputesReduced" value="90" min="50" max="100" step="5">
+                    </div>
+                    <div class="input-field">
+                        <label>Stability Losses Reduced (%)</label>
+                        <input type="number" id="stabilityReduced" value="70" min="30" max="95" step="5">
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2><span>💰</span> Sangam Investment</h2>
+                <div class="input-group">
+                    <div class="input-field">
+                        <label>Annual Subscription (₹ Lakhs)</label>
+                        <input type="number" id="subscription" value="18" min="5" max="50" step="1">
+                    </div>
+                    <div class="input-field">
+                        <label>Implementation Cost (₹ Lakhs)</label>
+                        <input type="number" id="implementation" value="5" min="0" max="50" step="1">
+                    </div>
+                    <div class="input-field">
+                        <label>Training/Change Mgmt (₹ Lakhs)</label>
+                        <input type="number" id="training" value="2" min="0" max="20" step="1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="results" id="results">
+                <h3>📊 Your Estimated Annual ROI</h3>
+                <div class="result-grid">
+                    <div class="result-item">
+                        <div class="result-label">Current Annual Cost</div>
+                        <div class="result-value" id="currentCost">₹0</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">Sangam Savings</div>
+                        <div class="result-value positive" id="savings">₹0</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">Net Annual Benefit</div>
+                        <div class="result-value positive" id="netBenefit">₹0</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">ROI</div>
+                        <div class="result-value positive" id="roi">0%</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">Payback Period</div>
+                        <div class="result-value neutral" id="payback">0 months</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">First Year Net</div>
+                        <div class="result-value" id="firstYearNet">₹0</div>
+                    </div>
+                </div>
+
+                <div class="breakdown">
+                    <h4>💡 Savings Breakdown</h4>
+                    <div class="breakdown-grid">
+                        <div class="breakdown-item"><span class="breakdown-label">Manual Hours Saved</span><span class="breakdown-value" id="breakdownHours">0 hrs/yr</span></div>
+                        <div class="breakdown-item"><span class="breakdown-label">Audit Prep Saved</span><span class="breakdown-value" id="breakdownAudit">₹0</span></div>
+                        <div class="breakdown-item"><span class="breakdown-label">NPPA Penalties Avoided</span><span class="breakdown-value positive" id="breakdownNppa">₹0</span></div>
+                        <div class="breakdown-item"><span class="breakdown-label">Vendor Disputes Reduced</span><span class="breakdown-value positive" id="breakdownDisputes">₹0</span></div>
+                        <div class="breakdown-item"><span class="breakdown-label">Stability Losses Prevented</span><span class="breakdown-value positive" id="breakdownStability">₹0</span></div>
+                        <div class="breakdown-item"><span class="breakdown-label">Total Annual Savings</span><span class="breakdown-value positive" id="breakdownTotal">₹0</span></div>
+                    </div>
+                </div>
+
+                <div class="cta">
+                    <a href="#" class="btn" onclick="downloadReport()">📊 Download Full Report</a>
+                    <a href="#" class="btn" style="background: rgba(255,255,255,0.1); margin-left: 1rem;" onclick="scheduleDemo()">📅 Schedule Live Demo</a>
+                </div>
+
+                <div class="disclaimer">
+                    <strong>Disclaimer:</strong> This calculator provides estimates based on your inputs and industry benchmarks. Actual results may vary based on implementation quality, team adoption, regulatory changes, and market conditions. Sangam does not guarantee specific financial outcomes. Contact us for a detailed assessment.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function formatINR(num) {
+            if (num >= 10000000) return '₹' + (num / 10000000).toFixed(1) + ' Cr';
+            if (num >= 100000) return '₹' + (num / 100000).toFixed(1) + ' L';
+            return '₹' + num.toLocaleString('en-IN');
+        }
+
+        function calculate() {
+            // Inputs
+            const revenue = parseFloat(document.getElementById('revenue').value) || 0;
+            const segment = document.getElementById('segment').value;
+            const facilities = parseFloat(document.getElementById('facilities').value) || 1;
+            const vendors = parseFloat(document.getElementById('vendors').value) || 0;
+            const teamSize = parseFloat(document.getElementById('teamSize').value) || 0;
+            const hourlyCost = parseFloat(document.getElementById('hourlyCost').value) || 0;
+            const manualHours = parseFloat(document.getElementById('manualHours').value) || 0;
+            const auditWeeks = parseFloat(document.getElementById('auditWeeks').value) || 0;
+            const auditsPerYear = parseFloat(document.getElementById('auditsPerYear').value) || 0;
+            const nppaPenalties = (parseFloat(document.getElementById('nppaPenalties').value) || 0) * 100000;
+            const vendorDisputes = (parseFloat(document.getElementById('vendorDisputes').value) || 0) * 100000;
+            const stabilityLoss = (parseFloat(document.getElementById('stabilityLoss').value) || 0) * 100000;
+            const hoursReduction = (parseFloat(document.getElementById('hoursReduction').value) || 85) / 100;
+            const auditReduction = parseFloat(document.getElementById('auditReduction').value) || 80;
+            const nppaAvoided = parseFloat(document.getElementById('nppaAvoided').value) / 100;
+            const disputesReduced = parseFloat(document.getElementById('disputesReduced').value) / 100;
+            const stabilityReduced = parseFloat(document.getElementById('stabilityReduced').value) / 100;
+            const subscription = (parseFloat(document.getElementById('subscription').value) || 0) * 100000;
+            const implementation = (parseFloat(document.getElementById('implementation').value) || 0) * 100000;
+            const training = (parseFloat(document.getElementById('training').value) || 0) * 100000;
+
+            // Current costs
+            const manualCostPerMonth = manualHours * hourlyCost;
+            const manualCostPerYear = manualCostPerMonth * 12;
+            const auditCostPerYear = auditWeeks * 5 * 8 * hourlyCost * auditsPerYear;
+            const currentAnnualCost = manualCostPerYear + auditCostPerYear + nppaPenalties + vendorDisputes + stabilityLoss;
+
+            // Savings
+            const hoursSavedPerMonth = manualHours * hoursReduction;
+            const hoursSavedPerYear = hoursSavedPerMonth * 12;
+            const manualCostSaved = hoursSavedPerYear * hourlyCost;
+            const auditTimeSaved = auditWeeks * 5 * 8 * auditsPerYear * (auditReduction / 100);
+            const auditCostSaved = auditTimeSaved * hourlyCost;
+            const nppaSaved = nppaPenalties * nppaAvoided;
+            const disputesSaved = vendorDisputes * disputesReduced;
+            const stabilitySaved = stabilityLoss * (stabilityReduced / 100);
+
+            const totalSavings = manualCostSaved + auditCostSaved + nppaSaved + disputesSaved + stabilitySaved;
+            const totalCost = subscription + implementation + training;
+            const netBenefit = totalSavings - totalCost;
+            const roi = (netBenefit / totalCost) * 100;
+            const paybackMonths = totalCost / (totalSavings / 12);
+            const firstYearNet = totalSavings - totalCost;
+
+            // Update UI
+            document.getElementById('currentCost').textContent = formatINR(Math.round(currentAnnualCost));
+            document.getElementById('savings').textContent = formatINR(Math.round(totalSavings));
+            document.getElementById('netBenefit').textContent = formatINR(Math.round(netBenefit));
+            document.getElementById('roi').textContent = roi.toFixed(0) + '%';
+            document.getElementById('payback').textContent = paybackMonths.toFixed(1) + ' months';
+            document.getElementById('firstYearNet').textContent = formatINR(Math.round(firstYearNet));
+
+            document.getElementById('breakdownHours').textContent = Math.round(hoursSavedPerYear).toLocaleString('en-IN') + ' hrs/yr';
+            document.getElementById('breakdownAudit').textContent = formatINR(Math.round(auditCostSaved));
+            document.getElementById('breakdownNppa').textContent = formatINR(Math.round(nppaSaved));
+            document.getElementById('breakdownDisputes').textContent = formatINR(Math.round(disputesSaved));
+            document.getElementById('breakdownStability').textContent = formatINR(Math.round(stabilitySaved));
+            document.getElementById('breakdownTotal').textContent = formatINR(Math.round(totalSavings));
+        }
+
+        function formatINR(num) {
+            if (num >= 10000000) return '₹' + (num / 10000000).toFixed(1) + ' Cr';
+            if (num >= 100000) return '₹' + (num / 100000).toFixed(1) + ' L';
+            return '₹' + num.toLocaleString('en-IN');
+        }
+
+        // Auto-calculate on input change
+        document.querySelectorAll('input, select').forEach(el => {
+            el.addEventListener('input', calculate);
+            el.addEventListener('change', calculate);
+        });
+
+        // Initial calculation
+        calculate();
+
+        function downloadReport() {
+            const data = {
+                timestamp: new Date().toISOString(),
+                inputs: {
+                    revenue: document.getElementById('revenue').value,
+                    segment: document.getElementById('segment').value,
+                    facilities: document.getElementById('facilities').value,
+                    vendors: document.getElementById('vendors').value,
+                    teamSize: document.getElementById('teamSize').value,
+                    hourlyCost: document.getElementById('hourlyCost').value,
+                    manualHours: document.getElementById('manualHours').value,
+                    auditWeeks: document.getElementById('auditWeeks').value,
+                    auditsPerYear: document.getElementById('auditsPerYear').value,
+                    nppaPenalties: document.getElementById('nppaPenalties').value,
+                    vendorDisputes: document.getElementById('vendorDisputes').value,
+                    stabilityLoss: document.getElementById('stabilityLoss').value,
+                    hoursReduction: document.getElementById('hoursReduction').value,
+                    auditReduction: document.getElementById('auditReduction').value,
+                    nppaAvoided: document.getElementById('nppaAvoided').value,
+                    disputesReduced: document.getElementById('disputesReduced').value,
+                    stabilityReduced: document.getElementById('stabilityReduced').value,
+                    subscription: document.getElementById('subscription').value,
+                    implementation: document.getElementById('implementation').value,
+                    training: document.getElementById('training').value
+                }
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'sangam-roi-report-' + new Date().toISOString().split('T')[0] + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function scheduleDemo() {
+            window.open('mailto:sales@sangam.ai?subject=Demo%20Request:%20ROI%20Calculator&body=Hi%20team,%0D%0AI%20used%20the%20ROI%20calculator%20and%20would%20like%20to%20schedule%20a%20live%20demo.%0D%0A%0D%0AMy%20details:%0D%0A-Company:%20%0D%0A-Revenue:%20%0D%0A-Segment:%20%0D%0A-Team%20Size:%20%0D%0A-Current%20Pain%20Points:%20%0D%0A', '_blank');
+        }
+    </script>
+</body>
+</html>

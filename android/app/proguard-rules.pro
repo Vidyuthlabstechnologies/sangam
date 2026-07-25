@@ -1,0 +1,6 @@
+-keepattributes Signature
+-keepattributes *Annotation*
+-keep class com.sangam.app.network.** { *; }
+-keepclassmembers class com.sangam.app.network.** { *; }
+-dontwarn okhttp3.**
+-dontwarn retrofit2.**

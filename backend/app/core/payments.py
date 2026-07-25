@@ -1,0 +1,384 @@
+from __future__ import annotations
+import uuid
+import hmac
+import hashlib
+from datetime import datetime
+from typing import Optional, Dict, Any, List
+from uuid import UUID
+
+import razorpay
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+from app.config import settings
+from app.models.payment import (
+    Payment, PaymentStatus, PaymentMethod,
+    Escrow, EscrowStatus,
+    Invoice,
+)
+from app.core.audit import AuditService
+
+
+class RazorpayService:
+    def __init__(self):
+        key_id = settings.razorpay_key_id
+        key_secret = settings.razorpay_key_secret
+
+        if not key_id or not key_secret:
+            raise ValueError(
+                "Razorpay credentials required. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET."
+            )
+
+        self.client = razorpay.Client(auth=(key_id, key_secret))
+
+    async def create_order(
+        self,
+        amount: float,
+        currency: str = "INR",
+        receipt: Optional[str] = None,
+        notes: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        amount_paise = int(amount * 100)
+        order_data = {
+            "amount": amount_paise,
+            "currency": currency,
+            "receipt": receipt or str(uuid.uuid4()),
+            "notes": notes or {},
+        }
+        order = self.client.order.create(order_data)
+        return order
+
+    async def capture_payment(
+        self,
+        payment_id: str,
+        amount: float,
+    ) -> Dict[str, Any]:
+        amount_paise = int(amount * 100)
+        return self.client.payment.capture(payment_id, amount_paise)
+
+    async def verify_payment(
+        self,
+        order_id: str,
+        payment_id: str,
+        signature: str,
+    ) -> bool:
+        expected = hmac.new(
+            settings.razorpay_key_secret.encode(),
+            f"{order_id}|{payment_id}".encode(),
+            hashlib.sha256,
+        ).hexdigest()
+        return hmac.compare_digest(expected, signature)
+
+    async def refund_payment(
+        self,
+        payment_id: str,
+        amount: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        params = {}
+        if amount is not None:
+            params["amount"] = int(amount * 100)
+        return self.client.payment.refund(payment_id, params)
+
+    async def get_payment_details(self, payment_id: str) -> Dict[str, Any]:
+        return self.client.payment.fetch(payment_id)
+
+    async def create_upi_intent_order(
+        self,
+        amount: float,
+        upi_id: Optional[str] = None,
+        currency: str = "INR",
+        receipt: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        amount_paise = int(amount * 100)
+        order_data = {
+            "amount": amount_paise,
+            "currency": currency,
+            "receipt": receipt or str(uuid.uuid4()),
+            "method": {
+                "upi": {
+                    "flow": "intent",
+                }
+            },
+        }
+        if upi_id:
+            order_data["method"]["upi"]["vpa"] = upi_id
+
+        order = self.client.order.create(order_data)
+        return order
+
+    async def create_invoice(
+        self,
+        amount: float,
+        description: str,
+        payer_name: Optional[str] = None,
+        payer_email: Optional[str] = None,
+        payer_contact: Optional[str] = None,
+        currency: str = "INR",
+    ) -> Dict[str, Any]:
+        invoice_data = {
+            "type": "invoice",
+            "amount": int(amount * 100),
+            "currency": currency,
+            "description": description,
+            "customer": {},
+        }
+        if payer_name:
+            invoice_data["customer"]["name"] = payer_name
+        if payer_email:
+            invoice_data["customer"]["email"] = payer_email
+        if payer_contact:
+            invoice_data["customer"]["contact"] = payer_contact
+
+        return self.client.invoice.create(invoice_data)
+
+
+class PaymentManager:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+        self.razorpay = RazorpayService()
+        self.audit = AuditService(session)
+
+    async def initiate_payment(
+        self,
+        workflow_id: UUID,
+        amount: float,
+        currency: str = "INR",
+        description: Optional[str] = None,
+        payer_actor_id: Optional[UUID] = None,
+        payee_actor_id: Optional[UUID] = None,
+        method: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        payment = Payment(
+            id=uuid.uuid4(),
+            workflow_id=workflow_id,
+            amount=amount,
+            currency=currency,
+            status=PaymentStatus.PENDING,
+            description=description,
+            payer_actor_id=payer_actor_id,
+            payee_actor_id=payee_actor_id,
+        )
+        self.session.add(payment)
+        await self.session.commit()
+
+        if method == "upi_intent":
+            order = await self.razorpay.create_upi_intent_order(
+                amount=amount,
+                currency=currency,
+                receipt=str(payment.id),
+            )
+        else:
+            order = await self.razorpay.create_order(
+                amount=amount,
+                currency=currency,
+                receipt=str(payment.id),
+            )
+
+        payment.razorpay_order_id = order["id"]
+        payment.status = PaymentStatus.PROCESSING
+        await self.session.commit()
+
+        await self.audit.log(
+            action="payment_initiated",
+            resource_type="payment",
+            resource_id=str(payment.id),
+            workflow_id=workflow_id,
+            details={
+                "amount": amount,
+                "currency": currency,
+                "method": method,
+                "razorpay_order_id": order["id"],
+            },
+        )
+
+        return {
+            "payment_id": str(payment.id),
+            "razorpay_order_id": order["id"],
+            "amount": amount,
+            "currency": currency,
+            "razorpay_key_id": settings.razorpay_key_id,
+        }
+
+    async def verify_and_capture(
+        self,
+        razorpay_order_id: str,
+        razorpay_payment_id: str,
+        razorpay_signature: str,
+    ) -> Payment:
+        valid = await self.razorpay.verify_payment(
+            razorpay_order_id, razorpay_payment_id, razorpay_signature
+        )
+        if not valid:
+            raise ValueError("Payment signature verification failed")
+
+        result = await self.session.execute(
+            select(Payment).where(Payment.razorpay_order_id == razorpay_order_id)
+        )
+        payment = result.scalar_one_or_none()
+        if not payment:
+            raise ValueError("Payment not found")
+
+        payment.razorpay_payment_id = razorpay_payment_id
+        payment.status = PaymentStatus.CAPTURED
+
+        try:
+            details = await self.razorpay.get_payment_details(razorpay_payment_id)
+            method_raw = details.get("method", "")
+            if method_raw == "upi":
+                payment.method = PaymentMethod.UPI
+            elif method_raw == "card":
+                payment.method = PaymentMethod.CARD
+            elif method_raw == "netbanking":
+                payment.method = PaymentMethod.NETBANKING
+        except Exception:
+            pass
+
+        await self.session.commit()
+        await self.session.refresh(payment)
+
+        await self.audit.log(
+            action="payment_captured",
+            resource_type="payment",
+            resource_id=str(payment.id),
+            details={"razorpay_payment_id": razorpay_payment_id},
+        )
+
+        return payment
+
+    async def create_escrow(
+        self,
+        workflow_id: UUID,
+        payment_id: UUID,
+        amount: float,
+        release_condition: Optional[str] = None,
+    ) -> Escrow:
+        escrow = Escrow(
+            id=uuid.uuid4(),
+            workflow_id=workflow_id,
+            payment_id=payment_id,
+            amount=amount,
+            status=EscrowStatus.HELD,
+            release_condition=release_condition,
+        )
+        self.session.add(escrow)
+        await self.session.commit()
+        await self.session.refresh(escrow)
+
+        await self.audit.log(
+            action="escrow_created",
+            resource_type="escrow",
+            resource_id=str(escrow.id),
+            workflow_id=workflow_id,
+            details={"amount": amount, "release_condition": release_condition},
+        )
+
+        return escrow
+
+    async def release_escrow(
+        self,
+        escrow_id: UUID,
+        release_trigger: Optional[str] = None,
+    ) -> Escrow:
+        result = await self.session.execute(
+            select(Escrow).where(Escrow.id == escrow_id)
+        )
+        escrow = result.scalar_one_or_none()
+        if not escrow:
+            raise ValueError("Escrow not found")
+
+        escrow.status = EscrowStatus.RELEASED
+        escrow.released_at = datetime.utcnow()
+        escrow.release_trigger = release_trigger
+
+        payment_result = await self.session.execute(
+            select(Payment).where(Payment.id == escrow.payment_id)
+        )
+        payment = payment_result.scalar_one_or_none()
+        if payment and payment.razorpay_payment_id:
+            try:
+                await self.razorpay.capture_payment(
+                    payment.razorpay_payment_id, escrow.amount
+                )
+            except Exception as e:
+                raise ValueError(f"Failed to capture payment: {e}")
+
+        await self.session.commit()
+        await self.session.refresh(escrow)
+
+        await self.audit.log(
+            action="escrow_released",
+            resource_type="escrow",
+            resource_id=str(escrow.id),
+            details={"release_trigger": release_trigger},
+        )
+
+        return escrow
+
+    async def dispute_escrow(self, escrow_id: UUID) -> Escrow:
+        result = await self.session.execute(
+            select(Escrow).where(Escrow.id == escrow_id)
+        )
+        escrow = result.scalar_one_or_none()
+        if not escrow:
+            raise ValueError("Escrow not found")
+        escrow.status = EscrowStatus.DISPUTED
+        await self.session.commit()
+        await self.session.refresh(escrow)
+        return escrow
+
+    async def create_invoice(
+        self,
+        workflow_id: UUID,
+        payment_id: UUID,
+        amount: float,
+        description: Optional[str] = None,
+        tax_amount: float = 0.0,
+        payer_name: Optional[str] = None,
+        payer_gst: Optional[str] = None,
+        payee_name: Optional[str] = None,
+        payee_gst: Optional[str] = None,
+    ) -> Invoice:
+        invoice_count = await self.session.execute(select(Invoice))
+        count = len(invoice_count.scalars().all())
+        invoice_number = f"INV-{datetime.utcnow().strftime('%Y%m')}-{count + 1:05d}"
+
+        invoice = Invoice(
+            id=uuid.uuid4(),
+            workflow_id=workflow_id,
+            payment_id=payment_id,
+            invoice_number=invoice_number,
+            amount=amount,
+            tax_amount=tax_amount,
+            total_amount=amount + tax_amount,
+            description=description,
+            payer_name=payer_name,
+            payer_gst=payer_gst,
+            payee_name=payee_name,
+            payee_gst=payee_gst,
+        )
+        self.session.add(invoice)
+        await self.session.commit()
+        await self.session.refresh(invoice)
+        return invoice
+
+    async def handle_webhook(self, event: str, payload: dict) -> None:
+        """Handle Razorpay webhook events"""
+        payment_id = payload.get("payment", {}).get("entity", {}).get("id")
+        order_id = payload.get("payment", {}).get("entity", {}).get("order_id")
+        
+        if not payment_id:
+            return
+        
+        result = await self.session.execute(
+            select(Payment).where(Payment.razorpay_payment_id == payment_id)
+        )
+        payment = result.scalar_one_or_none()
+        if not payment:
+            return
+        
+        if event == "payment.captured":
+            payment.status = PaymentStatus.CAPTURED
+        elif event == "payment.failed":
+            payment.status = PaymentStatus.FAILED
+        
+        await self.session.commit()

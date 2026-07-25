@@ -1,0 +1,352 @@
+package com.sangam.app.network
+
+import com.sangam.app.BuildConfig
+import okhttp3.MultipartBody
+import okhttp3.OkHttpClient
+import okhttp3.RequestBody
+import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.*
+import java.util.concurrent.TimeUnit
+
+data class WorkflowResponse(
+    val id: String,
+    val name: String,
+    val description: String?,
+    val initiator_id: String,
+    val current_phase: String,
+    val state: String,
+    val phases: List<String>,
+    val created_at: String,
+    val updated_at: String,
+    val approvals: List<ApprovalResponse> = emptyList(),
+    val handoffs: List<HandoffResponse> = emptyList(),
+    val exceptions: List<ExceptionResponse> = emptyList(),
+)
+
+data class WorkflowCreateRequest(
+    val name: String,
+    val description: String?,
+    val initiator_id: String,
+    val phases: List<String>? = null,
+)
+
+data class WorkflowListResponse(
+    val items: List<WorkflowResponse>,
+    val total: Int,
+    val page: Int,
+    val page_size: Int,
+)
+
+data class ApprovalResponse(
+    val id: String,
+    val workflow_id: String,
+    val status: String,
+    val required_actors: List<String>,
+)
+
+data class HandoffResponse(
+    val id: String,
+    val from_actor_id: String,
+    val to_actor_id: String,
+    val verified: Boolean,
+)
+
+data class ExceptionResponse(
+    val id: String,
+    val trigger: String,
+    val severity: String,
+    val message: String,
+)
+
+data class ActorResponse(
+    val id: String,
+    val type: String,
+    val name: String,
+    val email: String?,
+    val roles: List<String>,
+    val is_active: Boolean,
+)
+
+data class ActorCreateRequest(
+    val type: String,
+    val name: String,
+    val email: String? = null,
+    val roles: List<String> = emptyList(),
+    val permissions: List<String> = emptyList(),
+)
+
+interface SangamApi {
+    @GET("/workflows")
+    suspend fun listWorkflows(
+        @Query("page") page: Int = 1,
+        @Query("page_size") pageSize: Int = 20,
+    ): WorkflowListResponse
+
+    @POST("/workflows")
+    suspend fun createWorkflow(@Body request: WorkflowCreateRequest): WorkflowResponse
+
+    @GET("/workflows/{id}")
+    suspend fun getWorkflow(@Path("id") id: String): WorkflowResponse
+
+    @PATCH("/workflows/{id}")
+    suspend fun updateWorkflow(@Path("id") id: String, @Body body: Map<String, Any>): WorkflowResponse
+
+    @POST("/workflows/{id}/pause")
+    suspend fun pauseWorkflow(@Path("id") id: String): WorkflowResponse
+
+    @POST("/workflows/{id}/resume")
+    suspend fun resumeWorkflow(@Path("id") id: String): WorkflowResponse
+
+    @POST("/workflows/{id}/cancel")
+    suspend fun cancelWorkflow(@Path("id") id: String): WorkflowResponse
+
+    @GET("/actors")
+    suspend fun listActors(): List<ActorResponse>
+
+    @POST("/actors")
+    suspend fun createActor(@Body request: ActorCreateRequest): ActorResponse
+
+    @POST("/notifications/fcm/register")
+    suspend fun registerFcmToken(@Body request: FCMTokenRequest): Map<String, String>
+}
+
+data class FCMTokenRequest(val token: String)
+
+data class LLMRequest(
+    val messages: List<LLMMessage>,
+    val model: String = "sarvam-30b",
+    val temperature: Float = 0.7f,
+)
+
+data class LLMMessage(
+    val role: String,
+    val content: String,
+)
+
+data class LLMResponse(
+    val content: String,
+    val model: String,
+)
+
+data class TranslateRequest(
+    val text: String,
+    val source_language_code: String = "auto",
+    val target_language_code: String = "en-IN",
+    val model: String = "mayura:v1",
+    val mode: String = "formal",
+)
+
+data class TranslateResponse(
+    val translated_text: String,
+    val source_language_code: String,
+)
+
+data class STTResponse(
+    val transcript: String,
+    val language_code: String,
+    val language_probability: Float,
+    val timestamps: List<Map<String, Any>>? = null,
+)
+
+data class TTSRequest(
+    val text: String,
+    val target_language_code: String = "hi-IN",
+    val speaker: String = "priya",
+    val pace: Float = 1.0f,
+    val pitch: Float = 0.0f,
+    val loudness: Float = 1.0f,
+)
+
+data class InitiatePaymentRequest(
+    val workflow_id: String,
+    val amount: Double,
+    val currency: String = "INR",
+    val description: String? = null,
+    val method: String? = null,
+)
+
+data class InitiatePaymentResponse(
+    val payment_id: String,
+    val razorpay_order_id: String,
+    val razorpay_key_id: String,
+    val amount: Double,
+    val currency: String,
+    val status: String,
+)
+
+data class VerifyPaymentRequest(
+    val razorpay_order_id: String,
+    val razorpay_payment_id: String,
+    val razorpay_signature: String,
+)
+
+data class VerifyPaymentResponse(
+    val status: String,
+    val payment_id: String,
+)
+
+data class PaymentDetailResponse(
+    val id: String,
+    val workflow_id: String?,
+    val amount: Double,
+    val currency: String,
+    val status: String,
+    val method: String?,
+    val description: String?,
+    val created_at: String,
+)
+
+data class EscrowCreateRequest(
+    val workflow_id: String,
+    val payment_id: String,
+    val amount: Double,
+    val release_condition: String? = null,
+)
+
+data class EscrowResponse(
+    val id: String,
+    val status: String,
+    val amount: Double,
+)
+
+data class InvoiceRequest(
+    val workflow_id: String,
+    val payment_id: String,
+    val amount: Double,
+    val description: String? = null,
+    val tax_amount: Double = 0.0,
+)
+
+data class InvoiceResponse(
+    val id: String,
+    val invoice_number: String,
+    val total_amount: Double,
+    val status: String,
+)
+
+data class TTSResponse(
+    val audio_base64: String,
+    val request_id: String,
+)
+
+data class LanguagesResponse(
+    val stt: List<String>,
+    val tts: List<String>,
+    val translate: List<String>,
+)
+
+data class VoicesResponse(
+    val voices: Map<String, Any>,
+)
+
+interface SangamPaymentApi {
+    @POST("/payments/initiate")
+    suspend fun initiatePayment(@Body request: InitiatePaymentRequest): InitiatePaymentResponse
+
+    @POST("/payments/verify")
+    suspend fun verifyPayment(@Body request: VerifyPaymentRequest): VerifyPaymentResponse
+
+    @GET("/payments/{paymentId}")
+    suspend fun getPayment(@Path("paymentId") paymentId: String): PaymentDetailResponse
+
+    @POST("/payments/{paymentId}/refund")
+    suspend fun refundPayment(@Path("paymentId") paymentId: String, @Query("amount") amount: Double? = null): PaymentDetailResponse
+
+    @POST("/payments/escrow")
+    suspend fun createEscrow(@Body request: EscrowCreateRequest): EscrowResponse
+
+    @POST("/payments/escrow/{escrowId}/release")
+    suspend fun releaseEscrow(@Path("escrowId") escrowId: String): EscrowResponse
+
+    @POST("/payments/escrow/{escrowId}/dispute")
+    suspend fun disputeEscrow(@Path("escrowId") escrowId: String): EscrowResponse
+
+    @POST("/payments/invoices")
+    suspend fun createInvoice(@Body request: InvoiceRequest): InvoiceResponse
+
+    @GET("/payments/invoices/{invoiceId}")
+    suspend fun getInvoice(@Path("invoiceId") invoiceId: String): InvoiceResponse
+}
+
+interface SangamAiApi {
+    @POST("/ai/llm")
+    suspend fun llmComplete(@Body request: LLMRequest): LLMResponse
+
+    @Multipart
+    @POST("/ai/speech-to-text")
+    suspend fun speechToText(
+        @Part file: MultipartBody.Part,
+        @Part("language_code") languageCode: RequestBody,
+        @Part("mode") mode: RequestBody,
+        @Part("with_timestamps") withTimestamps: RequestBody,
+    ): STTResponse
+
+    @POST("/ai/translate")
+    suspend fun translate(@Body request: TranslateRequest): TranslateResponse
+
+    @POST("/ai/text-to-speech")
+    suspend fun textToSpeech(@Body request: TTSRequest): TTSResponse
+
+    @POST("/ai/transliterate")
+    suspend fun transliterate(@Body request: Map<String, String>): Map<String, String>
+
+    @POST("/ai/identify-language")
+    suspend fun identifyLanguage(@Query("text") text: String): Map<String, Any>
+
+    @GET("/ai/languages")
+    suspend fun listLanguages(): LanguagesResponse
+
+    @GET("/ai/voices")
+    suspend fun listVoices(): VoicesResponse
+}
+
+object ApiClient {
+    private val loggingInterceptor = HttpLoggingInterceptor().apply {
+        level = HttpLoggingInterceptor.Level.BODY
+    }
+
+    private val httpClient = OkHttpClient.Builder()
+        .addInterceptor(AuthInterceptor())
+        .addInterceptor(loggingInterceptor)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .build()
+
+    val api: SangamApi by lazy {
+        Retrofit.Builder()
+            .baseUrl(BuildConfig.API_BASE_URL)
+            .client(httpClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(SangamApi::class.java)
+    }
+
+    val authApi: AuthApi by lazy {
+        Retrofit.Builder()
+            .baseUrl(BuildConfig.API_BASE_URL)
+            .client(httpClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(AuthApi::class.java)
+    }
+
+    val paymentApi: SangamPaymentApi by lazy {
+        Retrofit.Builder()
+            .baseUrl(BuildConfig.API_BASE_URL)
+            .client(httpClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(SangamPaymentApi::class.java)
+    }
+
+    val aiApi: SangamAiApi by lazy {
+        Retrofit.Builder()
+            .baseUrl(BuildConfig.API_BASE_URL)
+            .client(httpClient.newBuilder().readTimeout(120, TimeUnit.SECONDS).build())
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(SangamAiApi::class.java)
+    }
+}

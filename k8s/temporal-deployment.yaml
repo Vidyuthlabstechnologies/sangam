@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal
+  namespace: sangam
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: temporal
+  template:
+    metadata:
+      labels:
+        app: temporal
+    spec:
+      containers:
+        - name: temporal
+          image: temporalio/auto-setup:1.24.0
+          ports:
+            - containerPort: 7233
+          env:
+            - name: DB
+              value: postgresql
+            - name: POSTGRES_USER
+              value: sangam
+            - name: POSTGRES_PASSWORD
+              value: sangam
+            - name: POSTGRES_SEEDS
+              value: postgres
+            - name: DYNAMIC_CONFIG_FILE_PATH
+              value: /etc/temporal/config/dynamic.yaml
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2000m"
+              memory: "1Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal-service
+  namespace: sangam
+spec:
+  selector:
+    app: temporal
+  ports:
+    - port: 7233
+      targetPort: 7233
+      name: grpc
+    - port: 8233
+      targetPort: 8233
+      name: web

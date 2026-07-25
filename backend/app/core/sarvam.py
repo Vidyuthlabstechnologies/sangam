@@ -1,0 +1,370 @@
+from __future__ import annotations
+import os
+import base64
+from typing import Optional, List, Dict, Any, BinaryIO
+from dataclasses import dataclass
+
+import httpx
+from fastapi import HTTPException
+
+from app.config import settings
+
+
+SARVAM_BASE = "https://api.sarvam.ai"
+TTS_LANGUAGES = [
+    "en-IN", "hi-IN", "bn-IN", "ta-IN", "te-IN", "gu-IN",
+    "kn-IN", "ml-IN", "mr-IN", "pa-IN", "od-IN",
+]
+STT_LANGUAGES = TTS_LANGUAGES + [
+    "as-IN", "ur-IN", "ne-IN", "kok-IN", "ks-IN", "sd-IN",
+    "sa-IN", "sat-IN", "mni-IN", "brx-IN", "mai-IN", "doi-IN",
+]
+TTS_SPEAKERS = [
+    "anushka", "abhilash", "manisha", "vidya", "arya", "karun",
+    "hitesh", "aditya", "ritu", "priya", "neha", "rahul",
+    "pooja", "rohan", "simran", "kavya", "amit", "dev",
+    "ishita", "shreya", "ratan", "varun", "manan", "sumit",
+    "roopa", "kabir", "aayan", "shubh", "ashutosh", "advait",
+    "anand", "tanya", "tarun", "sunny", "mani", "gokul",
+    "vijay", "shruti", "suhani", "mohit", "kavitha", "rehan",
+    "soham", "rupali"
+]
+
+
+@dataclass
+class SarvamSTTResult:
+    transcript: str
+    language_code: str
+    language_probability: float
+    timestamps: Optional[List[Dict]] = None
+
+
+@dataclass
+class SarvamTTSResult:
+    audio_base64: str
+    request_id: str
+
+
+@dataclass
+class SarvamTranslateResult:
+    translated_text: str
+    source_language_code: str
+
+
+@dataclass
+class SarvamLLMResult:
+    content: str
+    model: str
+
+
+@dataclass
+class SarvamVisionResult:
+    job_id: str
+    output_url: Optional[str] = None
+
+
+class SarvamAI:
+    def __init__(self, api_key: Optional[str] = None):
+        self.api_key = api_key or settings.sarvam_api_key or os.environ.get("SARVAM_API_KEY", "")
+        if not self.api_key:
+            raise ValueError(
+                "Sarvam API key required. Set SARVAM_API_KEY env var or configure settings."
+            )
+
+    @property
+    def _headers(self) -> Dict[str, str]:
+        return {
+            "api-subscription-key": self.api_key,
+        }
+
+    async def speech_to_text(
+        self,
+        audio_data: bytes,
+        filename: str = "audio.wav",
+        language_code: str = "unknown",
+        mode: str = "transcribe",
+        with_timestamps: bool = False,
+    ) -> SarvamSTTResult:
+        async with httpx.AsyncClient(timeout=120) as client:
+            files = {
+                "file": (filename, audio_data, self._infer_mime(filename)),
+                "model": (None, "saaras:v3"),
+                "mode": (None, mode),
+                "language_code": (None, language_code),
+                "with_timestamps": (None, str(with_timestamps).lower()),
+            }
+            response = await client.post(
+                f"{SARVAM_BASE}/speech-to-text",
+                headers=self._headers,
+                files=files,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+        return SarvamSTTResult(
+            transcript=data.get("transcript", ""),
+            language_code=data.get("language_code", language_code),
+            language_probability=data.get("language_probability", 0.0),
+            timestamps=data.get("timestamps"),
+        )
+
+    async def text_to_speech(
+        self,
+        text: str,
+        target_language_code: str = "hi-IN",
+        speaker: str = "anushka",
+        pace: float = 1.0,
+        pitch: float = 0.0,
+        loudness: float = 1.0,
+        speech_sample_rate: int = 24000,
+    ) -> SarvamTTSResult:
+        if target_language_code not in TTS_LANGUAGES:
+            raise ValueError(
+                f"Unsupported TTS language: {target_language_code}. "
+                f"Supported: {TTS_LANGUAGES}"
+            )
+        if speaker not in TTS_SPEAKERS:
+            raise ValueError(
+                f"Unsupported speaker: {speaker}. Supported: {TTS_SPEAKERS}"
+            )
+
+        async with httpx.AsyncClient(timeout=60) as client:
+            payload = {
+                "text": text,
+                "target_language_code": target_language_code,
+                "speaker": speaker,
+                "model": "bulbul:v2",
+                "pace": pace,
+                "pitch": pitch,
+                "loudness": loudness,
+                "speech_sample_rate": speech_sample_rate,
+                "enable_preprocessing": True,
+            }
+            response = await client.post(
+                f"{SARVAM_BASE}/text-to-speech",
+                headers={**self._headers, "Content-Type": "application/json"},
+                json=payload,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+        audios = data.get("audios", [])
+        return SarvamTTSResult(
+            audio_base64=audios[0] if audios else "",
+            request_id=data.get("request_id", ""),
+        )
+
+    async def translate(
+        self,
+        text: str,
+        source_language_code: str = "auto",
+        target_language_code: str = "en-IN",
+        model: str = "mayura:v1",
+        mode: str = "formal",
+    ) -> SarvamTranslateResult:
+        async with httpx.AsyncClient(timeout=30) as client:
+            payload = {
+                "input": text,
+                "source_language_code": source_language_code,
+                "target_language_code": target_language_code,
+                "model": model,
+                "mode": mode,
+                "enable_preprocessing": True,
+            }
+            response = await client.post(
+                f"{SARVAM_BASE}/translate",
+                headers={**self._headers, "Content-Type": "application/json"},
+                json=payload,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+        return SarvamTranslateResult(
+            translated_text=data.get("translated_text", ""),
+            source_language_code=data.get("source_language_code", source_language_code),
+        )
+
+    async def llm_complete(
+        self,
+        messages: List[Dict[str, str]],
+        model: str = "sarvam-30b",
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+    ) -> SarvamLLMResult:
+        async with httpx.AsyncClient(timeout=120) as client:
+            payload: Dict[str, Any] = {
+                "model": model,
+                "messages": messages,
+                "temperature": temperature,
+            }
+            if max_tokens:
+                payload["max_tokens"] = max_tokens
+
+            response = await client.post(
+                f"{SARVAM_BASE}/v1/chat/completions",
+                headers={**self._headers, "Content-Type": "application/json"},
+                json=payload,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+        content = ""
+        if data.get("choices"):
+            content = data["choices"][0].get("message", {}).get("content", "")
+
+        return SarvamLLMResult(
+            content=content,
+            model=model,
+        )
+
+    async def text_analytics(
+        self,
+        text: str,
+        questions: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        async with httpx.AsyncClient(timeout=30) as client:
+            payload = {
+                "text": text,
+                "questions": questions,
+            }
+            # Try multiple possible endpoints
+            for endpoint in ["/text-analytics", "/v1/text-analytics", "/text_analytics"]:
+                try:
+                    response = await client.post(
+                        f"{SARVAM_BASE}{endpoint}",
+                        headers={**self._headers, "Content-Type": "application/json"},
+                        json=payload,
+                    )
+                    if response.status_code != 404:
+                        response.raise_for_status()
+                        data = response.json()
+                        return data.get("answers", [])
+                except httpx.HTTPStatusError as e:
+                    if e.response.status_code != 404:
+                        raise
+                except Exception:
+                    pass
+            # If all endpoints return 404, raise the last error
+            raise HTTPException(status_code=404, detail="Text analytics endpoint not found")
+
+    async def vision_extract(
+        self,
+        document_data: bytes,
+        filename: str = "document.pdf",
+        language_code: str = "hi-IN",
+        output_format: str = "md",
+    ) -> SarvamVisionResult:
+        async with httpx.AsyncClient(timeout=300) as client:
+            create_payload = {
+                "job_parameters": {
+                    "language": language_code,
+                    "output_format": output_format,
+                },
+            }
+            create_response = await client.post(
+                f"{SARVAM_BASE}/doc-digitization/job/v1",
+                headers={**self._headers, "Content-Type": "application/json"},
+                json=create_payload,
+            )
+            create_response.raise_for_status()
+            job_data = create_response.json()
+            job_id = job_data.get("job_id", "")
+
+            upload_info = job_data.get("storage_container", {})
+            upload_url = upload_info.get("upload_url", "")
+
+            if upload_url:
+                await client.put(
+                    upload_url,
+                    content=document_data,
+                    headers={"Content-Type": "application/octet-stream"},
+                )
+
+            return SarvamVisionResult(
+                job_id=job_id,
+                output_url=None,
+            )
+
+    async def vision_job_status(self, job_id: str) -> Dict[str, Any]:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.get(
+                f"{SARVAM_BASE}/doc-digitization/job/v1/{job_id}/status",
+                headers=self._headers,
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def stt_translate(
+        self,
+        audio_data: bytes,
+        filename: str = "audio.wav",
+        source_language_code: str = "unknown",
+        with_diarization: bool = False,
+    ) -> Dict[str, Any]:
+        async with httpx.AsyncClient(timeout=120) as client:
+            files = {
+                "file": (filename, audio_data, self._infer_mime(filename)),
+                "model": (None, "saaras:v3"),
+                "with_diarization": (None, str(with_diarization).lower()),
+            }
+            if source_language_code != "unknown":
+                files["source_language_code"] = (None, source_language_code)
+            response = await client.post(
+                f"{SARVAM_BASE}/speech-to-text-translate",
+                headers=self._headers,
+                files=files,
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def identify_language(self, text: str) -> Dict[str, Any]:
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.post(
+                f"{SARVAM_BASE}/text-lid",
+                headers={**self._headers, "Content-Type": "application/json"},
+                json={"input": text},
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def transliterate(
+        self,
+        text: str,
+        source_language_code: str = "auto",
+        target_language_code: str = "en-IN",
+    ) -> str:
+        async with httpx.AsyncClient(timeout=15) as client:
+            payload = {
+                "input": text,
+                "source_language_code": source_language_code,
+                "target_language_code": target_language_code,
+                "numerals_format": "international",
+            }
+            response = await client.post(
+                f"{SARVAM_BASE}/transliterate",
+                headers={**self._headers, "Content-Type": "application/json"},
+                json=payload,
+            )
+            response.raise_for_status()
+            data = response.json()
+        return data.get("transliterated_text", "")
+
+    def _infer_mime(self, filename: str) -> str:
+        ext = filename.lower().split(".")[-1] if "." in filename else "wav"
+        mapping = {
+            "wav": "audio/wav",
+            "mp3": "audio/mpeg",
+            "ogg": "audio/ogg",
+            "flac": "audio/flac",
+            "m4a": "audio/mp4",
+            "webm": "audio/webm",
+            "aac": "audio/aac",
+            "opus": "audio/opus",
+            "amr": "audio/amr",
+            "wma": "audio/x-ms-wma",
+        }
+        return mapping.get(ext, "audio/wav")
+
+    def _to_json_string(self, obj: Any) -> str:
+        import json
+        return json.dumps(obj)
