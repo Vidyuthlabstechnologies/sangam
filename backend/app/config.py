@@ -18,6 +18,12 @@ class Settings(BaseSettings):
 
     razorpay_key_id: Optional[str] = None
     razorpay_key_secret: Optional[str] = None
+    razorpay_webhook_secret: Optional[str] = None
+
+    # When true (or when a service's credentials are absent), external
+    # clients return deterministic canned responses through identical code
+    # paths. Keeps tests hermetic and lets the demo run without live spend.
+    use_fixtures: bool = False
 
     zitadel_domain: Optional[str] = None
     zitadel_client_id: Optional[str] = None
