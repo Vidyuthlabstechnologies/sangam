@@ -3,6 +3,11 @@ from app.models.actor import Actor, ActorType, Role, Permission
 from app.models.approval import Approval, ApprovalStatus, ApprovalStrategy
 from app.models.handoff import Handoff
 from app.models.exception import ExceptionWorkflow, ExceptionTrigger, ExceptionSeverity
+from app.models.payment import (
+    Payment, PaymentStatus, PaymentMethod, Escrow, EscrowStatus, Invoice,
+)
+from app.models.vendor import Vendor, VendorLicence, VendorStatus, LicenceType
+from app.models.document import ExtractedDocument, ExtractionStatus
 
 __all__ = [
     "Workflow", "WorkflowPhase", "WorkflowState", "WaitingEvent",
@@ -10,4 +15,7 @@ __all__ = [
     "Approval", "ApprovalStatus", "ApprovalStrategy",
     "Handoff",
     "ExceptionWorkflow", "ExceptionTrigger", "ExceptionSeverity",
+    "Payment", "PaymentStatus", "PaymentMethod", "Escrow", "EscrowStatus", "Invoice",
+    "Vendor", "VendorLicence", "VendorStatus", "LicenceType",
+    "ExtractedDocument", "ExtractionStatus",
 ]

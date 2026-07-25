@@ -22,6 +22,7 @@ from app.api.analytics import router as analytics_router
 from app.api.notifications import router as notifications_router
 from app.api.autonomous import router as autonomous_router
 from app.api.govstack import router as govstack_router
+from app.api.vendors import router as vendors_router
 from app.core.middleware import (
     RequestIDMiddleware,
     RequestLoggingMiddleware,
@@ -72,6 +73,7 @@ app.include_router(analytics_router)
 app.include_router(notifications_router)
 app.include_router(autonomous_router)
 app.include_router(govstack_router)
+app.include_router(vendors_router)
 
 
 @app.get("/health")

@@ -62,3 +62,76 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
     app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture
+async def current_actor(db_session: AsyncSession):
+    """A persisted human actor used as the authenticated caller."""
+    import uuid as _uuid
+    from app.models.actor import Actor, ActorType, Role
+
+    actor = Actor(
+        id=_uuid.uuid4(),
+        type=ActorType.HUMAN,
+        name="Test QA Head",
+        email="qa@example.test",
+        roles=[Role.APPROVER],
+        permissions=[],
+    )
+    db_session.add(actor)
+    await db_session.commit()
+    await db_session.refresh(actor)
+    return actor
+
+
+@pytest_asyncio.fixture
+async def auth_headers(client: AsyncClient, current_actor):
+    """Authenticate API calls by overriding the auth dependency.
+
+    Overriding rather than minting a real JWT keeps these tests focused on
+    the endpoint under test; token issuance has its own coverage.
+    """
+    from app.api.dependencies import get_current_actor
+
+    async def override_actor():
+        return current_actor
+
+    app.dependency_overrides[get_current_actor] = override_actor
+    yield {"Authorization": "Bearer test-token"}
+    app.dependency_overrides.pop(get_current_actor, None)
+
+
+@pytest_asyncio.fixture
+async def sample_actors(db_session: AsyncSession):
+    """Two actors, for handoff sender/receiver."""
+    import uuid as _uuid
+    from app.models.actor import Actor, ActorType
+
+    actors = [
+        Actor(id=_uuid.uuid4(), type=ActorType.HUMAN, name="Store Keeper", roles=[], permissions=[]),
+        Actor(id=_uuid.uuid4(), type=ActorType.HUMAN, name="QA Inspector", roles=[], permissions=[]),
+    ]
+    db_session.add_all(actors)
+    await db_session.commit()
+    for a in actors:
+        await db_session.refresh(a)
+    return actors
+
+
+@pytest_asyncio.fixture
+async def sample_workflow(db_session: AsyncSession, sample_actors):
+    import uuid as _uuid
+    from app.models.workflow import Workflow, WorkflowPhase, WorkflowState
+
+    wf = Workflow(
+        id=_uuid.uuid4(),
+        name="Vendor qualification - Meridian",
+        initiator_id=sample_actors[0].id,
+        current_phase=WorkflowPhase.EXECUTION,
+        state=WorkflowState.ACTIVE,
+        phases=[],
+    )
+    db_session.add(wf)
+    await db_session.commit()
+    await db_session.refresh(wf)
+    return wf
