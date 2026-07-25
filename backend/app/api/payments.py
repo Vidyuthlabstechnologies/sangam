@@ -1,7 +1,9 @@
+import json
+import logging
 from uuid import UUID
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Request, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
@@ -13,6 +15,8 @@ from app.core.payments import PaymentManager, RazorpayService
 from app.api.dependencies import get_current_actor
 
 router = APIRouter(prefix="/payments", tags=["payments"])
+
+logger = logging.getLogger("sangam.payments")
 
 
 class InitiatePaymentRequest(BaseModel):
@@ -248,18 +252,33 @@ async def get_invoice(
     }
 
 
-class WebhookRequest(BaseModel):
-    event: str
-    payload: dict
-
-
 @router.post("/webhook")
 async def razorpay_webhook(
-    req: WebhookRequest,
+    request: Request,
+    x_razorpay_signature: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
 ):
-    """Handle Razorpay webhook events (payment.captured, payment.failed, etc.)"""
-    # No auth required - webhook comes from Razorpay
+    """Handle Razorpay webhook events (payment.captured, payment.failed, ...).
+
+    Deliberately outside session auth: the caller is Razorpay, not a user.
+    The HMAC signature over the raw body is therefore the only thing
+    authenticating this request, so it is verified before the payload is
+    parsed or acted on.
+    """
+    raw_body = await request.body()
+
+    if not RazorpayService.verify_webhook_signature(raw_body, x_razorpay_signature or ""):
+        logger.warning(
+            "Rejected Razorpay webhook with invalid or missing signature (%d bytes)",
+            len(raw_body),
+        )
+        raise HTTPException(status_code=401, detail="Invalid webhook signature")
+
+    try:
+        data = json.loads(raw_body)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Malformed JSON body")
+
     manager = PaymentManager(session)
-    await manager.handle_webhook(req.event, req.payload)
+    await manager.handle_webhook(data.get("event", ""), data.get("payload", {}))
     return {"status": "received"}

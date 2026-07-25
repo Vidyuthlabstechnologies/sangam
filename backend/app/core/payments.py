@@ -69,6 +69,23 @@ class RazorpayService:
         ).hexdigest()
         return hmac.compare_digest(expected, signature)
 
+    @staticmethod
+    def verify_webhook_signature(raw_body: bytes, signature: str) -> bool:
+        """Verify a Razorpay webhook against its HMAC-SHA256 signature.
+
+        The signature covers the exact raw request bytes, so callers must
+        pass the unparsed body — re-serialising the JSON changes key order
+        and whitespace, which invalidates the digest.
+
+        Returns False when no webhook secret is configured: an unverifiable
+        webhook is not a trusted one.
+        """
+        secret = settings.razorpay_webhook_secret
+        if not secret or not signature:
+            return False
+        expected = hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
+        return hmac.compare_digest(expected, signature)
+
     async def refund_payment(
         self,
         payment_id: str,
