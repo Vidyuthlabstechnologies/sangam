@@ -273,6 +273,60 @@ async def _promote_to_licence(
     return licence
 
 
+@router.post("/{vendor_id}/documents/{document_id}/confirm", response_model=VendorOut)
+async def confirm_extracted_document(
+    vendor_id: UUID,
+    document_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    current_actor: Actor = Depends(get_current_actor),
+):
+    """Accept a flagged extraction after human review.
+
+    Extractions below the confidence threshold are deliberately not
+    promoted to licences automatically — a mis-read expiry date would mean
+    shipping against a lapsed licence. A reviewer confirms them here, which
+    creates the licence and records who accepted it.
+    """
+    vendor = await _get_vendor_or_404(session, vendor_id)
+
+    result = await session.execute(
+        select(ExtractedDocument).where(
+            ExtractedDocument.id == document_id,
+            ExtractedDocument.vendor_id == vendor_id,
+        )
+    )
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found for this vendor")
+    if doc.status == ExtractionStatus.FAILED:
+        raise HTTPException(
+            status_code=400,
+            detail="Extraction failed; re-upload the document rather than confirming it.",
+        )
+    if not doc.structured_data:
+        raise HTTPException(status_code=400, detail="Document has no extracted data to confirm")
+
+    licence = await _promote_to_licence(session, vendor, doc)
+    if licence is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Extraction contains no licence number; cannot create a licence record.",
+        )
+
+    # Human confirmation is what makes a licence trustworthy, so record it.
+    licence.verified = True
+    doc.needs_review = False
+    doc.status = ExtractionStatus.COMPLETED
+    await session.commit()
+    await session.refresh(vendor)
+
+    logger.info(
+        "Actor %s confirmed extraction %s -> licence %s",
+        current_actor.id, doc.id, licence.id,
+    )
+    return _vendor_out(vendor)
+
+
 @router.post("/{vendor_id}/submit-for-qualification", response_model=QualificationOut)
 async def submit_for_qualification(
     vendor_id: UUID,

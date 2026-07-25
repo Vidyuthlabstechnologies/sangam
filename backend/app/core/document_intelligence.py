@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import uuid
 from typing import Any, Dict, Optional
 from uuid import UUID
@@ -30,6 +31,8 @@ logger = logging.getLogger("sangam.document_intelligence")
 # qualification decision. Chosen so the fixture licence (min 0.88 on a
 # smudged address line) passes while genuinely uncertain reads do not.
 CONFIDENCE_REVIEW_THRESHOLD = 0.85
+
+LLM_MAX_TOKENS = 4096
 
 POLL_INTERVAL_SECONDS = 2
 MAX_POLL_ATTEMPTS = 30
@@ -159,26 +162,56 @@ class DocumentIntelligence:
                 {"role": "user", "content": markdown},
             ],
             temperature=0.1,
+            # sarvam-30b is a reasoning model: it spends tokens thinking
+            # before emitting an answer, so a small budget yields empty
+            # content with everything consumed by reasoning. 4096 is the
+            # per-request ceiling on the starter tier; higher is rejected.
+            max_tokens=LLM_MAX_TOKENS,
         )
         return self._parse_json(result.content)
 
     @staticmethod
     def _parse_json(content: str) -> Dict[str, Any]:
-        """Parse LLM output as JSON, tolerating markdown fences.
+        """Parse LLM output as JSON, tolerating the ways models mangle it.
 
-        Models wrap JSON in ```json fences despite instructions not to, so
-        strip them rather than failing an otherwise-good extraction.
+        Instruction-following on "return only JSON" is imperfect, and this
+        runs on every vendor document, so the parser absorbs the common
+        deviations rather than failing an otherwise-good extraction:
+
+          * ```json fences despite being told not to use them
+          * prose wrapped around the object ("Here is the JSON: {...}")
+          * trailing commas before a closing brace or bracket
+
+        Anything still unparseable raises, which routes the document to
+        human review instead of persisting a half-parsed licence.
         """
-        text = (content or "").strip()
-        if text.startswith("```"):
+        if not content or not content.strip():
+            raise ValueError(
+                "LLM returned empty content (model may have spent its token "
+                "budget on reasoning without emitting an answer)"
+            )
+
+        text = content.strip()
+
+        if "```" in text:
             parts = text.split("```")
             if len(parts) >= 2:
                 text = parts[1]
-            if text.lstrip().lower().startswith("json"):
-                text = text.lstrip()[4:]
-        text = text.strip()
+                if text.lstrip().lower().startswith("json"):
+                    text = text.lstrip()[4:]
+            text = text.strip()
+
+        # Take the outermost balanced object, discarding any surrounding prose.
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end > start:
+            text = text[start:end + 1]
 
         try:
             return json.loads(text)
-        except json.JSONDecodeError as exc:
-            raise ValueError(f"LLM returned non-JSON output: {exc}") from exc
+        except json.JSONDecodeError:
+            repaired = re.sub(r",(\s*[}\]])", r"\1", text)
+            try:
+                return json.loads(repaired)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"LLM returned non-JSON output: {exc}") from exc

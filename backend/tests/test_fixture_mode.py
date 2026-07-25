@@ -62,7 +62,9 @@ class TestRazorpayFixtures:
     @pytest.mark.asyncio
     async def test_upi_intent_order_carries_upi_method(self):
         order = await RazorpayService().create_upi_intent_order(amount=100.0, receipt="r")
-        assert order["method"]["upi"]["flow"] == "intent"
+        # method is a string in the live API; the intent flow lives in notes
+        assert order["method"] == "upi"
+        assert order["notes"]["upi_flow"] == "intent"
 
 
 def test_fixture_mode_is_active_for_tests():

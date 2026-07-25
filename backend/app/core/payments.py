@@ -123,18 +123,21 @@ class RazorpayService:
         if self.use_fixtures:
             return fixtures.razorpay_order(amount_paise, receipt_id, upi=True)
 
-        order_data = {
+        # Razorpay's Orders API takes `method` as a STRING. The previous
+        # implementation sent {"upi": {"flow": "intent"}}, which the API
+        # rejects with "expected string but provided object" - the UPI
+        # intent flow and VPA are checkout-time options on the client SDK,
+        # not properties of the order.
+        order_data: Dict[str, Any] = {
             "amount": amount_paise,
             "currency": currency,
             "receipt": receipt_id,
-            "method": {
-                "upi": {
-                    "flow": "intent",
-                }
-            },
+            "method": "upi",
         }
+        notes = {"upi_flow": "intent"}
         if upi_id:
-            order_data["method"]["upi"]["vpa"] = upi_id
+            notes["vpa"] = upi_id
+        order_data["notes"] = notes
 
         order = self.client.order.create(order_data)
         return order

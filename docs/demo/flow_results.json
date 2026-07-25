@@ -1,0 +1,68 @@
+[
+  {
+    "step": "1. Authenticate (QA Head)",
+    "ms": 535.3,
+    "ok": true,
+    "detail": "Priya Nair (QA Head)"
+  },
+  {
+    "step": "2. Create vendor",
+    "ms": 17.9,
+    "ok": true,
+    "detail": "Meridian Life Sciences"
+  },
+  {
+    "step": "3. Upload licence -> Sarvam extraction",
+    "ms": 16594.2,
+    "ok": true,
+    "detail": "status=completed conf=0.9"
+  },
+  {
+    "step": "4. Vendor shows extracted licence",
+    "ms": 5.6,
+    "ok": true,
+    "detail": "1 licence(s)"
+  },
+  {
+    "step": "5. Submit for qualification",
+    "ms": 18.1,
+    "ok": true,
+    "detail": "pending_qualification"
+  },
+  {
+    "step": "6. Synthesise Hindi approval (Sarvam TTS)",
+    "ms": 537.6,
+    "ok": true,
+    "detail": "121176 b64 chars"
+  },
+  {
+    "step": "7. Transcribe it back (Sarvam STT hi-IN)",
+    "ms": 456.7,
+    "ok": true,
+    "detail": "\u092e\u0948\u0902 \u0907\u0938 \u0935\u093f\u0915\u094d\u0930\u0947\u0924\u093e \u0915\u094b \u092e\u0902\u091c\u0942\u0930\u0940 \u0926\u0947\u0924\u093e \u0939\u0942\u0901\u0964"
+  },
+  {
+    "step": "8. Initiate UPI advance (Razorpay)",
+    "ms": 175.1,
+    "ok": true,
+    "detail": "order_THfcWLqq0EaGWp"
+  },
+  {
+    "step": "9. Hold advance in escrow",
+    "ms": 13.7,
+    "ok": true,
+    "detail": "held INR 250,000"
+  },
+  {
+    "step": "10. Spoken settlement confirmation (TTS)",
+    "ms": 790.0,
+    "ok": true,
+    "detail": "248980 b64 chars"
+  },
+  {
+    "step": "11. Licence expiry early-warning",
+    "ms": 7.5,
+    "ok": true,
+    "detail": "1 vendor(s) expiring"
+  }
+]

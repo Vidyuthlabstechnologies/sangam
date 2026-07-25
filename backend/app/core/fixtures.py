@@ -139,7 +139,10 @@ def razorpay_order(amount_paise: int, receipt: str, upi: bool = False) -> Dict[s
         "attempts": 0,
     }
     if upi:
-        order["method"] = {"upi": {"flow": "intent"}}
+        # Mirrors the live API: method is a string; the intent flow is a
+        # checkout-time concern recorded in notes.
+        order["method"] = "upi"
+        order["notes"] = {"upi_flow": "intent"}
     return order
 
 

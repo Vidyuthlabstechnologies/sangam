@@ -8,6 +8,10 @@ from app.models.payment import (
 )
 from app.models.vendor import Vendor, VendorLicence, VendorStatus, LicenceType
 from app.models.document import ExtractedDocument, ExtractionStatus
+# Imported for their side effect of registering with Base.metadata: without
+# this, create_all silently skips their tables and writes fail at runtime.
+from app.models.audit_log import AuditLog
+from app.models.sla import SLAConfig, SLATracking
 
 __all__ = [
     "Workflow", "WorkflowPhase", "WorkflowState", "WaitingEvent",
@@ -18,4 +22,5 @@ __all__ = [
     "Payment", "PaymentStatus", "PaymentMethod", "Escrow", "EscrowStatus", "Invoice",
     "Vendor", "VendorLicence", "VendorStatus", "LicenceType",
     "ExtractedDocument", "ExtractionStatus",
+    "AuditLog", "SLAConfig", "SLATracking",
 ]

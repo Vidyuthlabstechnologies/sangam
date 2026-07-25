@@ -1,7 +1,9 @@
 from __future__ import annotations
+import io
 import os
 import json
 import base64
+import zipfile
 from typing import Optional, List, Dict, Any, BinaryIO
 from dataclasses import dataclass
 
@@ -78,6 +80,25 @@ class SarvamAI:
         return {
             "api-subscription-key": self.api_key,
         }
+
+
+    @staticmethod
+    def _raise_for_status(response: httpx.Response, operation: str) -> None:
+        """Raise with the API's own error message attached.
+
+        httpx's raise_for_status reports only the status code and a docs
+        link, which makes Sarvam failures (bad model, tier limits, invalid
+        audio) undiagnosable from logs alone.
+        """
+        if response.status_code < 400:
+            return
+        detail = response.text[:400]
+        try:
+            payload = response.json()
+            detail = payload.get("error", {}).get("message") or detail
+        except Exception:
+            pass
+        raise RuntimeError(f"Sarvam {operation} failed ({response.status_code}): {detail}")
 
     async def speech_to_text(
         self,
@@ -232,12 +253,16 @@ class SarvamAI:
                 headers={**self._headers, "Content-Type": "application/json"},
                 json=payload,
             )
-            response.raise_for_status()
+            self._raise_for_status(response, "chat completion")
             data = response.json()
 
         content = ""
         if data.get("choices"):
-            content = data["choices"][0].get("message", {}).get("content", "")
+            message = data["choices"][0].get("message") or {}
+            # Reasoning models return content=null when the token budget was
+            # exhausted before an answer was produced. Normalise to "" so
+            # callers get a clear empty-content error rather than a TypeError.
+            content = message.get("content") or ""
 
         return SarvamLLMResult(
             content=content,
@@ -281,52 +306,156 @@ class SarvamAI:
         language_code: str = "hi-IN",
         output_format: str = "md",
     ) -> SarvamVisionResult:
+        """Submit a document for digitisation.
+
+        Sarvam's document-intelligence API is a four-step handshake, all of
+        which are required before the job will ever leave state "Accepted":
+
+          1. create the job                     -> job_id
+          2. request upload URLs                -> presigned Azure SAS URL
+          3. PUT the bytes to that URL          (needs x-ms-blob-type)
+          4. start the job                      -> begins processing
+
+        Skipping (2)-(4) leaves a job that is accepted but has no input and
+        never completes, which is what the previous implementation did: it
+        read an ``upload_url`` from a ``storage_container`` key the API does
+        not return, so the upload silently never happened.
+        """
         if self.use_fixtures:
             job = fixtures.sarvam_vision_job()
             return SarvamVisionResult(job_id=job["job_id"], output_url=None)
 
+        json_headers = {**self._headers, "Content-Type": "application/json"}
+        base = f"{SARVAM_BASE}/doc-digitization/job/v1"
+
         async with httpx.AsyncClient(timeout=300) as client:
-            create_payload = {
-                "job_parameters": {
-                    "language": language_code,
-                    "output_format": output_format,
-                },
-            }
             create_response = await client.post(
-                f"{SARVAM_BASE}/doc-digitization/job/v1",
-                headers={**self._headers, "Content-Type": "application/json"},
-                json=create_payload,
+                base,
+                headers=json_headers,
+                json={
+                    "job_parameters": {
+                        "language": language_code,
+                        "output_format": output_format,
+                    }
+                },
             )
             create_response.raise_for_status()
-            job_data = create_response.json()
-            job_id = job_data.get("job_id", "")
+            job_id = create_response.json().get("job_id", "")
+            if not job_id:
+                raise RuntimeError("Sarvam did not return a job_id")
 
-            upload_info = job_data.get("storage_container", {})
-            upload_url = upload_info.get("upload_url", "")
-
-            if upload_url:
-                await client.put(
-                    upload_url,
-                    content=document_data,
-                    headers={"Content-Type": "application/octet-stream"},
+            upload_response = await client.post(
+                f"{base}/upload-files",
+                headers=json_headers,
+                json={"job_id": job_id, "files": [filename]},
+            )
+            upload_response.raise_for_status()
+            upload_urls = upload_response.json().get("upload_urls", {})
+            entry = upload_urls.get(filename) or {}
+            file_url = entry.get("file_url")
+            if not file_url:
+                raise RuntimeError(
+                    f"Sarvam returned no upload URL for {filename!r}"
                 )
 
-            return SarvamVisionResult(
-                job_id=job_id,
-                output_url=None,
+            # Azure block blobs reject a PUT without this header.
+            put_response = await client.put(
+                file_url,
+                content=document_data,
+                headers={
+                    "x-ms-blob-type": "BlockBlob",
+                    "Content-Type": "application/octet-stream",
+                },
             )
+            put_response.raise_for_status()
+
+            start_response = await client.post(
+                f"{base}/{job_id}/start",
+                headers=json_headers,
+                json={"job_id": job_id},
+            )
+            start_response.raise_for_status()
+
+            return SarvamVisionResult(job_id=job_id, output_url=None)
 
     async def vision_job_status(self, job_id: str) -> Dict[str, Any]:
+        """Poll a digitisation job, normalised for callers.
+
+        The API reports progress as ``job_state`` with values like
+        "Accepted"/"Running"/"Completed"/"Failed". Callers get a lowercased
+        ``status`` alias plus, once finished, ``output`` containing the
+        extracted text fetched from the job's output URL.
+        """
         if self.use_fixtures:
             return fixtures.sarvam_vision_status(job_id)
 
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=60) as client:
             response = await client.get(
                 f"{SARVAM_BASE}/doc-digitization/job/v1/{job_id}/status",
                 headers=self._headers,
             )
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+
+            state = (data.get("job_state") or "").lower()
+            data["status"] = state
+
+            if state in ("completed", "partiallycompleted", "succeeded", "done"):
+                data["output"] = await self._fetch_job_output(client, job_id, data)
+
+            return data
+
+    async def _fetch_job_output(
+        self, client: httpx.AsyncClient, job_id: str, status_payload: Dict[str, Any]
+    ) -> str:
+        """Download and unpack the extracted text of a completed job.
+
+        Outputs are delivered as a ZIP in blob storage, reachable only via a
+        short-lived presigned URL obtained from the download-files endpoint.
+        The archive holds the requested format (``document.md``) plus
+        per-page structured JSON under ``metadata/``; only the former is
+        wanted here.
+        """
+        output_names = [
+            out.get("file_name")
+            for detail in (status_payload.get("job_details") or [])
+            for out in (detail.get("outputs") or [])
+            if out.get("file_name")
+        ]
+        if not output_names:
+            return ""
+
+        response = await client.post(
+            f"{SARVAM_BASE}/doc-digitization/job/v1/{job_id}/download-files",
+            headers={**self._headers, "Content-Type": "application/json"},
+            json={"files": output_names},
+        )
+        response.raise_for_status()
+
+        chunks: List[str] = []
+        for entry in (response.json().get("download_urls") or {}).values():
+            file_url = entry.get("file_url") if isinstance(entry, dict) else entry
+            if not file_url:
+                continue
+            payload = await client.get(file_url)
+            payload.raise_for_status()
+            chunks.append(self._extract_text_payload(payload.content))
+
+        return "\n\n".join(c for c in chunks if c)
+
+    @staticmethod
+    def _extract_text_payload(blob: bytes) -> str:
+        """Return document text from a raw or zipped output payload."""
+        if blob[:2] != b"PK":
+            return blob.decode("utf-8", errors="replace")
+
+        with zipfile.ZipFile(io.BytesIO(blob)) as archive:
+            for name in archive.namelist():
+                if name.startswith("metadata/"):
+                    continue
+                if name.lower().endswith((".md", ".html", ".txt")):
+                    return archive.read(name).decode("utf-8", errors="replace")
+        return ""
 
     async def stt_translate(
         self,
