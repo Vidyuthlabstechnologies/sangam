@@ -18,8 +18,12 @@ object Routes {
     const val AI_ASSISTANT = "ai_assistant"
     const val VOICE_WORKFLOW = "voice_workflow"
     const val PAYMENT = "payment/{workflowId}/{workflowName}"
+    const val VENDORS = "vendors"
+    const val VENDOR_ADD = "vendors/add"
+    const val VENDOR_DETAIL = "vendors/{vendorId}"
 
     fun workflowDetail(id: String) = "workflows/$id"
+    fun vendorDetail(id: String) = "vendors/$id"
     fun payment(workflowId: String, workflowName: String) = "payment/$workflowId/$workflowName"
 }
 
@@ -45,6 +49,40 @@ fun SangamNavHost(
                 onNavigateToActors = { navController.navigate(Routes.ACTORS) },
                 onNavigateToAIAssistant = { navController.navigate(Routes.AI_ASSISTANT) },
                 onNavigateToVoiceWorkflow = { navController.navigate(Routes.VOICE_WORKFLOW) },
+                onNavigateToVendors = { navController.navigate(Routes.VENDORS) },
+            )
+        }
+        composable(Routes.VENDORS) {
+            VendorListScreen(
+                onVendorClick = { id -> navController.navigate(Routes.vendorDetail(id)) },
+                onAddVendor = { navController.navigate(Routes.VENDOR_ADD) },
+            )
+        }
+        composable(Routes.VENDOR_ADD) {
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            AddVendorScreen(
+                onDone = { id ->
+                    navController.navigate(Routes.vendorDetail(id)) {
+                        popUpTo(Routes.VENDORS)
+                    }
+                },
+                onBack = { navController.popBackStack() },
+                // Bundled synthetic licence stands in for the camera so the
+                // flow is demonstrable on an emulator with no camera.
+                sampleLicenceBytes = {
+                    ctx.assets.open("sample_cdsco_licence.pdf").use { it.readBytes() }
+                },
+            )
+        }
+        composable(
+            route = Routes.VENDOR_DETAIL,
+            arguments = listOf(navArgument("vendorId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val vendorId = backStackEntry.arguments?.getString("vendorId") ?: return@composable
+            VendorDetailScreen(
+                vendorId = vendorId,
+                onBack = { navController.popBackStack() },
+                onQualificationSubmitted = { },
             )
         }
         composable(Routes.WORKFLOWS) {

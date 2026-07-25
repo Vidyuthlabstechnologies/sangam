@@ -26,6 +26,7 @@ fun DashboardScreen(
     onNavigateToActors: () -> Unit = {},
     onNavigateToAIAssistant: () -> Unit = {},
     onNavigateToVoiceWorkflow: () -> Unit = {},
+    onNavigateToVendors: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var workflows by remember { mutableStateOf<List<WorkflowResponse>>(emptyList()) }
@@ -102,6 +103,12 @@ fun DashboardScreen(
                     onClick = onNavigateToApprovals,
                     icon = { Icon(Icons.Default.CheckCircle, contentDescription = "Approvals") },
                     label = { Text("Approvals") },
+                )
+                NavigationBarItem(
+                    selected = false,
+                    onClick = onNavigateToVendors,
+                    icon = { Icon(Icons.Default.Business, contentDescription = "Vendors") },
+                    label = { Text("Vendors") },
                 )
                 NavigationBarItem(
                     selected = false,

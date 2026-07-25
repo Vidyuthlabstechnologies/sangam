@@ -77,6 +77,63 @@ data class ActorCreateRequest(
     val permissions: List<String> = emptyList(),
 )
 
+
+// ---- Vendors ----------------------------------------------------------
+
+data class VendorLicenceDto(
+    val id: String,
+    val licence_type: String,
+    val licence_number: String,
+    val issuing_authority: String?,
+    val issue_date: String?,
+    val expiry_date: String?,
+    val verified: Boolean,
+    val extraction_confidence: Double?,
+    val is_expired: Boolean = false,
+    val days_until_expiry: Int?,
+)
+
+data class VendorDto(
+    val id: String,
+    val name: String,
+    val legal_name: String?,
+    val gstin: String?,
+    val address: String?,
+    val status: String,
+    val created_at: String,
+    val qualification_workflow_id: String?,
+    val licences: List<VendorLicenceDto> = emptyList(),
+    val has_expired_licence: Boolean = false,
+    val is_qualifiable: Boolean = false,
+)
+
+data class CreateVendorRequest(
+    val name: String,
+    val gstin: String? = null,
+    val address: String? = null,
+    val contact_email: String? = null,
+)
+
+data class ExtractedDocumentDto(
+    val id: String,
+    val vendor_id: String?,
+    val filename: String,
+    val document_type: String,
+    val status: String,
+    val structured_data: Map<String, Any>? = null,
+    val min_confidence: Double?,
+    val needs_review: Boolean,
+    val low_confidence_fields: Map<String, Double> = emptyMap(),
+    val error_message: String?,
+)
+
+data class QualificationDto(
+    val vendor_id: String,
+    val workflow_id: String,
+    val status: String,
+    val message: String,
+)
+
 interface SangamApi {
     @GET("/workflows")
     suspend fun listWorkflows(
@@ -107,6 +164,36 @@ interface SangamApi {
 
     @POST("/actors")
     suspend fun createActor(@Body request: ActorCreateRequest): ActorResponse
+
+    // ---- Vendors ----
+    @GET("/vendors")
+    suspend fun listVendors(): List<VendorDto>
+
+    @GET("/vendors/{id}")
+    suspend fun getVendor(@Path("id") id: String): VendorDto
+
+    @POST("/vendors")
+    suspend fun createVendor(@Body request: CreateVendorRequest): VendorDto
+
+    @Multipart
+    @POST("/vendors/{id}/documents")
+    suspend fun uploadVendorDocument(
+        @Path("id") id: String,
+        @Part file: MultipartBody.Part,
+        @Part("document_type") documentType: RequestBody,
+    ): ExtractedDocumentDto
+
+    @POST("/vendors/{vendorId}/documents/{docId}/confirm")
+    suspend fun confirmDocument(
+        @Path("vendorId") vendorId: String,
+        @Path("docId") docId: String,
+    ): VendorDto
+
+    @POST("/vendors/{id}/submit-for-qualification")
+    suspend fun submitForQualification(@Path("id") id: String): QualificationDto
+
+    @GET("/vendors/expiring")
+    suspend fun expiringVendors(@Query("days") days: Int = 90): List<VendorDto>
 
     @POST("/notifications/fcm/register")
     suspend fun registerFcmToken(@Body request: FCMTokenRequest): Map<String, String>
