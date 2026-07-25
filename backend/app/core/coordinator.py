@@ -122,7 +122,60 @@ class Coordinator:
         handoff.verified_at = datetime.utcnow()
         await self.session.commit()
         await self.session.refresh(handoff)
+
+        await self._maybe_release_escrow(handoff)
         return handoff
+
+    async def _maybe_release_escrow(self, handoff: Handoff) -> None:
+        """Release any held escrow whose condition this handoff satisfies.
+
+        This is the automatic half of "advance held, released on delivery".
+        Without it every release is a manual API call, which defeats the
+        point of holding funds in the first place.
+
+        Escrow release must never break handoff verification: the goods
+        physically arrived, and recording that fact cannot depend on the
+        payment gateway being reachable. Failures are logged and the funds
+        stay held for retry.
+        """
+        from app.core.payments import PaymentManager
+        from app.models.payment import Escrow, EscrowStatus
+
+        result = await self.session.execute(
+            select(Escrow).where(
+                Escrow.workflow_id == handoff.workflow_id,
+                Escrow.status == EscrowStatus.HELD,
+            )
+        )
+        escrows = result.scalars().all()
+        if not escrows:
+            return
+
+        context = {
+            "delivery_verified": True,
+            "handoff_verified": True,
+            "artifact_type": handoff.artifact_type or "",
+            "artifact": handoff.artifact or "",
+        }
+
+        manager = PaymentManager(self.session)
+        for escrow in escrows:
+            if not ConditionEvaluator(context).evaluate(escrow.release_condition or ""):
+                logger.info(
+                    "Escrow %s condition %r not satisfied by handoff %s",
+                    escrow.id, escrow.release_condition, handoff.id,
+                )
+                continue
+            try:
+                await manager.release_escrow(
+                    escrow.id, release_trigger=f"handoff_verified:{handoff.id}"
+                )
+                logger.info("Released escrow %s on handoff %s", escrow.id, handoff.id)
+            except Exception:
+                logger.exception(
+                    "Escrow %s release failed after handoff %s; funds remain held",
+                    escrow.id, handoff.id,
+                )
 
     async def execute_parallel(
         self,
