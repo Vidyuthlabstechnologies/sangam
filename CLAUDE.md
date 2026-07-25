@@ -22,7 +22,9 @@ k8s/       Kubernetes manifests (ArgoCD-ready)
 python -m venv venv && source venv/bin/activate   # venv\Scripts\activate on Windows
 pip install -r requirements.txt
 cp ../.env.example .env
-uvicorn app.main:app --reload                       # run dev server, http://localhost:8000/docs
+python -m scripts.seed_demo                          # SQLite tables + demo user + sample vendor
+python -m uvicorn app.main:app --reload              # dev server, http://localhost:8000/docs
+python -m scripts.demo_flow                          # end-to-end flow, prints per-step latency
 pytest tests/ -v                                     # full test suite
 pytest tests/test_api.py::test_name -v                # single test
 pytest tests/ -v --cov=app --cov-report=term          # with coverage (matches CI)
