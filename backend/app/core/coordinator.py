@@ -106,6 +106,53 @@ class Coordinator:
 
         return handoff
 
+    async def authorize_handoff(
+        self,
+        workflow_id: UUID,
+        acting_actor_id: UUID,
+        from_actor_id: UUID,
+        to_actor_id: UUID,
+    ) -> None:
+        """Who may create a handoff on a workflow.
+
+        Verifying a handoff can release escrow, so creating one is a money
+        action too. Creation used to trust the request body, which let anyone
+        forge a handoff naming themselves as receiver and then verify it.
+        The caller must be the sender, must be a participant (the workflow
+        initiator or an actor in an earlier handoff on it), and cannot hand
+        off to themselves.
+        """
+        from sqlalchemy import or_
+        from app.models.workflow import Workflow
+
+        if acting_actor_id != from_actor_id:
+            raise PermissionError("You can only hand off on your own behalf")
+        if from_actor_id == to_actor_id:
+            raise ValueError("Cannot hand off to yourself")
+
+        result = await self.session.execute(
+            select(Workflow.initiator_id).where(Workflow.id == workflow_id)
+        )
+        initiator = result.scalar_one_or_none()
+        if initiator is None:
+            raise ValueError("Workflow not found")
+        if acting_actor_id == initiator:
+            return
+
+        earlier = await self.session.execute(
+            select(Handoff.id)
+            .where(
+                Handoff.workflow_id == workflow_id,
+                or_(
+                    Handoff.from_actor_id == acting_actor_id,
+                    Handoff.to_actor_id == acting_actor_id,
+                ),
+            )
+            .limit(1)
+        )
+        if earlier.first() is None:
+            raise PermissionError("You are not a participant in this workflow")
+
     async def verify_handoff(
         self,
         handoff_id: UUID,
@@ -129,10 +176,10 @@ class Coordinator:
         await self.session.commit()
         await self.session.refresh(handoff)
 
-        await self._maybe_release_escrow(handoff)
+        await self._maybe_release_escrow(handoff, verifier_id=actor_id)
         return handoff
 
-    async def _maybe_release_escrow(self, handoff: Handoff) -> None:
+    async def _maybe_release_escrow(self, handoff: Handoff, verifier_id: UUID) -> None:
         """Release any held escrow whose condition this handoff satisfies.
 
         This is the automatic half of "advance held, released on delivery".
@@ -145,7 +192,7 @@ class Coordinator:
         stay held for retry.
         """
         from app.core.payments import PaymentManager
-        from app.models.payment import Escrow, EscrowStatus
+        from app.models.payment import Escrow, EscrowStatus, Payment
 
         result = await self.session.execute(
             select(Escrow).where(
@@ -166,6 +213,18 @@ class Coordinator:
 
         manager = PaymentManager(self.session)
         for escrow in escrows:
+            # Confirming delivery must not pay the person confirming it: skip
+            # release when the verifier is the payee, or the sender who made
+            # the handoff, and leave the funds held for someone else to confirm.
+            payment = await self.session.get(Payment, escrow.payment_id)
+            if verifier_id == handoff.from_actor_id or (
+                payment is not None and verifier_id == payment.payee_actor_id
+            ):
+                logger.warning(
+                    "Escrow %s not released: verifier %s is the sender or the payee",
+                    escrow.id, verifier_id,
+                )
+                continue
             if not ConditionEvaluator(context).evaluate(escrow.release_condition or ""):
                 logger.info(
                     "Escrow %s condition %r not satisfied by handoff %s",

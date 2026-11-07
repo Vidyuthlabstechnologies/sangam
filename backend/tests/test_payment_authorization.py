@@ -29,6 +29,7 @@ async def make_money(db_session):
         status=PaymentStatus.CAPTURED,
         escrow_status=EscrowStatus.HELD,
         amount=1000.0,
+        with_escrow=True,
     ):
         payment = Payment(
             id=uuid.uuid4(),
@@ -42,6 +43,8 @@ async def make_money(db_session):
         )
         db_session.add(payment)
         await db_session.commit()
+        if not with_escrow:
+            return payment, None
         escrow = Escrow(
             id=uuid.uuid4(),
             workflow_id=workflow.id,
@@ -225,7 +228,7 @@ async def test_payer_can_refund_in_full(client, auth_headers, as_role, db_sessio
 
 @pytest.mark.asyncio
 async def test_partial_refund_is_recorded_as_partial(client, auth_headers, as_role, db_session):
-    payment, _ = await as_role("payer", amount=1000.0)
+    payment, _ = await as_role("payer", amount=1000.0, with_escrow=False)
 
     resp = await client.post(
         f"/payments/{payment.id}/refund", params={"amount": 250}, headers=auth_headers
@@ -354,3 +357,206 @@ async def test_only_the_receiver_can_verify_a_handoff(
     await db_session.refresh(escrow)
     assert handoff.verified is False
     assert escrow.status == EscrowStatus.HELD
+
+
+# ------------------------------- review follow-ups: handoff creation, race, refunds
+
+
+def _handoff_body(workflow, from_id, to_id):
+    return {
+        "workflow_id": str(workflow.id),
+        "from_actor_id": str(from_id),
+        "to_actor_id": str(to_id),
+        "artifact": "COA-9.pdf",
+        "artifact_type": "coa",
+    }
+
+
+@pytest.mark.asyncio
+async def test_cannot_create_a_handoff_naming_yourself_as_receiver_for_someone_else(
+    client, auth_headers, current_actor, sample_workflow, sample_actors
+):
+    """The bypass of receiver-only verification: forge a handoff to yourself."""
+    resp = await client.post(
+        "/coordination/handoffs",
+        json=_handoff_body(sample_workflow, sample_actors[0].id, current_actor.id),
+        headers=auth_headers,
+    )
+    assert resp.status_code == 403, resp.text
+
+
+@pytest.mark.asyncio
+async def test_non_participant_cannot_create_a_handoff_on_a_workflow(
+    client, auth_headers, current_actor, sample_workflow
+):
+    resp = await client.post(
+        "/coordination/handoffs",
+        json=_handoff_body(sample_workflow, current_actor.id, uuid.uuid4()),
+        headers=auth_headers,
+    )
+    assert resp.status_code == 403, resp.text
+
+
+@pytest.mark.asyncio
+async def test_handoff_to_yourself_is_refused(client, auth_headers, current_actor, owned_workflow):
+    resp = await client.post(
+        "/coordination/handoffs",
+        json=_handoff_body(owned_workflow, current_actor.id, current_actor.id),
+        headers=auth_headers,
+    )
+    assert resp.status_code == 400, resp.text
+
+
+@pytest.mark.asyncio
+async def test_workflow_initiator_can_create_a_handoff(
+    client, auth_headers, current_actor, owned_workflow
+):
+    resp = await client.post(
+        "/coordination/handoffs",
+        json=_handoff_body(owned_workflow, current_actor.id, uuid.uuid4()),
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201, resp.text
+
+
+@pytest.mark.asyncio
+async def test_actor_in_an_earlier_handoff_can_pass_the_artifact_on(
+    client, auth_headers, current_actor, db_session, sample_workflow, sample_actors
+):
+    await Coordinator(db_session).create_handoff(
+        workflow_id=sample_workflow.id,
+        from_actor_id=sample_actors[0].id,
+        to_actor_id=current_actor.id,
+        artifact="step-1",
+    )
+    resp = await client.post(
+        "/coordination/handoffs",
+        json=_handoff_body(sample_workflow, current_actor.id, uuid.uuid4()),
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201, resp.text
+
+
+@pytest.mark.asyncio
+async def test_payee_confirming_receipt_does_not_release_their_own_escrow(
+    db_session, sample_workflow, sample_actors, make_money
+):
+    receiver = sample_actors[1]
+    _, escrow = await make_money(sample_workflow, payee=receiver.id)
+    coord = Coordinator(db_session)
+    handoff = await coord.create_handoff(
+        workflow_id=sample_workflow.id,
+        from_actor_id=sample_actors[0].id,
+        to_actor_id=receiver.id,
+        artifact="COA-9.pdf",
+        artifact_type="coa",
+    )
+
+    verified = await coord.verify_handoff(handoff.id, actor_id=receiver.id)
+
+    await db_session.refresh(escrow)
+    assert verified.verified is True
+    assert escrow.status == EscrowStatus.HELD
+
+
+async def _flip_escrow_in_another_session(db_session, escrow_id, status):
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+    other = async_sessionmaker(db_session.bind, class_=AsyncSession, expire_on_commit=False)
+    async with other() as s:
+        row = await s.get(Escrow, escrow_id)
+        row.status = status
+        await s.commit()
+
+
+@pytest.mark.asyncio
+async def test_release_rereads_status_instead_of_trusting_a_stale_loaded_row(
+    db_session, sample_workflow, make_money
+):
+    """Two requests race: the loser's session still holds the old HELD row."""
+    _, escrow = await make_money(sample_workflow)
+    assert escrow.status == EscrowStatus.HELD  # now in this session's identity map
+    await _flip_escrow_in_another_session(db_session, escrow.id, EscrowStatus.RELEASED)
+
+    with pytest.raises(ValueError, match="released"):
+        await PaymentManager(db_session).release_escrow(escrow.id, "second-request")
+
+
+@pytest.mark.asyncio
+async def test_dispute_rereads_status_instead_of_trusting_a_stale_loaded_row(
+    db_session, sample_workflow, make_money
+):
+    _, escrow = await make_money(sample_workflow)
+    assert escrow.status == EscrowStatus.HELD
+    await _flip_escrow_in_another_session(db_session, escrow.id, EscrowStatus.RELEASED)
+
+    with pytest.raises(ValueError, match="released"):
+        await PaymentManager(db_session).dispute_escrow(escrow.id)
+
+
+@pytest.mark.asyncio
+async def test_cumulative_partial_refunds_cannot_exceed_the_payment(client, auth_headers, as_role):
+    payment, _ = await as_role("payer", amount=1000.0, with_escrow=False)
+
+    first = await client.post(
+        f"/payments/{payment.id}/refund", params={"amount": 600}, headers=auth_headers
+    )
+    second = await client.post(
+        f"/payments/{payment.id}/refund", params={"amount": 600}, headers=auth_headers
+    )
+
+    assert first.status_code == 200, first.text
+    assert second.status_code == 400, second.text
+
+
+@pytest.mark.asyncio
+async def test_partial_refunds_that_add_up_complete_the_refund(
+    client, auth_headers, as_role, db_session
+):
+    payment, _ = await as_role("payer", amount=1000.0, with_escrow=False)
+
+    await client.post(f"/payments/{payment.id}/refund", params={"amount": 600}, headers=auth_headers)
+    last = await client.post(
+        f"/payments/{payment.id}/refund", params={"amount": 400}, headers=auth_headers
+    )
+
+    assert last.status_code == 200, last.text
+    await db_session.refresh(payment)
+    assert payment.status == PaymentStatus.REFUNDED
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("state", [EscrowStatus.RELEASED, EscrowStatus.DISPUTED])
+async def test_refund_refused_while_escrow_is_released_or_disputed(
+    client, auth_headers, as_role, state
+):
+    payment, _ = await as_role("payer", escrow_status=state)
+
+    resp = await client.post(f"/payments/{payment.id}/refund", headers=auth_headers)
+
+    assert resp.status_code == 400, resp.text
+    assert state.value in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_full_refund_marks_a_held_escrow_refunded(
+    client, auth_headers, as_role, db_session
+):
+    payment, escrow = await as_role("payer")
+
+    resp = await client.post(f"/payments/{payment.id}/refund", headers=auth_headers)
+
+    assert resp.status_code == 200, resp.text
+    await db_session.refresh(escrow)
+    assert escrow.status == EscrowStatus.REFUNDED
+
+
+@pytest.mark.asyncio
+async def test_partial_refund_refused_while_funds_are_held(client, auth_headers, as_role):
+    payment, _ = await as_role("payer")
+
+    resp = await client.post(
+        f"/payments/{payment.id}/refund", params={"amount": 100}, headers=auth_headers
+    )
+
+    assert resp.status_code == 400, resp.text

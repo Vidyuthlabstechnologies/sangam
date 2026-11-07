@@ -59,6 +59,23 @@ class Settings(BaseSettings):
 
     slack_webhook_url: Optional[str] = None
 
+    # Shared secret the Sarvam voice agent sends in X-Webhook-Secret when it
+    # posts a callback request. Unset means the webhook rejects everything.
+    agent_webhook_secret: Optional[str] = None
+
+    # Optional fan-out of each recorded callback. All unset means no forwarding.
+    # Google Sheet: the deployed Apps Script web app URL, plus the secret it checks.
+    callback_sheet_webhook_url: Optional[str] = None
+    callback_sheet_webhook_secret: Optional[str] = None
+    # WhatsApp Cloud API: staff are messaged with an APPROVED template whose body
+    # has five placeholders (name, phone, service, preferred time, urgency).
+    whatsapp_phone_number_id: Optional[str] = None
+    whatsapp_access_token: Optional[str] = None
+    whatsapp_staff_numbers: Optional[str] = None  # comma-separated, with country code
+    whatsapp_template_name: str = "surya_new_callback"
+    whatsapp_template_lang: str = "en"
+    whatsapp_graph_version: Optional[str] = None  # set to a currently supported Graph API version
+
     class Config:
         env_file = ".env"
         case_sensitive = False

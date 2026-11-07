@@ -341,7 +341,13 @@ class PaymentManager:
         release_trigger: Optional[str] = None,
     ) -> Escrow:
         result = await self.session.execute(
-            select(Escrow).where(Escrow.id == escrow_id).with_for_update()
+            select(Escrow)
+            .where(Escrow.id == escrow_id)
+            .with_for_update()
+            # The route has usually loaded this row already. Without
+            # populate_existing the ORM hands back that stale object and the
+            # status check below reads old data even after waiting for the lock.
+            .execution_options(populate_existing=True)
         )
         escrow = result.scalar_one_or_none()
         if not escrow:
@@ -384,7 +390,13 @@ class PaymentManager:
         self, escrow_id: UUID, actor_id: Optional[UUID] = None
     ) -> Escrow:
         result = await self.session.execute(
-            select(Escrow).where(Escrow.id == escrow_id).with_for_update()
+            select(Escrow)
+            .where(Escrow.id == escrow_id)
+            .with_for_update()
+            # The route has usually loaded this row already. Without
+            # populate_existing the ORM hands back that stale object and the
+            # status check below reads old data even after waiting for the lock.
+            .execution_options(populate_existing=True)
         )
         escrow = result.scalar_one_or_none()
         if not escrow:
@@ -422,17 +434,52 @@ class PaymentManager:
             raise ValueError("Only a captured payment can be refunded")
 
         paid = Decimal(str(payment.amount))
-        refund_amount = parse_amount(amount) if amount is not None else paid
-        if refund_amount > paid:
-            raise ValueError("Refund cannot exceed the payment amount")
+        # Cumulative total lives in the existing extra_attributes JSON, so no
+        # schema change is needed. It is always re-assigned as a NEW dict:
+        # in-place edits to JSON columns are invisible to SQLAlchemy.
+        already = Decimal(str((payment.extra_attributes or {}).get("refunded_amount", "0")))
+        remaining = paid - already
+        refund_amount = parse_amount(amount) if amount is not None else remaining
+        if refund_amount > remaining:
+            raise ValueError("Refund cannot exceed the amount still refundable")
+        is_full = already + refund_amount == paid
 
-        refund = await self.razorpay.refund_payment(
-            payment.razorpay_payment_id,
-            float(refund_amount) if amount is not None else None,
+        # Refund policy: funds that were released or are under dispute are
+        # settled elsewhere, and held funds can only be returned whole.
+        escrows = list(
+            (
+                await self.session.execute(
+                    select(Escrow)
+                    .where(Escrow.payment_id == payment.id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+            ).scalars()
         )
-        payment.status = (
-            PaymentStatus.REFUNDED if refund_amount == paid else PaymentStatus.PARTIALLY_REFUNDED
-        )
+        for escrow in escrows:
+            if escrow.status in (
+                EscrowStatus.RELEASED,
+                EscrowStatus.DISPUTED,
+                EscrowStatus.PARTIALLY_RELEASED,
+            ):
+                raise ValueError(
+                    f"Cannot refund while an escrow is {escrow.status.value}; resolve it first"
+                )
+            if escrow.status == EscrowStatus.HELD and not is_full:
+                raise ValueError("Only a full refund is allowed while escrow funds are held")
+
+        send_amount = None if (amount is None and already == 0) else float(refund_amount)
+        refund = await self.razorpay.refund_payment(payment.razorpay_payment_id, send_amount)
+
+        payment.extra_attributes = {
+            **(payment.extra_attributes or {}),
+            "refunded_amount": str(already + refund_amount),
+        }
+        payment.status = PaymentStatus.REFUNDED if is_full else PaymentStatus.PARTIALLY_REFUNDED
+        if is_full:
+            for escrow in escrows:
+                if escrow.status == EscrowStatus.HELD:
+                    escrow.status = EscrowStatus.REFUNDED
         await self.session.commit()
 
         await self.audit.log(

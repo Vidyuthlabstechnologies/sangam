@@ -12,6 +12,7 @@ from app.models.document import ExtractedDocument, ExtractionStatus
 # this, create_all silently skips their tables and writes fail at runtime.
 from app.models.audit_log import AuditLog
 from app.models.sla import SLAConfig, SLATracking
+from app.models.voice_callback import VoiceCallback, CallbackStatus
 
 __all__ = [
     "Workflow", "WorkflowPhase", "WorkflowState", "WaitingEvent",
@@ -23,4 +24,5 @@ __all__ = [
     "Vendor", "VendorLicence", "VendorStatus", "LicenceType",
     "ExtractedDocument", "ExtractionStatus",
     "AuditLog", "SLAConfig", "SLATracking",
+    "VoiceCallback", "CallbackStatus",
 ]

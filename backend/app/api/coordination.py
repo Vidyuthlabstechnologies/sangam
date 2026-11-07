@@ -107,6 +107,14 @@ async def create_handoff(
     current_actor: Actor = Depends(get_current_actor),
 ):
     coordinator = Coordinator(session)
+    try:
+        await coordinator.authorize_handoff(
+            req.workflow_id, current_actor.id, req.from_actor_id, req.to_actor_id
+        )
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     handoff = await coordinator.create_handoff(
         workflow_id=req.workflow_id,
         from_actor_id=req.from_actor_id,
