@@ -90,7 +90,9 @@ class ApprovalEngine:
 
         self._validate_action(approval, actor_id)
 
-        approval.approved_by.append(str(actor_id))
+        # Assign a new list: approved_by is a plain JSON column, so an
+        # in-place append is invisible to SQLAlchemy and never saved.
+        approval.approved_by = [*approval.approved_by, str(actor_id)]
         if reason:
             approval.reason = reason
 
@@ -114,7 +116,7 @@ class ApprovalEngine:
 
         self._validate_action(approval, actor_id)
 
-        approval.rejected_by.append(str(actor_id))
+        approval.rejected_by = [*approval.rejected_by, str(actor_id)]
         approval.reason = reason
         approval.status = ApprovalStatus.REJECTED
         await self.session.commit()
@@ -160,10 +162,10 @@ class ApprovalEngine:
             raise ValueError("Approval not found")
 
         from_str, to_str = str(from_actor), str(to_actor)
-        if from_str in approval.required_actors:
-            approval.required_actors.remove(from_str)
-        if to_str not in approval.required_actors:
-            approval.required_actors.append(to_str)
+        required = [a for a in approval.required_actors if a != from_str]
+        if to_str not in required:
+            required.append(to_str)
+        approval.required_actors = required
 
         await self.session.commit()
         await self.session.refresh(approval)

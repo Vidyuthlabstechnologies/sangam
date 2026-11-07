@@ -61,14 +61,17 @@ async def auto_approve_low_risk(
         if not condition_result:
             return False
 
-        approvers = approval.approved_by or []
-        if str(auto_approver.id) not in approvers:
-            approvers.append(str(auto_approver.id))
+        # New lists, not in-place appends: these are plain JSON columns, and
+        # re-assigning the same mutated list is not seen as a change.
+        auto_id = str(auto_approver.id)
+        approvers = list(approval.approved_by or [])
+        if auto_id not in approvers:
+            approvers.append(auto_id)
         approval.approved_by = approvers
 
-        required = approval.required_actors or []
-        if str(auto_approver.id) not in required:
-            required.append(str(auto_approver.id))
+        required = list(approval.required_actors or [])
+        if auto_id not in required:
+            required.append(auto_id)
         approval.required_actors = required
 
         if approval.strategy == ApprovalStrategy.ANY:
