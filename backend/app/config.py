@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     app_name: str = "Sangam"
     app_version: str = "0.1.0"
     debug: bool = False
+    # "production" turns on validate_production_settings() at startup.
+    environment: str = "development"
 
     database_url: str = "postgresql+asyncpg://sangam:sangam@localhost:5432/sangam"
     redis_url: str = "redis://localhost:6379/0"
@@ -63,3 +65,27 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+_MIN_SECRET_LENGTH = 32
+
+
+def validate_production_settings(s: Settings) -> None:
+    """Refuse to start in production with settings that make it forgeable.
+
+    The default JWT secret is in source control, so anyone who has read the
+    repo could mint a valid token for any actor. Fixture mode returns canned
+    payment and AI responses. Neither may ever run as "production".
+    """
+    if s.environment.strip().lower() != "production":
+        return
+
+    problems = []
+    secret = s.jwt_secret or ""
+    if secret.upper().startswith("CHANGE-ME") or len(secret) < _MIN_SECRET_LENGTH:
+        problems.append(f"JWT_SECRET must be a random value of at least {_MIN_SECRET_LENGTH} characters")
+    if s.use_fixtures:
+        problems.append("USE_FIXTURES must be false")
+    if s.debug:
+        problems.append("DEBUG must be false")
+    if problems:
+        raise RuntimeError("Unsafe production configuration: " + "; ".join(problems))

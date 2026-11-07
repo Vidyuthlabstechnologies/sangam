@@ -1,27 +1,37 @@
+"""Payment, escrow, invoice and webhook endpoints.
+
+Authorization model (see app.core.payment_access): the payer and the
+workflow initiator CONTROL a payment, the payee can additionally view and
+dispute, and anyone else gets 404 so a payment's existence is not revealed.
+"""
 import json
 import logging
+from typing import Annotated, Optional
 from uuid import UUID
-from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Request, Header
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 from sqlalchemy import select
-from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.dependencies import get_current_actor
+from app.core.payment_access import PaymentAccess, payment_access, workflow_initiator
+from app.core.payments import PaymentManager, RazorpayService
 from app.db.session import get_session
 from app.models.actor import Actor
-from app.models.payment import Payment, Escrow, Invoice, PaymentStatus, EscrowStatus
-from app.core.payments import PaymentManager, RazorpayService
-from app.api.dependencies import get_current_actor
+from app.models.payment import Escrow, Invoice, Payment
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
 logger = logging.getLogger("sangam.payments")
 
+PositiveAmount = Annotated[float, Field(gt=0, allow_inf_nan=False)]
+NonNegativeAmount = Annotated[float, Field(ge=0, allow_inf_nan=False)]
+
 
 class InitiatePaymentRequest(BaseModel):
     workflow_id: UUID
-    amount: float
+    amount: PositiveAmount
     currency: str = "INR"
     description: Optional[str] = None
     payer_actor_id: Optional[UUID] = None
@@ -38,20 +48,60 @@ class VerifyPaymentRequest(BaseModel):
 class CreateEscrowRequest(BaseModel):
     workflow_id: UUID
     payment_id: UUID
-    amount: float
+    amount: PositiveAmount
     release_condition: Optional[str] = None
 
 
 class CreateInvoiceRequest(BaseModel):
     workflow_id: UUID
     payment_id: UUID
-    amount: float
+    amount: PositiveAmount
     description: Optional[str] = None
-    tax_amount: float = 0.0
+    tax_amount: NonNegativeAmount = 0.0
     payer_name: Optional[str] = None
     payer_gst: Optional[str] = None
     payee_name: Optional[str] = None
     payee_gst: Optional[str] = None
+
+
+# ------------------------------------------------------------- authorization
+
+
+def _enforce(access: PaymentAccess, actor: Actor, *, control: bool, not_found: str) -> None:
+    if not access.can_view(actor.id):
+        raise HTTPException(status_code=404, detail=not_found)
+    if control and not access.can_control(actor.id):
+        raise HTTPException(status_code=403, detail="Not permitted to perform this action")
+
+
+async def _payment_for(
+    session: AsyncSession, payment_id: UUID, actor: Actor, *, control: bool = False
+) -> Payment:
+    payment = await session.get(Payment, payment_id)
+    if payment is None:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    _enforce(await payment_access(session, payment), actor, control=control, not_found="Payment not found")
+    return payment
+
+
+async def _escrow_for(
+    session: AsyncSession, escrow_id: UUID, actor: Actor, *, control: bool = False
+) -> Escrow:
+    escrow = await session.get(Escrow, escrow_id)
+    if escrow is None:
+        raise HTTPException(status_code=404, detail="Escrow not found")
+    payment = await session.get(Payment, escrow.payment_id)
+    if payment is not None:
+        access = await payment_access(session, payment)
+    else:
+        initiator = await workflow_initiator(session, escrow.workflow_id)
+        ids = frozenset({initiator}) if initiator else frozenset()
+        access = PaymentAccess(controllers=ids, viewers=ids)
+    _enforce(access, actor, control=control, not_found="Escrow not found")
+    return escrow
+
+
+# ------------------------------------------------------------------- payments
 
 
 @router.post("/initiate", response_model=dict, status_code=201)
@@ -60,18 +110,22 @@ async def initiate_payment(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
+    initiator = await workflow_initiator(session, req.workflow_id)
+    if initiator is None:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    if initiator != current_actor.id:
+        raise HTTPException(status_code=403, detail="Only the workflow initiator can start a payment")
+
     try:
-        manager = PaymentManager(session)
-        result = await manager.initiate_payment(
+        return await PaymentManager(session).initiate_payment(
             workflow_id=req.workflow_id,
             amount=req.amount,
             currency=req.currency,
             description=req.description,
-            payer_actor_id=req.payer_actor_id,
+            payer_actor_id=req.payer_actor_id or current_actor.id,
             payee_actor_id=req.payee_actor_id,
             method=req.method,
         )
-        return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -82,20 +136,27 @@ async def verify_payment(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
+    result = await session.execute(
+        select(Payment).where(Payment.razorpay_order_id == req.razorpay_order_id)
+    )
+    existing = result.scalar_one_or_none()
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    _enforce(await payment_access(session, existing), current_actor, control=True, not_found="Payment not found")
+
     try:
-        manager = PaymentManager(session)
-        payment = await manager.verify_and_capture(
+        payment = await PaymentManager(session).verify_and_capture(
             razorpay_order_id=req.razorpay_order_id,
             razorpay_payment_id=req.razorpay_payment_id,
             razorpay_signature=req.razorpay_signature,
         )
-        return {
-            "payment_id": str(payment.id),
-            "status": payment.status.value,
-            "method": payment.method.value if payment.method else None,
-        }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    return {
+        "payment_id": str(payment.id),
+        "status": payment.status.value,
+        "method": payment.method.value if payment.method else None,
+    }
 
 
 @router.get("/{payment_id}", response_model=dict)
@@ -104,10 +165,7 @@ async def get_payment(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
-    result = await session.execute(select(Payment).where(Payment.id == payment_id))
-    payment = result.scalar_one_or_none()
-    if not payment:
-        raise HTTPException(status_code=404, detail="Payment not found")
+    payment = await _payment_for(session, payment_id, current_actor)
     return {
         "id": str(payment.id),
         "workflow_id": str(payment.workflow_id) if payment.workflow_id else None,
@@ -124,23 +182,25 @@ async def get_payment(
 @router.post("/{payment_id}/refund", response_model=dict)
 async def refund_payment(
     payment_id: UUID,
-    amount: Optional[float] = Query(None),
+    amount: Optional[float] = Query(None, gt=0, allow_inf_nan=False),
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
-    result = await session.execute(select(Payment).where(Payment.id == payment_id))
-    payment = result.scalar_one_or_none()
-    if not payment or not payment.razorpay_payment_id:
-        raise HTTPException(status_code=404, detail="Payment not found or not captured")
-
+    payment = await _payment_for(session, payment_id, current_actor, control=True)
     try:
-        razorpay = RazorpayService()
-        refund = await razorpay.refund_payment(payment.razorpay_payment_id, amount)
-        payment.status = PaymentStatus.REFUNDED
-        await session.commit()
-        return {"refund_id": refund.get("id"), "status": "refunded"}
-    except Exception as e:
+        refund = await PaymentManager(session).refund_payment(
+            payment, amount, actor_id=current_actor.id
+        )
+    except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        # Gateway text can contain request details; log it, do not return it.
+        logger.exception("Refund of payment %s failed at the gateway", payment_id)
+        raise HTTPException(status_code=502, detail="Payment gateway error")
+    return {"refund_id": refund.get("id"), "status": payment.status.value}
+
+
+# --------------------------------------------------------------------- escrow
 
 
 @router.post("/escrow", response_model=dict, status_code=201)
@@ -149,21 +209,17 @@ async def create_escrow(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
+    await _payment_for(session, req.payment_id, current_actor, control=True)
     try:
-        manager = PaymentManager(session)
-        escrow = await manager.create_escrow(
+        escrow = await PaymentManager(session).create_escrow(
             workflow_id=req.workflow_id,
             payment_id=req.payment_id,
             amount=req.amount,
             release_condition=req.release_condition,
         )
-        return {
-            "id": str(escrow.id),
-            "status": escrow.status.value,
-            "amount": escrow.amount,
-        }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    return {"id": str(escrow.id), "status": escrow.status.value, "amount": escrow.amount}
 
 
 @router.get("/escrow/{escrow_id}", response_model=dict)
@@ -172,10 +228,7 @@ async def get_escrow(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
-    result = await session.execute(select(Escrow).where(Escrow.id == escrow_id))
-    escrow = result.scalar_one_or_none()
-    if not escrow:
-        raise HTTPException(status_code=404, detail="Escrow not found")
+    escrow = await _escrow_for(session, escrow_id, current_actor)
     return {
         "id": str(escrow.id),
         "workflow_id": str(escrow.workflow_id) if escrow.workflow_id else None,
@@ -195,16 +248,16 @@ async def release_escrow(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
+    escrow = await _escrow_for(session, escrow_id, current_actor, control=True)
     try:
-        manager = PaymentManager(session)
-        escrow = await manager.release_escrow(escrow_id, release_trigger)
-        return {
-            "id": str(escrow.id),
-            "status": escrow.status.value,
-            "released_at": escrow.released_at.isoformat() if escrow.released_at else None,
-        }
+        released = await PaymentManager(session).release_escrow(escrow.id, release_trigger)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    return {
+        "id": str(released.id),
+        "status": released.status.value,
+        "released_at": released.released_at.isoformat() if released.released_at else None,
+    }
 
 
 @router.post("/escrow/{escrow_id}/dispute", response_model=dict)
@@ -213,12 +266,16 @@ async def dispute_escrow(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
+    # Any participant, including the payee, may dispute held funds.
+    escrow = await _escrow_for(session, escrow_id, current_actor)
     try:
-        manager = PaymentManager(session)
-        escrow = await manager.dispute_escrow(escrow_id)
-        return {"id": str(escrow.id), "status": escrow.status.value}
+        disputed = await PaymentManager(session).dispute_escrow(escrow.id, actor_id=current_actor.id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    return {"id": str(disputed.id), "status": disputed.status.value}
+
+
+# ------------------------------------------------------------------- invoices
 
 
 @router.post("/invoices", response_model=dict, status_code=201)
@@ -227,9 +284,11 @@ async def create_invoice(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
+    payment = await _payment_for(session, req.payment_id, current_actor, control=True)
+    if payment.workflow_id != req.workflow_id:
+        raise HTTPException(status_code=400, detail="Payment does not belong to this workflow")
     try:
-        manager = PaymentManager(session)
-        invoice = await manager.create_invoice(
+        invoice = await PaymentManager(session).create_invoice(
             workflow_id=req.workflow_id,
             payment_id=req.payment_id,
             amount=req.amount,
@@ -240,14 +299,14 @@ async def create_invoice(
             payee_name=req.payee_name,
             payee_gst=req.payee_gst,
         )
-        return {
-            "id": str(invoice.id),
-            "invoice_number": invoice.invoice_number,
-            "total_amount": invoice.total_amount,
-            "status": invoice.status,
-        }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    return {
+        "id": str(invoice.id),
+        "invoice_number": invoice.invoice_number,
+        "total_amount": invoice.total_amount,
+        "status": invoice.status,
+    }
 
 
 @router.get("/invoices/{invoice_id}", response_model=dict)
@@ -256,10 +315,19 @@ async def get_invoice(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
-    result = await session.execute(select(Invoice).where(Invoice.id == invoice_id))
-    invoice = result.scalar_one_or_none()
-    if not invoice:
+    invoice = await session.get(Invoice, invoice_id)
+    if invoice is None:
         raise HTTPException(status_code=404, detail="Invoice not found")
+
+    payment = await session.get(Payment, invoice.payment_id) if invoice.payment_id else None
+    if payment is not None:
+        access = await payment_access(session, payment)
+    else:
+        initiator = await workflow_initiator(session, invoice.workflow_id)
+        ids = frozenset({initiator}) if initiator else frozenset()
+        access = PaymentAccess(controllers=ids, viewers=ids)
+    _enforce(access, current_actor, control=False, not_found="Invoice not found")
+
     return {
         "id": str(invoice.id),
         "invoice_number": invoice.invoice_number,
@@ -272,6 +340,9 @@ async def get_invoice(
         "payer_name": invoice.payer_name,
         "payee_name": invoice.payee_name,
     }
+
+
+# -------------------------------------------------------------------- webhook
 
 
 @router.post("/webhook")

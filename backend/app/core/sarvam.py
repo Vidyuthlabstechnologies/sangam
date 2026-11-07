@@ -529,5 +529,4 @@ class SarvamAI:
         return mapping.get(ext, "audio/wav")
 
     def _to_json_string(self, obj: Any) -> str:
-        import json
         return json.dumps(obj)

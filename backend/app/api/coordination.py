@@ -127,6 +127,8 @@ async def verify_handoff(
     coordinator = Coordinator(session)
     try:
         handoff = await coordinator.verify_handoff(handoff_id, current_actor.id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     return handoff

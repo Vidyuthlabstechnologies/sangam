@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 import uuid
 import re
 from datetime import datetime, timedelta
@@ -12,27 +13,36 @@ from app.models.approval import Approval, ApprovalStatus, ApprovalStrategy
 from app.models.actor import Actor
 from app.models.workflow import Workflow
 from app.core.audit import AuditService
+from app.core.safe_eval import safe_evaluate
 from app.models.audit_log import AuditLog
 
 
+logger = logging.getLogger("sangam.approvals")
+
+_TEMPLATE_VAR = re.compile(r"\{\{(\w+)\}\}")
+
+
 class ConditionEvaluator:
+    """Evaluate an approval condition through the AST allowlist in safe_eval.
+
+    This used to run the condition text through Python's dynamic-evaluation
+    builtin with empty builtins, which is not a sandbox: the class-introspection
+    chain reaches arbitrary imports. `{{name}}` template variables are now
+    treated as plain name lookups against the context instead of being pasted
+    into the source, so a hostile VALUE cannot change the expression either.
+
+    A rejected or malformed condition RAISES (UnsafeExpressionError is a
+    ValueError); it is not silently turned into False. Callers decide how to
+    fail, and `ApprovalEngine._condition_is_unmet` fails closed.
+    """
+
     def __init__(self, workflow_context: Dict[str, Any]):
         self.context = workflow_context
 
     def evaluate(self, condition: str) -> bool:
         if not condition:
             return True
-        try:
-            result = eval(self._safe_substitute(condition), {"__builtins__": {}}, self.context)
-            return bool(result)
-        except Exception:
-            return False
-
-    def _safe_substitute(self, expr: str) -> str:
-        def replace_var(match):
-            var = match.group(1)
-            return str(self.context.get(var, "None"))
-        return re.sub(r'\{\{(\w+)\}\}', replace_var, expr)
+        return bool(safe_evaluate(_TEMPLATE_VAR.sub(r"\1", condition), self.context))
 
 
 class ApprovalEngine:
@@ -67,8 +77,7 @@ class ApprovalEngine:
         await self.session.refresh(approval)
 
         if condition and workflow_context:
-            evaluator = ConditionEvaluator(workflow_context)
-            if not evaluator.evaluate(condition):
+            if self._condition_is_unmet(condition, workflow_context):
                 approval.status = ApprovalStatus.APPROVED
                 approval.reason = "Condition auto-satisfied"
                 await self.session.commit()
@@ -241,6 +250,20 @@ class ApprovalEngine:
             approval.status = ApprovalStatus.EXPIRED
         await self.session.commit()
         return expired
+
+    @staticmethod
+    def _condition_is_unmet(condition: str, context: Dict[str, Any]) -> bool:
+        """True only when the condition evaluated cleanly to false.
+
+        A rejected or malformed condition is NOT "unmet". Treating an error as
+        false auto-approved exactly the approvals whose conditions were broken
+        or hostile; those now stay pending for a human.
+        """
+        try:
+            return not ConditionEvaluator(context).evaluate(condition)
+        except Exception:
+            logger.warning("Approval condition rejected; leaving it pending: %r", condition)
+            return False
 
     def _validate_action(self, approval: Approval, actor_id: UUID):
         if approval.status != ApprovalStatus.PENDING:

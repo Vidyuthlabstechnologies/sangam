@@ -118,6 +118,12 @@ class Coordinator:
         if not handoff:
             raise ValueError("Handoff not found")
 
+        # Verification auto-releases escrow, so it is a money action: only the
+        # actor the artifact was handed TO can confirm receipt. Without this
+        # the sender (or anyone logged in) could verify their own delivery.
+        if actor_id != handoff.to_actor_id:
+            raise PermissionError("Only the receiving actor can verify a handoff")
+
         handoff.verified = True
         handoff.verified_at = datetime.utcnow()
         await self.session.commit()

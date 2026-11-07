@@ -160,7 +160,9 @@ def sarvam_translate(text: str) -> Dict[str, Any]:
 
 def razorpay_order(amount_paise: int, receipt: str, upi: bool = False) -> Dict[str, Any]:
     order: Dict[str, Any] = {
-        "id": "order_FIXTURE00001",
+        # Derived from the receipt: razorpay_order_id is UNIQUE, so a constant
+        # id made the second fixture-mode payment crash with an IntegrityError.
+        "id": "order_FIXTURE" + receipt.replace("-", "")[:12],
         "entity": "order",
         "amount": amount_paise,
         "amount_paid": 0,

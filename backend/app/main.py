@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.config import settings
+from app.config import settings, validate_production_settings
 from app.api.workflows import router as workflows_router
 from app.api.actors import router as actors_router
 from app.api.approvals import router as approvals_router
@@ -34,6 +34,7 @@ from app.core.middleware import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    validate_production_settings(settings)
     yield
 
 

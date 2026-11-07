@@ -135,3 +135,23 @@ async def sample_workflow(db_session: AsyncSession, sample_actors):
     await db_session.commit()
     await db_session.refresh(wf)
     return wf
+
+
+@pytest_asyncio.fixture
+async def owned_workflow(db_session: AsyncSession, current_actor):
+    """A workflow initiated by the authenticated caller."""
+    import uuid as _uuid
+    from app.models.workflow import Workflow, WorkflowPhase, WorkflowState
+
+    wf = Workflow(
+        id=_uuid.uuid4(),
+        name="Caller-owned workflow",
+        initiator_id=current_actor.id,
+        current_phase=WorkflowPhase.EXECUTION,
+        state=WorkflowState.ACTIVE,
+        phases=[],
+    )
+    db_session.add(wf)
+    await db_session.commit()
+    await db_session.refresh(wf)
+    return wf

@@ -29,7 +29,16 @@ async def get_current_actor(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload",
         )
-    result = await session.execute(select(Actor).where(Actor.id == UUID(actor_id)))
+    try:
+        actor_uuid = UUID(str(actor_id))
+    except ValueError:
+        # A validly signed token with a non-UUID subject used to raise here
+        # and surface as a 500.
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+    result = await session.execute(select(Actor).where(Actor.id == actor_uuid))
     actor = result.scalar_one_or_none()
     if not actor or not actor.is_active:
         raise HTTPException(

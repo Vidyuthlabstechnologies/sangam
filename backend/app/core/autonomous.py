@@ -13,6 +13,7 @@ from app.models.actor import Actor, ActorType
 from app.core.sarvam import SarvamAI
 from app.core.audit import AuditService
 from app.core.notifications import notify_workflow_event
+from app.core.safe_eval import safe_evaluate
 
 logger = logging.getLogger("sangam.autonomous")
 
@@ -243,11 +244,12 @@ async def agent_auto_execute(
 
 
 def _evaluate_condition(condition: str, context: dict) -> bool:
+    # `condition` comes from an API payload. It goes through the AST
+    # allowlist, never through dynamic evaluation, and any rejection or error
+    # means False: an agent must not auto-approve on a condition it could not
+    # evaluate.
     try:
-        safe_globals = {"__builtins__": {}}
-        safe_locals = context.copy()
-        result = eval(condition, safe_globals, safe_locals)
-        return bool(result)
+        return bool(safe_evaluate(condition, context))
     except Exception as e:
-        logger.warning("Condition eval failed: %s", e)
+        logger.warning("Condition rejected or failed (%s): %r", e, condition)
         return False

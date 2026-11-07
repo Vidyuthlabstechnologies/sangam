@@ -2,22 +2,29 @@ from __future__ import annotations
 import uuid
 import hmac
 import hashlib
+import logging
 from datetime import datetime
+from decimal import Decimal
 from typing import Optional, Dict, Any, List
 from uuid import UUID
 
 import razorpay
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 
 from app.config import settings
 from app.core import fixtures
+from app.core.money import parse_amount, to_minor_units
 from app.models.payment import (
     Payment, PaymentStatus, PaymentMethod,
     Escrow, EscrowStatus,
     Invoice,
 )
 from app.core.audit import AuditService
+
+
+logger = logging.getLogger("sangam.payments")
 
 
 class RazorpayService:
@@ -39,7 +46,7 @@ class RazorpayService:
         receipt: Optional[str] = None,
         notes: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
-        amount_paise = int(amount * 100)
+        amount_paise = to_minor_units(amount)
         receipt_id = receipt or str(uuid.uuid4())
         if self.use_fixtures:
             return fixtures.razorpay_order(amount_paise, receipt_id)
@@ -58,7 +65,7 @@ class RazorpayService:
         payment_id: str,
         amount: float,
     ) -> Dict[str, Any]:
-        amount_paise = int(amount * 100)
+        amount_paise = to_minor_units(amount)
         if self.use_fixtures:
             return fixtures.razorpay_payment(payment_id)
         return self.client.payment.capture(payment_id, amount_paise)
@@ -69,8 +76,14 @@ class RazorpayService:
         payment_id: str,
         signature: str,
     ) -> bool:
+        secret = settings.razorpay_key_secret
+        if not secret:
+            # Fail closed: no secret means nothing can be verified, and a
+            # missing setting must be a rejection, not a 500.
+            logger.error("Cannot verify a payment signature: RAZORPAY_KEY_SECRET is not set")
+            return False
         expected = hmac.new(
-            settings.razorpay_key_secret.encode(),
+            secret.encode(),
             f"{order_id}|{payment_id}".encode(),
             hashlib.sha256,
         ).hexdigest()
@@ -103,7 +116,7 @@ class RazorpayService:
 
         params = {}
         if amount is not None:
-            params["amount"] = int(amount * 100)
+            params["amount"] = to_minor_units(amount)
         return self.client.payment.refund(payment_id, params)
 
     async def get_payment_details(self, payment_id: str) -> Dict[str, Any]:
@@ -118,7 +131,7 @@ class RazorpayService:
         currency: str = "INR",
         receipt: Optional[str] = None,
     ) -> Dict[str, Any]:
-        amount_paise = int(amount * 100)
+        amount_paise = to_minor_units(amount)
         receipt_id = receipt or str(uuid.uuid4())
         if self.use_fixtures:
             return fixtures.razorpay_order(amount_paise, receipt_id, upi=True)
@@ -153,7 +166,7 @@ class RazorpayService:
     ) -> Dict[str, Any]:
         invoice_data = {
             "type": "invoice",
-            "amount": int(amount * 100),
+            "amount": to_minor_units(amount),
             "currency": currency,
             "description": description,
             "customer": {},
@@ -184,6 +197,8 @@ class PaymentManager:
         payee_actor_id: Optional[UUID] = None,
         method: Optional[str] = None,
     ) -> Dict[str, Any]:
+        # Validate before anything is stored: raises InvalidAmount (a ValueError).
+        amount = float(parse_amount(amount))
         payment = Payment(
             id=uuid.uuid4(),
             workflow_id=workflow_id,
@@ -267,7 +282,8 @@ class PaymentManager:
             elif method_raw == "netbanking":
                 payment.method = PaymentMethod.NETBANKING
         except Exception:
-            pass
+            # The method is informational; the signature already verified.
+            logger.warning("Could not fetch payment method for %s", razorpay_payment_id, exc_info=True)
 
         await self.session.commit()
         await self.session.refresh(payment)
@@ -288,6 +304,15 @@ class PaymentManager:
         amount: float,
         release_condition: Optional[str] = None,
     ) -> Escrow:
+        amount = float(parse_amount(amount))
+        payment = await self.session.get(Payment, payment_id)
+        if payment is None:
+            raise ValueError("Payment not found")
+        if payment.workflow_id != workflow_id:
+            raise ValueError("Payment does not belong to this workflow")
+        if amount > payment.amount:
+            raise ValueError("Escrow amount cannot exceed the payment amount")
+
         escrow = Escrow(
             id=uuid.uuid4(),
             workflow_id=workflow_id,
@@ -316,28 +341,33 @@ class PaymentManager:
         release_trigger: Optional[str] = None,
     ) -> Escrow:
         result = await self.session.execute(
-            select(Escrow).where(Escrow.id == escrow_id)
+            select(Escrow).where(Escrow.id == escrow_id).with_for_update()
         )
         escrow = result.scalar_one_or_none()
         if not escrow:
             raise ValueError("Escrow not found")
+        if escrow.status != EscrowStatus.HELD:
+            raise ValueError(f"Escrow is {escrow.status.value}")
 
-        escrow.status = EscrowStatus.RELEASED
-        escrow.released_at = datetime.utcnow()
-        escrow.release_trigger = release_trigger
-
-        payment_result = await self.session.execute(
-            select(Payment).where(Payment.id == escrow.payment_id)
-        )
-        payment = payment_result.scalar_one_or_none()
+        payment = await self.session.get(Payment, escrow.payment_id)
         if payment and payment.razorpay_payment_id:
+            # Capture FIRST, record after. Marking the escrow released before
+            # this call left a dirty RELEASED status on the session whenever
+            # the gateway failed, and the next commit persisted it. If the
+            # commit below fails after a successful capture, funds have moved
+            # without a record; the gateway rejecting a second capture of the
+            # same payment is the backstop.
             try:
                 await self.razorpay.capture_payment(
                     payment.razorpay_payment_id, escrow.amount
                 )
             except Exception as e:
-                raise ValueError(f"Failed to capture payment: {e}")
+                logger.exception("Gateway capture failed for escrow %s", escrow.id)
+                raise ValueError("Failed to capture payment at the gateway") from e
 
+        escrow.status = EscrowStatus.RELEASED
+        escrow.released_at = datetime.utcnow()
+        escrow.release_trigger = release_trigger
         await self.session.commit()
         await self.session.refresh(escrow)
 
@@ -350,17 +380,70 @@ class PaymentManager:
 
         return escrow
 
-    async def dispute_escrow(self, escrow_id: UUID) -> Escrow:
+    async def dispute_escrow(
+        self, escrow_id: UUID, actor_id: Optional[UUID] = None
+    ) -> Escrow:
         result = await self.session.execute(
-            select(Escrow).where(Escrow.id == escrow_id)
+            select(Escrow).where(Escrow.id == escrow_id).with_for_update()
         )
         escrow = result.scalar_one_or_none()
         if not escrow:
             raise ValueError("Escrow not found")
+        if escrow.status != EscrowStatus.HELD:
+            raise ValueError(f"Escrow is {escrow.status.value}")
         escrow.status = EscrowStatus.DISPUTED
         await self.session.commit()
         await self.session.refresh(escrow)
+
+        await self.audit.log(
+            action="escrow_disputed",
+            resource_type="escrow",
+            resource_id=str(escrow.id),
+            actor_id=actor_id,
+            workflow_id=escrow.workflow_id,
+        )
         return escrow
+
+    async def refund_payment(
+        self,
+        payment: Payment,
+        amount: Optional[float] = None,
+        actor_id: Optional[UUID] = None,
+    ) -> Dict[str, Any]:
+        """Refund a captured payment, in full or in part.
+
+        The cumulative refunded amount is not tracked on the model, so a
+        second partial refund is bounded by the gateway, not here.
+        """
+        if (
+            payment.status not in (PaymentStatus.CAPTURED, PaymentStatus.PARTIALLY_REFUNDED)
+            or not payment.razorpay_payment_id
+        ):
+            raise ValueError("Only a captured payment can be refunded")
+
+        paid = Decimal(str(payment.amount))
+        refund_amount = parse_amount(amount) if amount is not None else paid
+        if refund_amount > paid:
+            raise ValueError("Refund cannot exceed the payment amount")
+
+        refund = await self.razorpay.refund_payment(
+            payment.razorpay_payment_id,
+            float(refund_amount) if amount is not None else None,
+        )
+        payment.status = (
+            PaymentStatus.REFUNDED if refund_amount == paid else PaymentStatus.PARTIALLY_REFUNDED
+        )
+        await self.session.commit()
+
+        await self.audit.log(
+            action="payment_refunded",
+            resource_type="payment",
+            resource_id=str(payment.id),
+            actor_id=actor_id,
+            workflow_id=payment.workflow_id,
+            details={"amount": float(refund_amount), "refund_id": refund.get("id")},
+        )
+        return refund
 
     async def create_invoice(
         self,
@@ -374,28 +457,41 @@ class PaymentManager:
         payee_name: Optional[str] = None,
         payee_gst: Optional[str] = None,
     ) -> Invoice:
-        invoice_count = await self.session.execute(select(Invoice))
-        count = len(invoice_count.scalars().all())
-        invoice_number = f"INV-{datetime.utcnow().strftime('%Y%m')}-{count + 1:05d}"
+        amount_d = parse_amount(amount)
+        tax_d = parse_amount(tax_amount, allow_zero=True)
 
-        invoice = Invoice(
-            id=uuid.uuid4(),
-            workflow_id=workflow_id,
-            payment_id=payment_id,
-            invoice_number=invoice_number,
-            amount=amount,
-            tax_amount=tax_amount,
-            total_amount=amount + tax_amount,
-            description=description,
-            payer_name=payer_name,
-            payer_gst=payer_gst,
-            payee_name=payee_name,
-            payee_gst=payee_gst,
-        )
-        self.session.add(invoice)
-        await self.session.commit()
-        await self.session.refresh(invoice)
-        return invoice
+        # COUNT instead of loading every invoice. invoice_number is UNIQUE, so
+        # two concurrent invoices that read the same count collide on insert;
+        # retry with the next number rather than failing the request.
+        count = (
+            await self.session.execute(select(func.count()).select_from(Invoice))
+        ).scalar_one()
+        month = datetime.utcnow().strftime("%Y%m")
+
+        for attempt in range(3):
+            invoice = Invoice(
+                id=uuid.uuid4(),
+                workflow_id=workflow_id,
+                payment_id=payment_id,
+                invoice_number=f"INV-{month}-{count + 1 + attempt:05d}",
+                amount=float(amount_d),
+                tax_amount=float(tax_d),
+                total_amount=float(amount_d + tax_d),
+                description=description,
+                payer_name=payer_name,
+                payer_gst=payer_gst,
+                payee_name=payee_name,
+                payee_gst=payee_gst,
+            )
+            self.session.add(invoice)
+            try:
+                await self.session.commit()
+            except IntegrityError:
+                await self.session.rollback()
+                continue
+            await self.session.refresh(invoice)
+            return invoice
+        raise ValueError("Could not allocate an invoice number; please retry")
 
     async def handle_webhook(self, event: str, payload: dict) -> None:
         """Handle Razorpay webhook events"""
@@ -412,9 +508,12 @@ class PaymentManager:
         if not payment:
             return
         
-        if event == "payment.captured":
+        # Webhooks can arrive late or out of order; only an in-flight payment
+        # may move on, so a stale "captured" cannot undo a refund.
+        in_flight = payment.status in (PaymentStatus.PENDING, PaymentStatus.PROCESSING)
+        if event == "payment.captured" and in_flight:
             payment.status = PaymentStatus.CAPTURED
-        elif event == "payment.failed":
+        elif event == "payment.failed" and in_flight:
             payment.status = PaymentStatus.FAILED
         
         await self.session.commit()

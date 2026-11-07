@@ -1,9 +1,11 @@
+import logging
 from uuid import UUID
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.streaming import notify_approval_event
 from app.models.workflow import Workflow
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
@@ -15,6 +17,8 @@ from app.api.dependencies import get_current_actor
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/approvals", tags=["approvals"])
+
+logger = logging.getLogger("sangam.approvals")
 
 
 class CreateApprovalRequest(BaseModel):
@@ -71,7 +75,7 @@ async def create_approval(
     try:
         await auto_approve_low_risk(approval, session)
     except Exception:
-        pass
+        logger.exception("Auto-approval check failed for approval %s", approval.id)
     return approval
 
 
@@ -81,7 +85,6 @@ async def get_approval(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
-    engine = ApprovalEngine(session)
     try:
         result = await session.get(Approval, approval_id)
     except Exception:
@@ -110,6 +113,9 @@ async def approve(
         workflow = wf_result.scalar_one()
         actor_ids = [str(workflow.initiator_id)] + [str(a) for a in (approval.required_actors or [])]
     except Exception:
+        # Do not swallow silently: a missing import here once made every
+        # notification go to an empty recipient list with no trace.
+        logger.exception("Could not resolve recipients for approval %s", approval_id)
         actor_ids = []
     await notify_approval_event(str(approval_id), str(approval.workflow_id), approval.status.value, actor_ids)
     return approval
@@ -134,6 +140,9 @@ async def reject(
         workflow = wf_result.scalar_one()
         actor_ids = [str(workflow.initiator_id)] + [str(a) for a in (approval.required_actors or [])]
     except Exception:
+        # Do not swallow silently: a missing import here once made every
+        # notification go to an empty recipient list with no trace.
+        logger.exception("Could not resolve recipients for approval %s", approval_id)
         actor_ids = []
     await notify_approval_event(str(approval_id), str(approval.workflow_id), approval.status.value, actor_ids)
     return approval

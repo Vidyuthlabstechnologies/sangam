@@ -11,6 +11,8 @@ def test_no_duplicate_routes():
     seen: dict[tuple, int] = {}
     for route in app.routes:
         path = getattr(route, "path", None)
+        if path is None:
+            continue  # path-less internal routes (newer Starlette); nothing to compare
         methods = tuple(sorted(getattr(route, "methods", None) or []))
         key = (path, methods)
         seen[key] = seen.get(key, 0) + 1
