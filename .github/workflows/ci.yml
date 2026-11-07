@@ -2,9 +2,9 @@ name: Sangam CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, master, develop]
   pull_request:
-    branches: [main]
+    branches: [main, master]
 
 env:
   REGISTRY: ghcr.io
@@ -28,18 +28,25 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install ruff mypy pytest pytest-asyncio httpx
+          pip install ruff mypy pytest pytest-asyncio pytest-cov httpx
           pip install -r requirements.txt
 
-      - name: Lint with Ruff
-        run: ruff check app/ --fix
+      # Blocking: only rules that find real bugs (undefined names, redefinitions,
+      # syntax errors). A missing import once shipped here and was swallowed at runtime.
+      - name: Lint for real bugs with Ruff
+        run: ruff check app/ --select F821,F811,E9
+
+      # Advisory: the wider backlog (unused imports and the like). No --fix in CI;
+      # a pipeline that rewrites its own checkout proves nothing.
+      - name: Full Ruff report (advisory)
+        run: ruff check app/
+        continue-on-error: true
 
       - name: Type check with mypy
         run: mypy app/ --ignore-missing-imports
 
       - name: Test with pytest
         run: pytest tests/ -v --cov=app --cov-report=term --cov-report=xml
-        continue-on-error: true
 
   backend-build:
     runs-on: ubuntu-latest
