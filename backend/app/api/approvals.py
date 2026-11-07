@@ -148,7 +148,11 @@ async def escalate(
 ):
     engine = ApprovalEngine(session)
     try:
-        approval = await engine.escalate(approval_id, req.escalated_to, req.reason)
+        approval = await engine.escalate(
+            approval_id, req.escalated_to, req.reason, acting_actor_id=current_actor.id
+        )
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return approval
@@ -163,7 +167,11 @@ async def delegate(
 ):
     engine = ApprovalEngine(session)
     try:
-        approval = await engine.delegate(approval_id, req.from_actor, req.to_actor)
+        approval = await engine.delegate(
+            approval_id, req.from_actor, req.to_actor, acting_actor_id=current_actor.id
+        )
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return approval

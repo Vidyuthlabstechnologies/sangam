@@ -121,7 +121,7 @@ async def test_delegate_persists_required_actor_swap(new_session, make_approval)
     approval_id = await make_approval(ApprovalStrategy.ALL, [a, b])
 
     async with new_session() as s:
-        await ApprovalEngine(s).delegate(approval_id, a, c)
+        await ApprovalEngine(s).delegate(approval_id, a, c, acting_actor_id=a)
 
     row = await _reload(new_session, approval_id)
     assert set(row.required_actors) == {str(b), str(c)}
