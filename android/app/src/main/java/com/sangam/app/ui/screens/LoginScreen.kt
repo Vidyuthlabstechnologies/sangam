@@ -41,7 +41,6 @@ import com.sangam.app.network.RealtimeClient
 import com.sangam.app.network.RegisterRequest
 import com.sangam.app.network.TokenManager
 import com.sangam.app.network.TokenResponse
-import com.sangam.app.network.ZitadelAuth
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
@@ -50,15 +49,6 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
-
-    val zitadelLoggedIn by ZitadelAuth.loggedIn.collectAsState()
-    val zitadelError by ZitadelAuth.error.collectAsState()
-
-    LaunchedEffect(zitadelLoggedIn) {
-        if (zitadelLoggedIn) {
-            onLoginSuccess()
-        }
-    }
 
     var isLogin by remember { mutableStateOf(true) }
     var name by remember { mutableStateOf("") }
@@ -121,7 +111,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
             }
         } catch (e: ApiException) {
             error = if (e.statusCode == 10) {
-                "Google Sign-In setup pending (Status 10: DEVELOPER_ERROR). Please complete OAuth in Google Cloud Console, or sign in below with Email/Password."
+                "Google Sign-In is pending activation in Firebase Console. Please sign in below using your Email and Password."
             } else if (e.statusCode == 12501) {
                 "Sign-in was cancelled."
             } else {
@@ -156,7 +146,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                "AI Calling Agents Powered by Sarvam AI",
+                "Deploy Autonomous Voice Agents in Seconds",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -236,32 +226,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Zitadel SSO Button (Self-Hosted Identity)
-                    OutlinedButton(
-                        onClick = {
-                            (context as? Activity)?.let { ZitadelAuth.start(it) }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        enabled = !loading,
-                    ) {
-                        Icon(
-                            Icons.Default.Security,
-                            contentDescription = "Zitadel SSO",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp),
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            "Continue with Zitadel SSO",
-                            style = MaterialTheme.typography.labelLarge,
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     // Divider with text
                     Row(
@@ -270,7 +235,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                     ) {
                         HorizontalDivider(modifier = Modifier.weight(1f))
                         Text(
-                            "  or password  ",
+                            "  or continue with email  ",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.outline,
                         )
@@ -322,7 +287,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                         ),
                     )
 
-                    val displayError = error ?: zitadelError
+                    val displayError = error
                     if (displayError != null) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
