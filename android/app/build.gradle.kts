@@ -15,28 +15,59 @@ android {
         targetSdk = 35
         versionCode = 100
         versionName = "1.0.0"
+    }
 
-        val apiBase = (project.findProperty("API_BASE_URL") as String?) ?: System.getenv("API_BASE_URL") ?: "http://10.0.2.2:8000"
-        buildConfigField("String", "API_BASE_URL", "\"$apiBase\"")
+    val releaseStorePassword = (project.findProperty("SANGAM_KEYSTORE_PASSWORD") as String?)
+        ?: System.getenv("SANGAM_KEYSTORE_PASSWORD")
+    val releaseKeyPassword = (project.findProperty("SANGAM_KEY_PASSWORD") as String?)
+        ?: System.getenv("SANGAM_KEY_PASSWORD")
+    val releaseKeyAlias = (project.findProperty("SANGAM_KEY_ALIAS") as String?)
+        ?: System.getenv("SANGAM_KEY_ALIAS")
+        ?: "sangamitra"
+    val releaseTaskRequested = gradle.startParameter.taskNames.any { name ->
+        name.contains("release", ignoreCase = true)
+    }
+    if (releaseTaskRequested && (releaseStorePassword.isNullOrBlank() || releaseKeyPassword.isNullOrBlank())) {
+        throw GradleException(
+            "Release signing requires SANGAM_KEYSTORE_PASSWORD and SANGAM_KEY_PASSWORD from the environment or Gradle properties. No password is stored in source."
+        )
     }
 
     signingConfigs {
         create("release") {
-            storeFile = file("sangamitra-release.jks")
-            storePassword = (project.findProperty("SANGAM_KEYSTORE_PASSWORD") as String?) ?: "sangamitra2026"
-            keyAlias = (project.findProperty("SANGAM_KEY_ALIAS") as String?) ?: "sangamitra"
-            keyPassword = (project.findProperty("SANGAM_KEY_PASSWORD") as String?) ?: "sangamitra2026"
+            if (!releaseStorePassword.isNullOrBlank() && !releaseKeyPassword.isNullOrBlank()) {
+                storeFile = file("sangamitra-release.jks")
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
         }
     }
 
     buildTypes {
         debug {
             isDebuggable = true
+            val debugApi = (project.findProperty("API_BASE_URL") as String?)
+                ?: System.getenv("API_BASE_URL")
+                ?: "http://10.0.2.2:8000"
+            buildConfigField("String", "API_BASE_URL", "\"$debugApi\"")
         }
         release {
             isDebuggable = false
             isMinifyEnabled = true
-            signingConfig = signingConfigs.getByName("release")
+            if (!releaseStorePassword.isNullOrBlank() && !releaseKeyPassword.isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+            val configuredApi = (project.findProperty("API_BASE_URL") as String?) ?: System.getenv("API_BASE_URL")
+            val releaseApi = when {
+                configuredApi.isNullOrBlank() -> "https://api.unconfigured.invalid"
+                configuredApi.startsWith("https://") -> configuredApi
+                releaseTaskRequested -> throw GradleException(
+                    "Release API_BASE_URL must be https. Refusing a cleartext default."
+                )
+                else -> "https://api.unconfigured.invalid"
+            }
+            buildConfigField("String", "API_BASE_URL", "\"$releaseApi\"")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -119,6 +150,11 @@ dependencies {
 
     // Core
     implementation("androidx.core:core-ktx:1.15.0")
+
+    // Encrypted token store. EncryptedSharedPreferences is deprecated; the call sites
+    // read the JWT synchronously from an OkHttp interceptor, so DataStore would need
+    // a larger async rewrite. This keeps tokens out of plaintext SharedPreferences.
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")

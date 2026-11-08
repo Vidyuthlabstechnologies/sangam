@@ -42,6 +42,41 @@ async def lifespan(app: FastAPI):
     yield
 
 
+async def _ensure_added_columns() -> None:
+    """Add columns introduced after the first create_all on an existing database.
+
+    create_all does not ALTER existing tables. SQLite (tests, local) and Postgres
+    (the shared deployment) both accept ADD COLUMN for these nullable fields.
+    """
+    import logging
+
+    from sqlalchemy import inspect, text
+
+    from app.db.session import engine
+
+    statements = (
+        ("actors", "created_by_id", "VARCHAR(36)"),
+        ("vendors", "owner_actor_id", "VARCHAR(36)"),
+        ("tenant_wallets", "metering_key", "VARCHAR(128)"),
+    )
+    try:
+        async with engine.begin() as conn:
+            def _sync(sync_conn):
+                insp = inspect(sync_conn)
+                tables = set(insp.get_table_names())
+                for table, column, coltype in statements:
+                    if table not in tables:
+                        continue
+                    present = {col["name"] for col in insp.get_columns(table)}
+                    if column in present:
+                        continue
+                    sync_conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}"))
+
+            await conn.run_sync(_sync)
+    except Exception:
+        logging.getLogger("sangam.startup").exception("Column backfill skipped")
+
+
 async def _ensure_billing_tables_and_seed() -> None:
     """Create wallet/ledger tables if missing and seed the two pilot tenants. Never blocks startup."""
     import logging
@@ -55,7 +90,13 @@ async def _ensure_billing_tables_and_seed() -> None:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         async with async_session_factory() as session:
-            await seed_live_tenants(session)
+            if settings.environment.strip().lower() == "production":
+                logging.getLogger("sangam.startup").info(
+                    "Skipping pilot wallet seed in production"
+                )
+            else:
+                await seed_live_tenants(session)
+        await _ensure_added_columns()
     except Exception:
         logging.getLogger("sangam.startup").exception("Billing table setup/seed skipped")
 

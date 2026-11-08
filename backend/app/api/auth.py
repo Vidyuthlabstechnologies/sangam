@@ -1,7 +1,5 @@
 from uuid import UUID
-from datetime import timedelta
-
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -94,15 +92,23 @@ async def login(req: LoginRequest, session: AsyncSession = Depends(get_session))
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh(req: RefreshRequest):
+async def refresh(req: RefreshRequest, session: AsyncSession = Depends(get_session)):
     payload = decode_access_token(req.token)
     if not payload or not payload.get("sub"):
         raise HTTPException(status_code=401, detail="Invalid or expired token")
-    token = create_access_token(payload["sub"])
+    try:
+        actor_id = UUID(str(payload["sub"]))
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    result = await session.execute(select(Actor).where(Actor.id == actor_id))
+    actor = result.scalar_one_or_none()
+    if not actor or not actor.is_active:
+        raise HTTPException(status_code=401, detail="Actor not found or inactive")
+    token = create_access_token(str(actor.id))
     return TokenResponse(
         access_token=token,
         expires_in=settings.jwt_expire_minutes * 60,
-        actor_id=payload["sub"],
-        name="",
-        roles=[],
+        actor_id=str(actor.id),
+        name=actor.name,
+        roles=[r.value if hasattr(r, "value") else r for r in (actor.roles or [])],
     )

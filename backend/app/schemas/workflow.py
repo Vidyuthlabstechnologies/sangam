@@ -60,7 +60,8 @@ class ExceptionWorkflowSchema(BaseModel):
 class WorkflowCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=256)
     description: Optional[str] = None
-    initiator_id: uuid.UUID
+    # Accepted for older clients and ignored. The server sets the initiator from the login.
+    initiator_id: Optional[uuid.UUID] = None
     phases: List[WorkflowPhase] = Field(default_factory=lambda: [p for p in WorkflowPhase])
     extra_attributes: Optional[Dict[str, Any]] = None
 

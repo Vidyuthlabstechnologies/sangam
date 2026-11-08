@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import get_current_actor
 from app.config import settings
 from app.core import composio_router, pricing
+from app.core.account_deletion import purge_actor_personal_data
 from app.core.billing_service import BillingError, BillingService
 from app.core.onboarding_engine import (
     BUSINESS_TAXONOMY,
@@ -660,6 +661,7 @@ async def delete_tenant_account_and_data(
     """Play Store account and data deletion (DPDP Act 2023). GST ledger rows are retained, anonymised."""
     tid = await resolve_tenant(session, actor, tenant_id)
     deleted = await BillingService(session).delete_tenant(tid)
+    deleted.extend(await purge_actor_personal_data(session, actor, tid))
     profile = (
         await session.execute(select(TenantAgentProfile).where(TenantAgentProfile.tenant_id == tid))
     ).scalar_one_or_none()

@@ -323,8 +323,15 @@ class TestCapabilities:
 
 
 class TestAnalytics:
+    async def _headers(self, client):
+        email = f"an-{uuid.uuid4().hex[:8]}@example.com"
+        r = await client.post("/auth/register", json={"name": "Analyst", "email": email, "password": "pass"})
+        token = r.json()["access_token"]
+        return {"Authorization": f"Bearer {token}"}
+
     async def test_summary(self, client: AsyncClient):
-        r = await client.get("/analytics/summary")
+        headers = await self._headers(client)
+        r = await client.get("/analytics/summary", headers=headers)
         assert r.status_code == 200
         data = r.json()
         assert "total_workflows" in data
@@ -332,6 +339,7 @@ class TestAnalytics:
         assert "total_actors" in data
 
     async def test_workflows_by_state(self, client: AsyncClient):
-        r = await client.get("/analytics/workflows-by-state")
+        headers = await self._headers(client)
+        r = await client.get("/analytics/workflows-by-state", headers=headers)
         assert r.status_code == 200
         assert isinstance(r.json(), list)

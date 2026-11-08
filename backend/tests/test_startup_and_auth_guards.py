@@ -3,7 +3,7 @@ import uuid
 
 import pytest
 
-from app.config import Settings, validate_production_settings
+from app.config import Settings, settings, validate_production_settings
 from app.core.security import create_access_token
 
 
@@ -30,6 +30,15 @@ def test_production_refuses_fixture_mode():
         validate_production_settings(
             _settings(environment="production", jwt_secret="x" * 40, use_fixtures=True)
         )
+
+
+@pytest.mark.asyncio
+async def test_production_refuses_to_seed_live_pilot_wallets(db_session, monkeypatch):
+    from app.core.billing_service import seed_live_tenants
+
+    monkeypatch.setattr(settings, "environment", "production")
+    with pytest.raises(RuntimeError, match="production"):
+        await seed_live_tenants(db_session)
 
 
 def test_production_accepts_a_strong_secret():

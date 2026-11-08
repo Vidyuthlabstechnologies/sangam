@@ -90,10 +90,10 @@ def _document_out(doc: ExtractedDocument) -> DocumentOut:
     )
 
 
-async def _get_vendor_or_404(session: AsyncSession, vendor_id: UUID) -> Vendor:
+async def _get_vendor_or_404(session: AsyncSession, vendor_id: UUID, actor: Actor) -> Vendor:
     result = await session.execute(select(Vendor).where(Vendor.id == vendor_id))
     vendor = result.scalar_one_or_none()
-    if not vendor:
+    if not vendor or vendor.owner_actor_id != actor.id:
         raise HTTPException(status_code=404, detail="Vendor not found")
     return vendor
 
@@ -123,6 +123,7 @@ async def create_vendor(
         contact_email=req.contact_email,
         contact_phone=req.contact_phone,
         status=VendorStatus.DRAFT,
+        owner_actor_id=current_actor.id,
     )
     session.add(vendor)
     await session.commit()
@@ -136,7 +137,7 @@ async def list_vendors(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
-    stmt = select(Vendor).order_by(Vendor.created_at.desc())
+    stmt = select(Vendor).where(Vendor.owner_actor_id == current_actor.id).order_by(Vendor.created_at.desc())
     if status_filter:
         try:
             stmt = stmt.where(Vendor.status == VendorStatus(status_filter))
@@ -158,7 +159,7 @@ async def vendors_with_expiring_licences(
     The compliance early-warning view: a lapsed CDSCO licence halts
     production, so this is what a QA lead checks daily.
     """
-    result = await session.execute(select(Vendor))
+    result = await session.execute(select(Vendor).where(Vendor.owner_actor_id == current_actor.id))
     vendors = [v for v in result.scalars().all() if v.licences_expiring_within(days)]
     return [_vendor_out(v) for v in vendors]
 
@@ -169,7 +170,7 @@ async def get_vendor(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
-    return _vendor_out(await _get_vendor_or_404(session, vendor_id))
+    return _vendor_out(await _get_vendor_or_404(session, vendor_id, current_actor))
 
 
 @router.get("/{vendor_id}/documents", response_model=List[DocumentOut])
@@ -178,7 +179,7 @@ async def list_vendor_documents(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
-    await _get_vendor_or_404(session, vendor_id)
+    await _get_vendor_or_404(session, vendor_id, current_actor)
     result = await session.execute(
         select(ExtractedDocument)
         .where(ExtractedDocument.vendor_id == vendor_id)
@@ -203,7 +204,7 @@ async def upload_vendor_document(
     promoted to a licence: a human confirms them first, because a wrong
     expiry date here means shipping against a lapsed licence.
     """
-    vendor = await _get_vendor_or_404(session, vendor_id)
+    vendor = await _get_vendor_or_404(session, vendor_id, current_actor)
 
     file_bytes = await file.read()
     if not file_bytes:
@@ -287,7 +288,7 @@ async def confirm_extracted_document(
     shipping against a lapsed licence. A reviewer confirms them here, which
     creates the licence and records who accepted it.
     """
-    vendor = await _get_vendor_or_404(session, vendor_id)
+    vendor = await _get_vendor_or_404(session, vendor_id, current_actor)
 
     result = await session.execute(
         select(ExtractedDocument).where(
@@ -334,7 +335,7 @@ async def submit_for_qualification(
     current_actor: Actor = Depends(get_current_actor),
 ):
     """Move a vendor into the approval phase of a qualification workflow."""
-    vendor = await _get_vendor_or_404(session, vendor_id)
+    vendor = await _get_vendor_or_404(session, vendor_id, current_actor)
 
     if vendor.status == VendorStatus.PENDING_QUALIFICATION:
         raise HTTPException(

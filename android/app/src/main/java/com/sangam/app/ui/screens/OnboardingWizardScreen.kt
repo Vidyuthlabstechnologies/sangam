@@ -289,10 +289,17 @@ fun OnboardingWizardScreen(
                     onClick = {
                         showDeleteConfirmDialog = false
                         scope.launch {
-                            try {
-                                ApiClient.onboardingApi.deleteAccount("abhishek-industries")
-                            } catch (_: Exception) { }
-                            statusBanner = "Account and all associated voice/wallet data permanently deleted."
+                            val tenantId = TokenManager.getActorId()
+                            if (tenantId.isNullOrBlank()) {
+                                statusBanner = "Sign in before deleting this account."
+                            } else {
+                                try {
+                                    ApiClient.onboardingApi.deleteAccount(tenantId)
+                                    statusBanner = "Account and all associated voice/wallet data permanently deleted."
+                                } catch (_: Exception) {
+                                    statusBanner = "Account deletion failed. Sign in and try again."
+                                }
+                            }
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = SangamCrimson),
@@ -323,7 +330,7 @@ fun OnboardingWizardScreen(
                             try {
                                 ApiClient.onboardingApi.reportAiOutput(
                                     AiReportRequestDto(
-                                        user_id = "abhishek-industries",
+                                        user_id = TokenManager.getActorId() ?: "",
                                         call_id = "call_live_verify",
                                         reason = "User flagged utterance for guardrail tuning",
                                     )
@@ -808,7 +815,7 @@ fun OnboardingWizardScreen(
                                             try {
                                                 ApiClient.onboardingApi.connectComposioTool(
                                                     ComposioConnectRequestDto(
-                                                        user_id = "abhishek-industries",
+                                                        user_id = TokenManager.getActorId() ?: "",
                                                         toolkit = toolkit,
                                                     )
                                                 )
@@ -911,7 +918,7 @@ fun OnboardingWizardScreen(
                                     scope.launch {
                                         try {
                                             ApiClient.onboardingApi.configureAutopay(
-                                                mapOf("tenant_id" to "abhishek-industries", "enabled" to checked)
+                                                mapOf("tenant_id" to (TokenManager.getActorId() ?: ""), "enabled" to checked)
                                             )
                                         } catch (_: Exception) { }
                                     }

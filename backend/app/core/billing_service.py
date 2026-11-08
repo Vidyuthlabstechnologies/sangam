@@ -14,6 +14,7 @@ Things this deliberately does NOT do:
 """
 from __future__ import annotations
 
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -70,7 +71,14 @@ class BillingService:
         stmt = select(TenantWalletModel).where(TenantWalletModel.tenant_id == tenant_id)
         if lock:
             stmt = stmt.with_for_update()
-        return (await self.session.execute(stmt)).scalar_one_or_none()
+        wallet = (await self.session.execute(stmt)).scalar_one_or_none()
+        if (
+            wallet is not None
+            and not wallet.metering_key
+            and wallet.business_name != "Deleted account"
+        ):
+            wallet.metering_key = secrets.token_urlsafe(32)
+        return wallet
 
     async def get_or_create_wallet(
         self,
@@ -95,6 +103,7 @@ class BillingService:
                 primary_language=primary_language or "kn-IN",
                 deployment_status=STATUS_UNPROVISIONED,
                 referral_code=f"SANGAM-{slug}-{uuid.uuid4().hex[:4].upper()}",
+                metering_key=secrets.token_urlsafe(32),
             )
             self.session.add(wallet)
             try:
@@ -431,6 +440,7 @@ class BillingService:
             wallet.gstin = None
             wallet.assigned_did = None
             wallet.owner_actor_id = None
+            wallet.metering_key = None
             wallet.upi_autopay_enabled = False
             wallet.deployment_status = STATUS_PAUSED_ZERO
             wallet.call_balance_paise = 0
@@ -478,6 +488,7 @@ class BillingService:
             "upi_autopay_threshold_inr": wallet.upi_autopay_threshold_inr,
             "upi_autopay_amount_inr": wallet.upi_autopay_amount_inr,
             "referral_code": wallet.referral_code,
+            "metering_key": wallet.metering_key,
             "transactions": [
                 {
                     "transaction_id": r.transaction_id,
@@ -501,7 +512,14 @@ async def seed_live_tenants(session: AsyncSession) -> None:
 
     They are platform-owned (no owner_actor_id), start ACTIVE with a comped
     balance recorded in the ledger, and carry no invented GSTINs.
+
+    Production refuses this. Those wallets are pilot fixtures, not customer
+    accounts that should appear on a live shared deployment at boot.
     """
+    from app.config import settings
+
+    if settings.environment.strip().lower() == "production":
+        raise RuntimeError("Refusing to seed live pilot wallets in production")
     svc = BillingService(session)
     seeds = (
         ("abhishek-industries", "Abhishek Industries (Tumakuru)", "+918064270314", "v3", "kn-IN"),

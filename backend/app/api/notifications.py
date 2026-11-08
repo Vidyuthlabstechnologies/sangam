@@ -49,9 +49,11 @@ async def test_notification(
     current_actor: Actor = Depends(get_current_actor),
     session: AsyncSession = Depends(get_session),
 ):
+    if request.actor_id != str(current_actor.id):
+        raise HTTPException(status_code=403, detail="Cannot send a test notification to another actor")
     ns = NotificationService(session)
     sent = await ns.send_to_actor(
-        request.actor_id,
+        str(current_actor.id),
         NotificationPayload(
             title=request.title,
             body=request.body,

@@ -59,11 +59,11 @@ class StreamManager:
             total += await self.send_to_actor(aid, event, data)
         return total
 
-    async def broadcast(self, event: str, data: dict) -> int:
-        total = 0
-        for actor_id in list(self._connections.keys()):
-            total += await self.send_to_actor(actor_id, event, data)
-        return total
+    async def broadcast(self, event: str, data: dict, actor_ids: list[str]) -> int:
+        """Deliver only to the named actors. Connected sockets for other tenants are not written."""
+        if not actor_ids:
+            return 0
+        return await self.send_to_workflow_participants(actor_ids, event, data)
 
     async def _send(self, ws: WebSocket, event: str, data: dict) -> None:
         payload = json.dumps({"event": event, "data": data, "ts": time.time()})
@@ -81,7 +81,8 @@ class StreamManager:
         except asyncio.CancelledError:
             pass
 
-    async def handle_message(self, ws: WebSocket, raw: str) -> None:
+    async def handle_message(self, ws: WebSocket, raw: str, can_subscribe: Optional[Callable] = None) -> None:
+        actor_id = ""
         try:
             msg = json.loads(raw)
             event = msg.get("event", "")
@@ -92,12 +93,17 @@ class StreamManager:
                 pass
             elif event == "subscribe_workflow":
                 wf_id = data.get("workflow_id")
-                if wf_id and actor_id:
+                allowed = False
+                if wf_id and actor_id and can_subscribe is not None:
+                    allowed = await can_subscribe(actor_id, wf_id)
+                if allowed:
                     key = f"wf:{wf_id}"
                     if key not in self._connections:
                         self._connections[key] = set()
                     self._connections[key].add(ws)
                     await self._send(ws, "subscribed", {"workflow_id": wf_id})
+                else:
+                    await self._send(ws, "error", {"message": "Not allowed to subscribe to this workflow"})
             elif event == "voice_chunk":
                 await self._handle_voice_chunk(ws, actor_id, data)
             else:

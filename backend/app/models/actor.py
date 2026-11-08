@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Optional, Dict, Any
 
-from sqlalchemy import Column, String, DateTime, Enum as SAEnum, JSON
+from sqlalchemy import Column, String, DateTime, Enum as SAEnum, JSON, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -52,6 +52,10 @@ class Actor(Base):
     permissions: Mapped[List[Permission]] = mapped_column(JSON, nullable=False, default=list)
     password_hash: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     extra_attributes: Mapped[Optional[Dict[str, Any]]] = mapped_column("extra_attributes", JSON, nullable=True)
+    # Actor who created this row (an agent or colleague). Null for self-registration.
+    created_by_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("actors.id"), nullable=True, index=True
+    )
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

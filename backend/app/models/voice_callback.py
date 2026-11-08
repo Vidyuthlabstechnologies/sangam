@@ -29,7 +29,8 @@ class VoiceCallback(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     # The platform's call id. UNIQUE so a webhook retry is idempotent.
     call_id: Mapped[Optional[str]] = mapped_column(String(64), unique=True, nullable=True)
-    tenant_id: Mapped[Optional[str]] = mapped_column(String(100), index=True, nullable=True, default="abhishek-industries")
+    # Null until a per-tenant webhook key proves which business the call belongs to.
+    tenant_id: Mapped[Optional[str]] = mapped_column(String(100), index=True, nullable=True)
     caller_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     caller_phone: Mapped[str] = mapped_column(String(16), nullable=False)
     service: Mapped[str] = mapped_column(String(64), nullable=False, default="unclear")

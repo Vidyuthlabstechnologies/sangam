@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- JWTs must not leave the device in a backup, even if allowBackup is flipped later. -->
+    <exclude domain="sharedpref" path="sangam_secure_prefs.xml" />
+    <exclude domain="sharedpref" path="sangam_prefs.xml" />
+</full-backup-content>

@@ -50,10 +50,14 @@ class CapabilityDiscovery:
     def __init__(self):
         self.client = QdrantClient(
             url=settings.qdrant_url,
-            timeout=30,
+            timeout=5,
         )
         self.collection_name = settings.qdrant_collection
         self._ensure_collection()
+
+    @staticmethod
+    def _tenant_condition(tenant_id: str) -> FieldCondition:
+        return FieldCondition(key="tenant_id", match=MatchValue(value=tenant_id))
 
     def _ensure_collection(self):
         collections = self.client.get_collections().collections
@@ -81,6 +85,9 @@ class CapabilityDiscovery:
     async def register_capability(
         self,
         capability: CapabilityRegistration,
+        *,
+        tenant_id: str,
+        owner_actor_id: str,
     ) -> str:
         cap_id = capability.id or str(uuid.uuid4())
 
@@ -99,6 +106,8 @@ class CapabilityDiscovery:
             "avg_latency_ms": capability.avg_latency_ms,
             "avg_cost_per_call": capability.avg_cost_per_call,
             "metadata": capability.metadata or {},
+            "tenant_id": tenant_id,
+            "owner_actor_id": owner_actor_id,
             "registered_at": datetime.utcnow().isoformat(),
         }
 
@@ -121,10 +130,12 @@ class CapabilityDiscovery:
         service_type: Optional[str] = None,
         min_trust_score: Optional[float] = None,
         tags: Optional[List[str]] = None,
+        *,
+        tenant_id: str,
     ) -> List[CapabilitySearchResult]:
         vector = self._embed_text(query)
 
-        conditions = []
+        conditions = [self._tenant_condition(tenant_id)]
         if service_type:
             conditions.append(
                 FieldCondition(
@@ -148,7 +159,7 @@ class CapabilityDiscovery:
                     )
                 )
 
-        query_filter = Filter(must=conditions) if conditions else None
+        query_filter = Filter(must=conditions)
 
         results = self.client.search(
             collection_name=self.collection_name,
@@ -172,7 +183,16 @@ class CapabilityDiscovery:
             for point in results
         ]
 
-    async def remove_capability(self, cap_id: str):
+    async def remove_capability(self, cap_id: str, *, tenant_id: str):
+        points = self.client.retrieve(
+            collection_name=self.collection_name,
+            ids=[cap_id],
+            with_payload=True,
+        )
+        if points and (points[0].payload or {}).get("tenant_id") not in (None, tenant_id):
+            return
+        if points and (points[0].payload or {}).get("tenant_id") != tenant_id:
+            return
         self.client.delete(
             collection_name=self.collection_name,
             points_selector=[cap_id],
@@ -182,9 +202,12 @@ class CapabilityDiscovery:
         self,
         limit: int = 100,
         offset: int = 0,
+        *,
+        tenant_id: str,
     ) -> List[CapabilitySearchResult]:
         results = self.client.scroll(
             collection_name=self.collection_name,
+            scroll_filter=Filter(must=[self._tenant_condition(tenant_id)]),
             limit=limit,
             offset=offset,
         )
