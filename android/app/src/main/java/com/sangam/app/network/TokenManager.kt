@@ -72,6 +72,19 @@ object TokenManager {
         editor.apply()
     }
 
+    fun saveToken(token: String, actorId: String, name: String, email: String? = null) {
+        if (!::prefs.isInitialized) return
+        val editor = prefs.edit()
+            .putString(KEY_TOKEN, token)
+            .putString(KEY_ACTOR_ID, actorId)
+            .putString(KEY_ACTOR_NAME, name)
+            .remove(KEY_AUTH_STATE)
+        if (email != null) {
+            editor.putString(KEY_ACTOR_EMAIL, email)
+        }
+        editor.apply()
+    }
+
     fun getToken(): String? {
         if (!::prefs.isInitialized) return null
         val raw = prefs.getString(KEY_AUTH_STATE, null)
@@ -113,7 +126,6 @@ object TokenManager {
         val secret = Base64.encodeToString(bytes, Base64.NO_WRAP or Base64.URL_SAFE)
         prefs.edit().putString(key, secret).apply()
         return secret
-    }
     }
 
     fun getActorEmail(): String? = if (::prefs.isInitialized) prefs.getString(KEY_ACTOR_EMAIL, null) else null

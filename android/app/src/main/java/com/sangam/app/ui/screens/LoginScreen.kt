@@ -239,7 +239,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                     // Zitadel SSO Button (Self-Hosted Identity)
                     OutlinedButton(
                         onClick = {
-                            (context as? Activity)?.let { ZitadelAuth.startLogin(it) }
+                            (context as? Activity)?.let { ZitadelAuth.start(it) }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
