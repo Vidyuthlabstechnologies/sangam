@@ -3,7 +3,7 @@ import uuid
 
 import pytest
 
-from app.config import Settings, validate_production_settings
+from app.config import Settings, settings, validate_production_settings
 from app.core.security import create_access_token
 
 
@@ -32,8 +32,45 @@ def test_production_refuses_fixture_mode():
         )
 
 
+@pytest.mark.asyncio
+async def test_production_refuses_to_seed_live_pilot_wallets(db_session, monkeypatch):
+    from app.core.billing_service import seed_live_tenants
+
+    monkeypatch.setattr(settings, "environment", "production")
+    with pytest.raises(RuntimeError, match="production"):
+        await seed_live_tenants(db_session)
+
+
 def test_production_accepts_a_strong_secret():
-    validate_production_settings(_settings(environment="production", jwt_secret="x" * 40))
+    validate_production_settings(
+        _settings(
+            environment="production",
+            jwt_secret="x" * 40,
+            database_url="postgresql+asyncpg://sangam:correct-horse@postgres:5432/sangam",
+        )
+    )
+
+
+def test_production_refuses_the_dev_compose_jwt():
+    with pytest.raises(RuntimeError, match="JWT_SECRET"):
+        validate_production_settings(
+            _settings(
+                environment="production",
+                jwt_secret="dev-secret-change-in-production-padded-to-be-long",
+                database_url="postgresql+asyncpg://sangam:correct-horse@postgres:5432/sangam",
+            )
+        )
+
+
+def test_production_refuses_the_default_database_password():
+    with pytest.raises(RuntimeError, match="DATABASE_URL"):
+        validate_production_settings(
+            _settings(
+                environment="production",
+                jwt_secret="x" * 40,
+                database_url="postgresql+asyncpg://sangam:sangam@postgres:5432/sangam",
+            )
+        )
 
 
 @pytest.mark.asyncio

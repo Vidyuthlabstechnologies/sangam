@@ -71,6 +71,9 @@ class TenantWalletModel(Base):
     referral_code: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default="")
     # The logged-in actor who owns this tenant. NULL only for platform-seeded demo tenants.
     owner_actor_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), index=True, nullable=True)
+    # Presented as X-Tenant-Key on voice webhooks. The shared webhook secret alone
+    # cannot debit this wallet; the key is generated server-side and never logged.
+    metering_key: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     plan_id: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     plan_valid_until: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive, nullable=False)

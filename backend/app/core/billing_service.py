@@ -14,6 +14,9 @@ Things this deliberately does NOT do:
 """
 from __future__ import annotations
 
+import hashlib
+import logging
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -39,6 +42,19 @@ STATUS_PAUSED_ZERO = "PAUSED_ZERO_BALANCE"
 STATUS_PLAN_EXPIRED = "PLAN_EXPIRED"
 
 PAYMENT_KINDS = ("PLAN", "TOPUP")
+logger = logging.getLogger("sangam.billing")
+
+
+def usage_transaction_id(call_id: str) -> str:
+    """Stable ledger key for one call. The column is VARCHAR(64).
+
+    Short ids stay ``call:{id}`` so rows already written still match.
+    Longer ids are hashed; the hash is stable, so a retry hits the same row.
+    """
+    raw = f"call:{call_id}"
+    if len(raw) <= 64:
+        return raw
+    return "call:" + hashlib.sha256(call_id.encode()).hexdigest()[:32]
 
 
 class BillingError(Exception):
@@ -70,7 +86,14 @@ class BillingService:
         stmt = select(TenantWalletModel).where(TenantWalletModel.tenant_id == tenant_id)
         if lock:
             stmt = stmt.with_for_update()
-        return (await self.session.execute(stmt)).scalar_one_or_none()
+        wallet = (await self.session.execute(stmt)).scalar_one_or_none()
+        if (
+            wallet is not None
+            and not wallet.metering_key
+            and wallet.business_name != "Deleted account"
+        ):
+            wallet.metering_key = secrets.token_urlsafe(32)
+        return wallet
 
     async def get_or_create_wallet(
         self,
@@ -95,6 +118,7 @@ class BillingService:
                 primary_language=primary_language or "kn-IN",
                 deployment_status=STATUS_UNPROVISIONED,
                 referral_code=f"SANGAM-{slug}-{uuid.uuid4().hex[:4].upper()}",
+                metering_key=secrets.token_urlsafe(32),
             )
             self.session.add(wallet)
             try:
@@ -252,10 +276,25 @@ class BillingService:
 
     # ------------------------------------------------------------------- usage
     async def meter_call(self, tenant_id: str, duration_seconds: int, call_id: Optional[str]) -> Dict[str, Any]:
-        """Debit a finished call. Idempotent per call id. The balance never goes below zero."""
+        """Debit a finished call. Idempotent per call id. The balance never goes below zero.
+
+        A missing call id is not debited. A random ledger key would charge
+        again on every webhook retry. The unique transaction id is the
+        backstop when two retries pass the existence check together: the
+        loser hits IntegrityError, the transaction rolls back, and the
+        committed balance is the one from the first insert.
+        """
         wallet = await self.get_or_create_wallet(tenant_id, lock=True)
-        txn_id = f"call:{call_id}" if call_id else f"call:{uuid.uuid4().hex}"
-        existing = await self._ledger_entry(txn_id) if call_id else None
+        call_key = (call_id or "").strip()
+        if not call_key:
+            logger.warning("Skipping call debit because call_id is missing")
+            res = await self.serialize(wallet)
+            res["last_call_debit_inr"] = 0.0
+            res["debit_skipped"] = "call_id_required"
+            return res
+
+        txn_id = usage_transaction_id(call_key)
+        existing = await self._ledger_entry(txn_id)
         if existing is not None:
             res = await self.serialize(wallet, idempotent_replay=True)
             res["circuit_breaker_triggered"] = wallet.deployment_status == STATUS_PAUSED_ZERO
@@ -272,16 +311,23 @@ class BillingService:
         note = f"Voice call {int(duration_seconds)}s"
         if debit < wanted:
             note += f" (balance ran out: Rs. {_inr(wanted - debit)} not recoverable)"
-        await self._add_entry(
-            wallet=wallet,
-            transaction_id=txn_id,
-            kind="CALL_USAGE",
-            gross_paise=debit,
-            profit_paise=max(debit - raw_cost, 0),
-            pool_paise=raw_cost,
-            credit_delta_paise=-debit,
-            description=note,
-        )
+        try:
+            await self._add_entry(
+                wallet=wallet,
+                transaction_id=txn_id,
+                kind="CALL_USAGE",
+                gross_paise=debit,
+                profit_paise=max(debit - raw_cost, 0),
+                pool_paise=raw_cost,
+                credit_delta_paise=-debit,
+                description=note,
+            )
+        except IntegrityError:
+            await self.session.rollback()
+            wallet = await self.get_or_create_wallet(tenant_id, lock=True)
+            res = await self.serialize(wallet, idempotent_replay=True)
+            res["circuit_breaker_triggered"] = wallet.deployment_status == STATUS_PAUSED_ZERO
+            return res
         res = await self.serialize(wallet)
         res["last_call_debit_inr"] = _inr(debit)
         res["last_call_provider_cost_inr"] = _inr(raw_cost)
@@ -431,6 +477,7 @@ class BillingService:
             wallet.gstin = None
             wallet.assigned_did = None
             wallet.owner_actor_id = None
+            wallet.metering_key = None
             wallet.upi_autopay_enabled = False
             wallet.deployment_status = STATUS_PAUSED_ZERO
             wallet.call_balance_paise = 0
@@ -478,6 +525,7 @@ class BillingService:
             "upi_autopay_threshold_inr": wallet.upi_autopay_threshold_inr,
             "upi_autopay_amount_inr": wallet.upi_autopay_amount_inr,
             "referral_code": wallet.referral_code,
+            "metering_key": wallet.metering_key,
             "transactions": [
                 {
                     "transaction_id": r.transaction_id,
@@ -501,7 +549,14 @@ async def seed_live_tenants(session: AsyncSession) -> None:
 
     They are platform-owned (no owner_actor_id), start ACTIVE with a comped
     balance recorded in the ledger, and carry no invented GSTINs.
+
+    Production refuses this. Those wallets are pilot fixtures, not customer
+    accounts that should appear on a live shared deployment at boot.
     """
+    from app.config import settings
+
+    if settings.environment.strip().lower() == "production":
+        raise RuntimeError("Refusing to seed live pilot wallets in production")
     svc = BillingService(session)
     seeds = (
         ("abhishek-industries", "Abhishek Industries (Tumakuru)", "+918064270314", "v3", "kn-IN"),

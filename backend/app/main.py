@@ -1,10 +1,10 @@
-import uuid
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from app.config import settings, validate_production_settings
 from app.api.workflows import router as workflows_router
@@ -27,10 +27,12 @@ from app.api.voice import router as voice_router
 from app.api.agent_callbacks import router as agent_callbacks_router
 from app.api.agent_callbacks import webhook_router as agent_webhook_router
 from app.api.onboarding import router as onboarding_router
+from app.core.health import collect_readiness
 from app.core.middleware import (
     RequestIDMiddleware,
     RequestLoggingMiddleware,
     RateLimitMiddleware,
+    MetricsMiddleware,
     GlobalExceptionHandler,
 )
 
@@ -40,6 +42,42 @@ async def lifespan(app: FastAPI):
     validate_production_settings(settings)
     await _ensure_billing_tables_and_seed()
     yield
+
+
+async def _ensure_added_columns() -> None:
+    """Add columns introduced after the first create_all on an existing database.
+
+    create_all does not ALTER existing tables. SQLite (tests, local) and Postgres
+    (the shared deployment) both accept ADD COLUMN for these nullable fields.
+    """
+    import logging
+
+    from sqlalchemy import inspect, text
+
+    from app.db.session import engine
+
+    statements = (
+        ("actors", "created_by_id", "VARCHAR(36)"),
+        ("vendors", "owner_actor_id", "VARCHAR(36)"),
+        ("tenant_wallets", "metering_key", "VARCHAR(128)"),
+        ("extracted_documents", "storage_key", "VARCHAR(512)"),
+    )
+    try:
+        async with engine.begin() as conn:
+            def _sync(sync_conn):
+                insp = inspect(sync_conn)
+                tables = set(insp.get_table_names())
+                for table, column, coltype in statements:
+                    if table not in tables:
+                        continue
+                    present = {col["name"] for col in insp.get_columns(table)}
+                    if column in present:
+                        continue
+                    sync_conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}"))
+
+            await conn.run_sync(_sync)
+    except Exception:
+        logging.getLogger("sangam.startup").exception("Column backfill skipped")
 
 
 async def _ensure_billing_tables_and_seed() -> None:
@@ -55,7 +93,13 @@ async def _ensure_billing_tables_and_seed() -> None:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         async with async_session_factory() as session:
-            await seed_live_tenants(session)
+            if settings.environment.strip().lower() == "production":
+                logging.getLogger("sangam.startup").info(
+                    "Skipping pilot wallet seed in production"
+                )
+            else:
+                await seed_live_tenants(session)
+        await _ensure_added_columns()
     except Exception:
         logging.getLogger("sangam.startup").exception("Billing table setup/seed skipped")
 
@@ -116,6 +160,7 @@ class ApiV1AliasMiddleware:
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(MetricsMiddleware)
 app.add_middleware(ApiV1AliasMiddleware)
 
 GlobalExceptionHandler.register(app)
@@ -150,6 +195,17 @@ async def health():
         "version": settings.app_version,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+
+
+@app.get("/ready")
+async def ready():
+    code, body = await collect_readiness()
+    return JSONResponse(status_code=code, content=body)
+
+
+@app.get("/metrics")
+async def metrics():
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/api/v1")

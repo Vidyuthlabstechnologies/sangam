@@ -463,7 +463,12 @@ async def register_capabilities(
 
 @router.get("/capabilities")
 async def list_capabilities():
-    """List all GovStack capabilities for registration"""
+    """Static GovStack building-block catalog.
+
+    This payload is the public interface list (names and schemas). It does not
+    include customer records, so it stays unauthenticated. Every endpoint that
+    looks up a taxpayer or company still requires a logged-in actor.
+    """
     return {"capabilities": GOVSTACK_CAPABILITIES}
 
 

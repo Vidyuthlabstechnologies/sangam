@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from app.models.actor import Actor
+from app.models.actor import Actor, Permission
 from app.mcp_servers.registry import mcp_registry
 from app.mcp_servers.base import MCPRequest
 from app.api.dependencies import get_current_actor
+from app.core.access import is_admin, permission_values
 
 router = APIRouter(prefix="/mcp", tags=["mcp"])
 
@@ -44,7 +45,18 @@ async def execute_tool(
     req: MCPExecuteRequest,
     current_actor: Actor = Depends(get_current_actor),
 ):
-    mcp_req = MCPRequest(tool=req.tool, params=req.params)
+    allowed = permission_values(current_actor)
+    if not is_admin(current_actor) and Permission.EXECUTE.value not in allowed and Permission.CONFIGURE_INTEGRATIONS.value not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="MCP execute requires the execute or configure:integrations permission",
+        )
+    params = dict(req.params or {})
+    # Platform tools are global integrations. Never let the body aim them at another tenant.
+    if "tenant_id" in params and str(params["tenant_id"]) != str(current_actor.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot execute MCP for another tenant")
+    params["actor_id"] = str(current_actor.id)
+    mcp_req = MCPRequest(tool=req.tool, params=params)
     response = await mcp_registry.handle(req.server, mcp_req)
     return MCPResponseModel(
         success=response.success,

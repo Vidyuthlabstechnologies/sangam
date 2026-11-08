@@ -378,7 +378,7 @@ fun OnboardingWizardScreen(
                             try {
                                 ApiClient.onboardingApi.reportAiOutput(
                                     AiReportRequestDto(
-                                        user_id = TokenManager.getActorId() ?: "self",
+                                        user_id = TokenManager.getActorId() ?: "",
                                         call_id = "call_live_verify",
                                         reason = "User flagged utterance for guardrail tuning",
                                     )
@@ -873,7 +873,7 @@ fun OnboardingWizardScreen(
                                             try {
                                                 ApiClient.onboardingApi.connectComposioTool(
                                                     ComposioConnectRequestDto(
-                                                        user_id = TokenManager.getActorId() ?: "self",
+                                                        user_id = TokenManager.getActorId() ?: "",
                                                         toolkit = toolkit,
                                                     )
                                                 )
@@ -979,7 +979,7 @@ fun OnboardingWizardScreen(
                                     scope.launch {
                                         try {
                                             ApiClient.onboardingApi.configureAutopay(
-                                                mapOf<String, Any>("enabled" to checked)
+                                                mapOf("tenant_id" to (TokenManager.getActorId() ?: ""), "enabled" to checked)
                                             )
                                         } catch (e: Exception) {
                                             upiAutopayEnabled = !checked

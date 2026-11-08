@@ -53,6 +53,10 @@ class Vendor(Base):
     actor_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("actors.id"), nullable=True
     )
+    # Actor who registered this vendor. Reads and writes are limited to them.
+    owner_actor_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("actors.id"), nullable=True, index=True
+    )
     qualification_workflow_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), nullable=True
     )

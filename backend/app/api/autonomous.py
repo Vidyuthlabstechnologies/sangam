@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.api.dependencies import get_current_actor
+from app.core.access import load_accessible_workflow
 from app.models.actor import Actor
 from app.core.autonomous import auto_approve_low_risk, auto_retry_workflow, agent_auto_execute
 from app.models.approval import Approval
@@ -24,6 +25,9 @@ async def trigger_auto_retry(
     current_actor: Actor = Depends(get_current_actor),
     session: AsyncSession = Depends(get_session),
 ):
+    workflow = await load_accessible_workflow(session, current_actor.id, UUID(request.workflow_id))
+    if workflow is None:
+        raise HTTPException(status_code=404, detail="Workflow not found")
     success = await auto_retry_workflow(
         UUID(request.workflow_id), session, request.max_retries
     )
@@ -36,6 +40,9 @@ async def trigger_auto_execute(
     current_actor: Actor = Depends(get_current_actor),
     session: AsyncSession = Depends(get_session),
 ):
+    workflow = await load_accessible_workflow(session, current_actor.id, UUID(workflow_id))
+    if workflow is None:
+        raise HTTPException(status_code=404, detail="Workflow not found")
     success = await agent_auto_execute(UUID(workflow_id), session)
     return {"auto_executed": success}
 
@@ -51,6 +58,9 @@ async def trigger_auto_approve(
     )
     approval = result.scalar_one_or_none()
     if not approval:
+        raise HTTPException(status_code=404, detail="Approval not found")
+    workflow = await load_accessible_workflow(session, current_actor.id, approval.workflow_id)
+    if workflow is None:
         raise HTTPException(status_code=404, detail="Approval not found")
     success = await auto_approve_low_risk(approval, session)
     return {"auto_approved": success}

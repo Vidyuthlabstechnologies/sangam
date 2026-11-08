@@ -14,6 +14,7 @@ from app.models.approval import Approval, ApprovalStrategy
 from app.core.approval_engine import ApprovalEngine
 from app.core.autonomous import auto_approve_low_risk
 from app.api.dependencies import get_current_actor
+from app.core.access import load_accessible_workflow
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/approvals", tags=["approvals"])
@@ -63,6 +64,9 @@ async def create_approval(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
+    workflow = await load_accessible_workflow(session, current_actor.id, req.workflow_id)
+    if workflow is None:
+        raise HTTPException(status_code=404, detail="Workflow not found")
     engine = ApprovalEngine(session)
     approval = await engine.create_approval(
         workflow_id=req.workflow_id,
@@ -90,6 +94,9 @@ async def get_approval(
     except Exception:
         raise HTTPException(status_code=404, detail="Approval not found")
     if not result:
+        raise HTTPException(status_code=404, detail="Approval not found")
+    workflow = await load_accessible_workflow(session, current_actor.id, result.workflow_id)
+    if workflow is None:
         raise HTTPException(status_code=404, detail="Approval not found")
     return result
 

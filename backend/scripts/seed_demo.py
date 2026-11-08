@@ -69,7 +69,12 @@ async def seed() -> None:
         # A qualified vendor with a licence nearing expiry, so the expiry
         # warning path has something to show without waiting five years.
         result = await session.execute(select(Vendor).where(Vendor.name == "Kaveri Excipients"))
-        if result.scalar_one_or_none() is None:
+        existing_vendor = result.scalar_one_or_none()
+        if existing_vendor is not None and existing_vendor.owner_actor_id is None:
+            existing_vendor.owner_actor_id = actor.id
+            await session.commit()
+            print("[ok] backfilled vendor owner")
+        if existing_vendor is None:
             vendor = Vendor(
                 id=uuid.uuid4(),
                 name="Kaveri Excipients",
@@ -79,6 +84,7 @@ async def seed() -> None:
                 contact_email="regulatory@kaveri.demo",
                 contact_phone="+919845012345",
                 status=VendorStatus.QUALIFIED,
+                owner_actor_id=actor.id,
             )
             session.add(vendor)
             await session.flush()

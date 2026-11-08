@@ -92,20 +92,19 @@ class NotificationService:
     async def broadcast(
         self,
         payload: NotificationPayload,
-        role_filter: Optional[str] = None,
+        *,
+        actor_ids: List[str],
+        caller_is_admin: bool,
     ) -> int:
-        query = select(Actor).where(Actor.is_active == True)
-        if role_filter:
-            result = await self.session.execute(query)
-            actors = result.scalars().all()
-            actors = [a for a in actors if role_filter in (a.roles or [])]
-        else:
-            result = await self.session.execute(query)
-            actors = result.scalars().all()
-        total = 0
-        for actor in actors:
-            total += await self.send_to_actor(str(actor.id), payload)
-        return total
+        """Push only to an explicit actor list, and only when an admin asks.
+
+        There is no path that walks every active actor.
+        """
+        if not caller_is_admin:
+            raise PermissionError("Only an admin can broadcast notifications")
+        if not actor_ids:
+            raise PermissionError("Broadcast must name the actors it targets")
+        return await self.send_to_multiple(actor_ids, payload)
 
     async def _send_fcm(self, token: str, payload: NotificationPayload) -> None:
         if not settings.fcm_server_key:

@@ -12,8 +12,10 @@ Run it:
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
 from app.api.agent_callbacks import webhook_router
+from app.core.health import collect_readiness
 from app.config import settings, validate_production_settings
 from app.core.middleware import (
     GlobalExceptionHandler,
@@ -46,3 +48,9 @@ app.include_router(webhook_router)
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/ready")
+async def ready():
+    code, body = await collect_readiness()
+    return JSONResponse(status_code=code, content=body)

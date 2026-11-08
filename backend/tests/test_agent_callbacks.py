@@ -9,6 +9,7 @@ like an Aadhaar number is ever stored.
 import uuid
 
 import pytest
+import pytest_asyncio
 
 from app.config import settings
 from app.models.actor import Role
@@ -16,11 +17,29 @@ from app.models.actor import Role
 SECRET = "test-webhook-secret-0123456789"
 HOOK = {"X-Webhook-Secret": SECRET}
 AADHAAR_LIKE = "2345 6789 0123"
+_SCOPE = {"tenant": None}
 
 
 @pytest.fixture(autouse=True)
 def _webhook_secret(monkeypatch):
     monkeypatch.setattr(settings, "agent_webhook_secret", SECRET, raising=False)
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _bind_callback_to_caller(current_actor, db_session):
+    """Callbacks are only listed for a tenant the server can prove."""
+    from app.core.billing_service import BillingService
+
+    wallet = await BillingService(db_session).get_or_create_wallet(
+        str(current_actor.id), owner_actor_id=current_actor.id, business_name=current_actor.name
+    )
+    await db_session.commit()
+    await db_session.refresh(wallet)
+    HOOK["X-Tenant-Key"] = wallet.metering_key
+    _SCOPE["tenant"] = str(current_actor.id)
+    yield
+    HOOK.pop("X-Tenant-Key", None)
+    _SCOPE["tenant"] = None
 
 
 def _body(**over):
@@ -33,6 +52,7 @@ def _body(**over):
         "urgency": "normal",
         "notes": "PAN name spelling correction",
         "call_id": f"call-{uuid.uuid4().hex[:12]}",
+        "tenant_id": _SCOPE["tenant"],
     }
     body.update(over)
     return body

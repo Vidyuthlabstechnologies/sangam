@@ -27,6 +27,7 @@ from app.core import composio_router
 from app.core.billing_service import BillingService
 from app.db.session import get_session
 from app.models.actor import Actor
+from app.models.sangamitra_release import TenantWalletModel
 from app.models.voice_callback import CallbackStatus, VoiceCallback
 
 # Two routers on purpose. webhook_router is the ONLY thing the public tunnel
@@ -87,7 +88,7 @@ class CallbackIn(BaseModel):
     urgency: str = "normal"
     notes: Optional[str] = Field(default=None, max_length=1000)
     call_id: Optional[str] = Field(default=None, max_length=64)
-    tenant_id: Optional[str] = Field(default="abhishek-industries", max_length=100)
+    tenant_id: Optional[str] = Field(default=None, max_length=100)
     duration_seconds: Optional[int] = Field(default=0, ge=0)
     recording_url: Optional[str] = Field(default=None, max_length=500)
     ai_summary: Optional[str] = Field(default=None, max_length=1000)
@@ -114,7 +115,7 @@ class CallbackIn(BaseModel):
 
 class CallEndedWebhookIn(BaseModel):
     call_id: str = Field(..., max_length=64)
-    tenant_id: str = Field(default="abhishek-industries", max_length=100)
+    tenant_id: str = Field(..., max_length=100)
     caller_phone: Optional[str] = None
     duration_seconds: int = Field(..., ge=1)
     language: str = "kn-IN"
@@ -130,7 +131,7 @@ def _view(row: VoiceCallback) -> dict:
     return {
         "id": str(row.id),
         "call_id": row.call_id,
-        "tenant_id": row.tenant_id or "abhishek-industries",
+        "tenant_id": row.tenant_id,
         "caller_name": row.caller_name,
         "caller_phone": row.caller_phone,
         "service": row.service,
@@ -145,6 +146,24 @@ def _view(row: VoiceCallback) -> dict:
         "status": row.status.value,
         "created_at": row.created_at.isoformat(),
     }
+
+
+async def prove_tenant(session: AsyncSession, tenant_id: Optional[str], tenant_key: Optional[str]) -> Optional[str]:
+    """The shared webhook secret is not enough to name a wallet.
+
+    The body tenant is accepted only when it matches the server-stored
+    per-tenant metering key. Anything else is unattached and is not debited.
+    """
+    if not tenant_id or not tenant_key:
+        return None
+    wallet = await BillingService(session).get_wallet(tenant_id)
+    if wallet is None or not wallet.metering_key:
+        return None
+    try:
+        ok = hmac.compare_digest(tenant_key.encode(), wallet.metering_key.encode())
+    except Exception:
+        return None
+    return wallet.tenant_id if ok else None
 
 
 async def require_webhook_secret(
@@ -165,6 +184,7 @@ async def record_callback(
     background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_session),
     _: None = Depends(require_webhook_secret),
+    x_tenant_key: Optional[str] = Header(default=None),
 ):
     if body.call_id:
         existing = (
@@ -175,9 +195,10 @@ async def record_callback(
             response.status_code = 200
             return {"id": str(existing.id), "status": "duplicate"}
 
+    proven_tenant = await prove_tenant(session, body.tenant_id, x_tenant_key)
     row = VoiceCallback(
         call_id=body.call_id,
-        tenant_id=body.tenant_id or "abhishek-industries",
+        tenant_id=proven_tenant,
         caller_name=_mask(body.caller_name, 100),
         caller_phone=body.caller_phone,
         service=body.service,
@@ -200,19 +221,19 @@ async def record_callback(
     notes = row.notes or ""
     # Billing and tool logging must never fail the webhook: the callback row is already saved.
     try:
-        tenant = view["tenant_id"]
-        if body.duration_seconds and body.duration_seconds > 0:
-            await BillingService(session).meter_call(tenant, body.duration_seconds, body.call_id)
-        await composio_router.execute_post_call_chain(
-            session,
-            tenant_id=tenant,
-            caller_name=view["caller_name"] or "Caller",
-            caller_phone=view["caller_phone"] or "",
-            requirement_summary=f"{view['service']} - {notes}".strip(" -"),
-            language=view["language"] or "kn-IN",
-            preferred_time=view["preferred_time"],
-        )
-        await session.commit()
+        if proven_tenant:
+            if body.duration_seconds and body.duration_seconds > 0:
+                await BillingService(session).meter_call(proven_tenant, body.duration_seconds, body.call_id)
+            await composio_router.execute_post_call_chain(
+                session,
+                tenant_id=proven_tenant,
+                caller_name=view["caller_name"] or "Caller",
+                caller_phone=view["caller_phone"] or "",
+                requirement_summary=f"{view['service']} - {notes}".strip(" -"),
+                language=view["language"] or "kn-IN",
+                preferred_time=view["preferred_time"],
+            )
+            await session.commit()
     except Exception:
         await session.rollback()
         logger.exception("Post-callback billing/tool step failed for callback %s", row_id)
@@ -228,20 +249,40 @@ async def handle_call_ended_webhook(
     body: CallEndedWebhookIn,
     session: AsyncSession = Depends(get_session),
     _: None = Depends(require_webhook_secret),
+    x_tenant_key: Optional[str] = Header(default=None),
 ):
-    """Automatically meters call duration against the tenant's 60/40 wallet and triggers Rs. 0 auto-pause."""
-    meter_res = await BillingService(session).meter_call(body.tenant_id, body.duration_seconds, body.call_id)
+    """Meter a finished call only against the tenant the server can prove."""
+    proven = await prove_tenant(session, body.tenant_id, x_tenant_key)
+    if proven is None:
+        raise HTTPException(status_code=403, detail="Tenant is not bound to this webhook")
+    existing = (
+        await session.execute(select(VoiceCallback).where(VoiceCallback.call_id == body.call_id))
+    ).scalar_one_or_none()
+    if existing is not None and existing.tenant_id and existing.tenant_id != proven:
+        raise HTTPException(status_code=403, detail="Tenant does not match the recorded call")
+    meter_res = await BillingService(session).meter_call(proven, body.duration_seconds, body.call_id)
     await session.commit()
     missed_call_followup = body.duration_seconds <= 15 and bool(body.caller_phone)
     return {
         "call_id": body.call_id,
-        "tenant_id": body.tenant_id,
+        "tenant_id": proven,
         "duration_seconds": body.duration_seconds,
         "debited_inr": meter_res.get("last_call_debit_inr", 0.0),
         "remaining_balance_inr": meter_res.get("call_balance_inr", 0.0),
         "circuit_breaker_triggered": meter_res.get("circuit_breaker_triggered", False),
         "missed_call_whatsapp_triggered": missed_call_followup,
     }
+
+
+async def _owned_tenants(session: AsyncSession, actor: Actor) -> set[str]:
+    owned = {str(actor.id)}
+    rows = (
+        await session.execute(
+            select(TenantWalletModel.tenant_id).where(TenantWalletModel.owner_actor_id == actor.id)
+        )
+    ).scalars().all()
+    owned.update(rows)
+    return owned
 
 
 @router.get("", response_model=List[dict])
@@ -252,7 +293,15 @@ async def list_callbacks(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
-    query = select(VoiceCallback).order_by(VoiceCallback.created_at.desc()).limit(limit)
+    owned = await _owned_tenants(session, current_actor)
+    if tenant_id is not None and tenant_id not in owned:
+        raise HTTPException(status_code=404, detail="Callback request not found")
+    query = (
+        select(VoiceCallback)
+        .where(VoiceCallback.tenant_id.in_(owned))
+        .order_by(VoiceCallback.created_at.desc())
+        .limit(limit)
+    )
     if status is not None:
         query = query.where(VoiceCallback.status == status)
     if tenant_id is not None:
@@ -273,7 +322,8 @@ async def update_status(
     current_actor: Actor = Depends(get_current_actor),
 ):
     row = await session.get(VoiceCallback, callback_id)
-    if row is None:
+    owned = await _owned_tenants(session, current_actor)
+    if row is None or row.tenant_id not in owned:
         raise HTTPException(status_code=404, detail="Callback request not found")
     if not _is_admin(current_actor) and (row.tenant_id or "") not in await owned_tenant_ids(session, current_actor):
         raise HTTPException(status_code=404, detail="Callback request not found")

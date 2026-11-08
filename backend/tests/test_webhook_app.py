@@ -2,7 +2,7 @@
 
 Putting the full API on a public URL would expose open registration, payments,
 approvals and the interactive docs. The tunnel points at this small app
-instead, which mounts one route plus a health check and nothing else.
+instead, which mounts the webhook plus health and readiness and nothing else.
 """
 import uuid
 
@@ -34,7 +34,12 @@ def test_the_app_mounts_only_the_webhook_and_health():
     # Included routers are wrapper objects in recent FastAPI, so list paths via
     # the schema generator. The public /openapi.json URL is switched off, but
     # the generator itself still reports exactly what is mounted.
-    assert set(webhook_app.openapi()["paths"]) == {"/agent-callbacks", "/agent-callbacks/call-ended", "/health"}
+    assert set(webhook_app.openapi()["paths"]) == {
+        "/agent-callbacks",
+        "/agent-callbacks/call-ended",
+        "/health",
+        "/ready",
+    }
     assert set(webhook_app.openapi()["paths"]["/agent-callbacks"]) == {"post"}
     assert set(webhook_app.openapi()["paths"]["/agent-callbacks/call-ended"]) == {"post"}
 

@@ -35,6 +35,8 @@ class ExtractedDocument(Base):
         UUID(as_uuid=True), ForeignKey("vendors.id"), nullable=True
     )
     filename: Mapped[str] = mapped_column(String(512), nullable=False)
+    # Set only when S3/MinIO is configured. Key is tenants/{owner}/...
+    storage_key: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     document_type: Mapped[str] = mapped_column(String(64), nullable=False, default="licence")
     sarvam_job_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     status: Mapped[ExtractionStatus] = mapped_column(

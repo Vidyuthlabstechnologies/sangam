@@ -23,6 +23,12 @@ faststream[rabbitmq]>=0.5.0
 # Redis
 redis[hiredis]>=5.2.0
 
+# Optional object storage (MinIO / S3). Unused unless S3_* is set.
+minio==7.2.15
+
+# In-process Prometheus metrics. No collector is required to boot or test.
+prometheus-client==0.21.1
+
 # Vector Search
 qdrant-client>=1.12.0
 
@@ -40,6 +46,7 @@ email-validator>=2.2.0
 # Testing
 pytest>=8.3.0
 pytest-asyncio>=0.24.0
+aiosqlite>=0.20.0
 
 # Dev
 ruff>=0.6.0

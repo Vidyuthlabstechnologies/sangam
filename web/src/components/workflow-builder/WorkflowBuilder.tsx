@@ -39,16 +39,16 @@ export function WorkflowBuilder() {
     if (!name.trim()) return;
     setCreating(true);
     try {
-      const initiatorId = localStorage.getItem("sangam_actor_id");
-      if (!initiatorId) {
-        alert("Sign in again before creating a workflow.");
+      const actorId = localStorage.getItem("sangam_actor_id");
+      if (!actorId) {
+        alert("Sign in before creating a workflow.");
         setCreating(false);
         return;
       }
+      // The server sets the initiator from the signed-in actor. Do not send another id.
       await api.workflows.create({
         name,
         description,
-        initiator_id: initiatorId,
         phases: selectedPhases,
       });
       setName("");

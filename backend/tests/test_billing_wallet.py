@@ -304,16 +304,17 @@ async def test_call_metering_is_idempotent_and_pauses_at_zero(client: AsyncClien
     start = paid["wallet"]["call_balance_inr"]
 
     body = {"call_id": "call-A", "tenant_id": tid, "duration_seconds": 60}
-    r1 = await client.post("/agent-callbacks/call-ended", json=body, headers=_webhook())
+    meter_headers = {**_webhook(), "X-Tenant-Key": paid["wallet"]["metering_key"]}
+    r1 = await client.post("/agent-callbacks/call-ended", json=body, headers=meter_headers)
     assert r1.status_code == 200
     assert r1.json()["debited_inr"] == 7.5
     assert r1.json()["remaining_balance_inr"] == round(start - 7.5, 2)
 
-    r2 = await client.post("/agent-callbacks/call-ended", json=body, headers=_webhook())
+    r2 = await client.post("/agent-callbacks/call-ended", json=body, headers=meter_headers)
     assert r2.json()["remaining_balance_inr"] == r1.json()["remaining_balance_inr"]  # no double debit
 
     huge = {"call_id": "call-B", "tenant_id": tid, "duration_seconds": 36_000}
-    r3 = await client.post("/agent-callbacks/call-ended", json=huge, headers=_webhook())
+    r3 = await client.post("/agent-callbacks/call-ended", json=huge, headers=meter_headers)
     assert r3.json()["remaining_balance_inr"] == 0.0  # never negative
     assert r3.json()["circuit_breaker_triggered"] is True
     w = (await client.get("/onboarding/wallet/me")).json()
@@ -409,7 +410,7 @@ async def test_autopay_is_only_a_preference_and_creates_no_money(client: AsyncCl
     drain = await client.post(
         "/agent-callbacks/call-ended",
         json={"call_id": "call-D", "tenant_id": str(owner.id), "duration_seconds": 36_000},
-        headers=_webhook(),
+        headers={**_webhook(), "X-Tenant-Key": paid["wallet"]["metering_key"]},
     )
     assert drain.json()["remaining_balance_inr"] == 0.0
 

@@ -3,20 +3,20 @@ from datetime import datetime
 from uuid import UUID
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select
 from pydantic import BaseModel
 
 from app.db.session import get_session
 from app.models.actor import Actor
-from app.models.workflow import Workflow, WorkflowPhase, WorkflowState, WaitingEvent
+from app.models.workflow import WorkflowPhase, WaitingEvent
 from app.models.handoff import Handoff
-from app.models.audit_log import AuditLog
 from app.models.exception import ExceptionWorkflow
 from app.core.coordinator import Coordinator
 from app.core.audit import AuditService
 from app.api.dependencies import get_current_actor
+from app.core.access import load_accessible_workflow
 
 
 router = APIRouter(prefix="/coordination", tags=["coordination"])
@@ -80,8 +80,7 @@ async def transition_phase(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
-    result = await session.execute(select(Workflow).where(Workflow.id == workflow_id))
-    workflow = result.scalar_one_or_none()
+    workflow = await load_accessible_workflow(session, current_actor.id, workflow_id)
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
 
@@ -148,6 +147,9 @@ async def list_handoffs(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
+    workflow = await load_accessible_workflow(session, current_actor.id, workflow_id)
+    if workflow is None:
+        raise HTTPException(status_code=404, detail="Workflow not found")
     result = await session.execute(
         select(Handoff).where(Handoff.workflow_id == workflow_id)
     )
@@ -160,6 +162,9 @@ async def create_waiting_event(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
+    workflow = await load_accessible_workflow(session, current_actor.id, req.workflow_id)
+    if workflow is None:
+        raise HTTPException(status_code=404, detail="Workflow not found")
     coordinator = Coordinator(session)
     event = await coordinator.create_waiting_event(
         workflow_id=req.workflow_id,
@@ -188,6 +193,9 @@ async def list_waiting_events(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
+    workflow = await load_accessible_workflow(session, current_actor.id, workflow_id)
+    if workflow is None:
+        raise HTTPException(status_code=404, detail="Workflow not found")
     result = await session.execute(
         select(WaitingEvent).where(WaitingEvent.workflow_id == workflow_id)
     )
@@ -216,14 +224,16 @@ async def list_audit_logs(
 ):
     audit = AuditService(session)
     if workflow_id:
+        workflow = await load_accessible_workflow(session, current_actor.id, workflow_id)
+        if workflow is None:
+            raise HTTPException(status_code=404, detail="Workflow not found")
         logs = await audit.get_workflow_audit(workflow_id, limit, offset)
     elif actor_id:
+        if actor_id != current_actor.id:
+            raise HTTPException(status_code=404, detail="Actor not found")
         logs = await audit.get_actor_audit(actor_id, limit, offset)
     else:
-        result = await session.execute(
-            select(AuditLog).order_by(AuditLog.created_at.desc()).offset(offset).limit(limit)
-        )
-        logs = list(result.scalars().all())
+        logs = await audit.get_actor_audit(current_actor.id, limit, offset)
 
     return {
         "items": [
@@ -249,6 +259,9 @@ async def list_exceptions(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
+    workflow = await load_accessible_workflow(session, current_actor.id, workflow_id)
+    if workflow is None:
+        raise HTTPException(status_code=404, detail="Workflow not found")
     result = await session.execute(
         select(ExceptionWorkflow).where(ExceptionWorkflow.parent_workflow_id == workflow_id)
     )

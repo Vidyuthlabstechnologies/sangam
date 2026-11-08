@@ -1,3 +1,8 @@
+# Local development only. Passwords below are dev defaults so
+# `docker compose up` works without a secret store. Production manifests
+# under k8s/ read passwords from the sangam-secrets Secret.
+# Backup (operator-run, never from CI):
+#   DATABASE_URL='postgresql://USER:PASSWORD@localhost:5432/sangam' ./scripts/backup_postgres.sh
 version: "3.8"
 
 services:
@@ -68,6 +73,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       TEMPORAL_HOST: temporal:7233
+      ENVIRONMENT: development
+      # Dev-only signing key. Production refuses this value.
       JWT_SECRET: dev-secret-change-in-production
     depends_on:
       postgres:
@@ -77,5 +84,23 @@ services:
       temporal:
         condition: service_started
 
+  # Optional. Not started by `docker compose up`.
+  # docker compose --profile storage up
+  # Then set S3_ENDPOINT_URL=http://minio:9000 S3_BUCKET=sangam
+  # S3_ACCESS_KEY and S3_SECRET_KEY to the dev root user below.
+  minio:
+    image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+    profiles: ["storage"]
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
 volumes:
   postgres_data:
+  minio_data:

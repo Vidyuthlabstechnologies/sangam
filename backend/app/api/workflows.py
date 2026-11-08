@@ -1,5 +1,5 @@
+from typing import Optional
 from uuid import UUID
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,17 +7,22 @@ from sqlalchemy import select, func
 
 from app.db.session import get_session
 from app.models.workflow import Workflow, WorkflowState, WorkflowPhase
-from app.models.approval import Approval
-from app.models.handoff import Handoff
-from app.models.exception import ExceptionWorkflow
 from app.schemas.workflow import (
     WorkflowCreate, WorkflowUpdate, WorkflowResponse, WorkflowPhaseTransition,
     WorkflowListResponse,
 )
 from app.api.dependencies import get_current_actor
 from app.models.actor import Actor
+from app.core.access import load_accessible_workflow, workflow_visibility
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
+
+
+async def _load(session: AsyncSession, actor: Actor, workflow_id: UUID) -> Workflow:
+    workflow = await load_accessible_workflow(session, actor.id, workflow_id)
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    return workflow
 
 
 @router.post("/", response_model=WorkflowResponse, status_code=status.HTTP_201_CREATED)
@@ -26,10 +31,11 @@ async def create_workflow(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
+    # initiator_id from the client is ignored so a caller cannot attribute work to someone else.
     workflow = Workflow(
         name=data.name,
         description=data.description,
-        initiator_id=data.initiator_id,
+        initiator_id=current_actor.id,
         phases=data.phases if data.phases else [p for p in WorkflowPhase],
         extra_attributes=data.extra_attributes,
     )
@@ -48,7 +54,7 @@ async def list_workflows(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
-    query = select(Workflow)
+    query = select(Workflow).where(workflow_visibility(current_actor.id))
 
     if state:
         query = query.where(Workflow.state == state)
@@ -78,11 +84,7 @@ async def get_workflow(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
-    result = await session.execute(select(Workflow).where(Workflow.id == workflow_id))
-    workflow = result.scalar_one_or_none()
-    if not workflow:
-        raise HTTPException(status_code=404, detail="Workflow not found")
-    return workflow
+    return await _load(session, current_actor, workflow_id)
 
 
 @router.patch("/{workflow_id}", response_model=WorkflowResponse)
@@ -92,12 +94,10 @@ async def update_workflow(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
-    result = await session.execute(select(Workflow).where(Workflow.id == workflow_id))
-    workflow = result.scalar_one_or_none()
-    if not workflow:
-        raise HTTPException(status_code=404, detail="Workflow not found")
+    workflow = await _load(session, current_actor, workflow_id)
 
     update_data = data.model_dump(exclude_unset=True)
+    update_data.pop("initiator_id", None)
     for field, value in update_data.items():
         setattr(workflow, field, value)
 
@@ -113,10 +113,7 @@ async def transition_phase(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
-    result = await session.execute(select(Workflow).where(Workflow.id == workflow_id))
-    workflow = result.scalar_one_or_none()
-    if not workflow:
-        raise HTTPException(status_code=404, detail="Workflow not found")
+    workflow = await _load(session, current_actor, workflow_id)
 
     if workflow.state in (WorkflowState.COMPLETED, WorkflowState.FAILED):
         raise HTTPException(
@@ -136,10 +133,7 @@ async def pause_workflow(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
-    result = await session.execute(select(Workflow).where(Workflow.id == workflow_id))
-    workflow = result.scalar_one_or_none()
-    if not workflow:
-        raise HTTPException(status_code=404, detail="Workflow not found")
+    workflow = await _load(session, current_actor, workflow_id)
 
     if workflow.state != WorkflowState.ACTIVE:
         raise HTTPException(status_code=400, detail="Only active workflows can be paused")
@@ -156,10 +150,7 @@ async def resume_workflow(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
-    result = await session.execute(select(Workflow).where(Workflow.id == workflow_id))
-    workflow = result.scalar_one_or_none()
-    if not workflow:
-        raise HTTPException(status_code=404, detail="Workflow not found")
+    workflow = await _load(session, current_actor, workflow_id)
 
     if workflow.state != WorkflowState.PAUSED:
         raise HTTPException(status_code=400, detail="Only paused workflows can be resumed")
@@ -176,10 +167,7 @@ async def cancel_workflow(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
-    result = await session.execute(select(Workflow).where(Workflow.id == workflow_id))
-    workflow = result.scalar_one_or_none()
-    if not workflow:
-        raise HTTPException(status_code=404, detail="Workflow not found")
+    workflow = await _load(session, current_actor, workflow_id)
 
     if workflow.state in (WorkflowState.COMPLETED, WorkflowState.FAILED):
         raise HTTPException(
@@ -199,9 +187,6 @@ async def delete_workflow(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
-    result = await session.execute(select(Workflow).where(Workflow.id == workflow_id))
-    workflow = result.scalar_one_or_none()
-    if not workflow:
-        raise HTTPException(status_code=404, detail="Workflow not found")
+    workflow = await _load(session, current_actor, workflow_id)
     await session.delete(workflow)
     await session.commit()
