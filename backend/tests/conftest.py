@@ -1,4 +1,3 @@
-import os
 import asyncio
 from typing import AsyncGenerator
 
@@ -23,8 +22,19 @@ settings.use_fixtures = True
 @pytest.fixture(autouse=True)
 def _force_fixture_mode(monkeypatch):
     """Belt-and-braces: re-assert fixture mode per test in case a test
-    mutates settings and fails before restoring it."""
+    mutates settings and fails before restoring it.
+
+    Optional integrations stay off so a developer .env cannot make pytest
+    call Redis, MinIO, SMTP, or a local model.
+    """
     monkeypatch.setattr(settings, "use_fixtures", True)
+    monkeypatch.setattr(settings, "redis_url", "")
+    monkeypatch.setattr(settings, "s3_endpoint_url", None)
+    monkeypatch.setattr(settings, "s3_bucket", None)
+    monkeypatch.setattr(settings, "s3_access_key", None)
+    monkeypatch.setattr(settings, "s3_secret_key", None)
+    monkeypatch.setattr(settings, "llm_base_url", None)
+    monkeypatch.setattr(settings, "smtp_host", None)
 
 
 @pytest.fixture(scope="session")

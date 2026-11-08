@@ -62,9 +62,10 @@ under-reporting confidence is far safer than over-reporting it."""
 
 
 class DocumentIntelligence:
-    def __init__(self, session: AsyncSession, sarvam: Optional[SarvamAI] = None):
+    def __init__(self, session: AsyncSession, sarvam: Optional[SarvamAI] = None, store=None):
         self.session = session
         self.sarvam = sarvam or SarvamAI()
+        self.store = store
 
     def _compute_review_flag(self, confidence: Dict[str, float]) -> bool:
         """Whether a human should confirm this extraction.
@@ -86,6 +87,7 @@ class DocumentIntelligence:
         document_type: str = "licence",
         vendor_id: Optional[UUID] = None,
         language_code: str = "en-IN",
+        owner_id: Optional[str] = None,
     ) -> ExtractedDocument:
         """Run a document through digitisation and structuring.
 
@@ -102,6 +104,26 @@ class DocumentIntelligence:
         self.session.add(doc)
         await self.session.commit()
         await self.session.refresh(doc)
+
+        if owner_id:
+            store = self.store
+            if store is None:
+                from app.core.object_store import object_store
+                store = object_store
+            try:
+                key = await store.put_bytes(
+                    owner=owner_id,
+                    document_id=str(doc.id),
+                    filename=filename,
+                    data=file_bytes,
+                    content_type="application/octet-stream",
+                )
+                if key:
+                    doc.storage_key = key
+            except Exception:
+                # Extraction still proceeds. The key is not logged: filenames
+                # are caller-controlled and can contain phone numbers.
+                logger.warning("Document bytes were not stored in object storage")
 
         try:
             job = await self.sarvam.vision_extract(

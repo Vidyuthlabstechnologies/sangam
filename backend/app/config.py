@@ -10,8 +10,32 @@ class Settings(BaseSettings):
     environment: str = "development"
 
     database_url: str = "postgresql+asyncpg://sangam:sangam@localhost:5432/sangam"
-    redis_url: str = "redis://localhost:6379/0"
+    # Empty means in-process rate limits. Set REDIS_URL (compose and k8s do)
+    # so every replica shares one counter.
+    redis_url: str = ""
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
+
+    db_pool_size: int = 5
+    db_max_overflow: int = 10
+    db_pool_timeout_seconds: int = 30
+    db_pool_recycle_seconds: int = 1800
+    db_connect_timeout_seconds: int = 10
+    db_command_timeout_seconds: int = 30
+
+    # Optional MinIO/S3. All four must be set; otherwise uploads stay in the
+    # existing extraction path and nothing is written to object storage.
+    s3_endpoint_url: Optional[str] = None
+    s3_bucket: Optional[str] = None
+    s3_access_key: Optional[str] = None
+    s3_secret_key: Optional[str] = None
+    s3_region: str = "us-east-1"
+
+    # Optional OpenAI-compatible chat endpoint (Ollama, vLLM, llama.cpp).
+    # Off unless LLM_BASE_URL is set. Sarvam remains the provider when
+    # SARVAM_API_KEY is set. No model weights are bundled.
+    llm_base_url: Optional[str] = None
+    llm_api_key: Optional[str] = None
+    llm_model: Optional[str] = None
 
     temporal_host: str = "localhost:7233"
     temporal_namespace: str = "sangam"
@@ -52,7 +76,12 @@ class Settings(BaseSettings):
 
     notification_webhook_url: Optional[str] = None
 
-    email_api_key: Optional[str] = None
+    # SMTP is the mail path. Unset SMTP_HOST means mail is skipped (no paid API).
+    smtp_host: Optional[str] = None
+    smtp_port: int = 587
+    smtp_username: Optional[str] = None
+    smtp_password: Optional[str] = None
+    smtp_use_tls: bool = True
     email_from: str = "noreply@sangam.ai"
     email_from_name: str = "Sangam"
     app_url: str = "http://localhost:5173"
@@ -85,24 +114,50 @@ settings = Settings()
 
 _MIN_SECRET_LENGTH = 32
 
+# Values that appear in this repo for local development. A production process
+# that still has one of them can be forged by anyone who has read the source.
+_WEAK_JWT_MARKERS = (
+    "change-me",
+    "change-in-production",
+    "dev-secret",
+    "generate-a-random",
+)
+
+
+def database_password(url: str) -> str:
+    """Return the password embedded in a SQLAlchemy URL, or ""."""
+    from urllib.parse import urlparse
+
+    normalized = url.replace("postgresql+asyncpg://", "postgresql://", 1)
+    normalized = normalized.replace("postgresql+psycopg://", "postgresql://", 1)
+    normalized = normalized.replace("postgresql+psycopg2://", "postgresql://", 1)
+    return urlparse(normalized).password or ""
+
 
 def validate_production_settings(s: Settings) -> None:
     """Refuse to start in production with settings that make it forgeable.
 
     The default JWT secret is in source control, so anyone who has read the
     repo could mint a valid token for any actor. Fixture mode returns canned
-    payment and AI responses. Neither may ever run as "production".
+    payment and AI responses. The local Postgres password is in the compose
+    file. None of those may run as "production".
     """
     if s.environment.strip().lower() != "production":
         return
 
     problems = []
     secret = s.jwt_secret or ""
-    if secret.upper().startswith("CHANGE-ME") or len(secret) < _MIN_SECRET_LENGTH:
-        problems.append(f"JWT_SECRET must be a random value of at least {_MIN_SECRET_LENGTH} characters")
+    lowered = secret.lower()
+    weak = len(secret) < _MIN_SECRET_LENGTH or any(marker in lowered for marker in _WEAK_JWT_MARKERS)
+    if weak:
+        problems.append(
+            f"JWT_SECRET must be a random value of at least {_MIN_SECRET_LENGTH} characters"
+        )
     if s.use_fixtures:
         problems.append("USE_FIXTURES must be false")
     if s.debug:
         problems.append("DEBUG must be false")
+    if database_password(s.database_url) == "sangam":
+        problems.append("DATABASE_URL must not use the default Postgres password")
     if problems:
         raise RuntimeError("Unsafe production configuration: " + "; ".join(problems))

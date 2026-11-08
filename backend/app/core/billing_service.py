@@ -14,6 +14,8 @@ Things this deliberately does NOT do:
 """
 from __future__ import annotations
 
+import hashlib
+import logging
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -40,6 +42,19 @@ STATUS_PAUSED_ZERO = "PAUSED_ZERO_BALANCE"
 STATUS_PLAN_EXPIRED = "PLAN_EXPIRED"
 
 PAYMENT_KINDS = ("PLAN", "TOPUP")
+logger = logging.getLogger("sangam.billing")
+
+
+def usage_transaction_id(call_id: str) -> str:
+    """Stable ledger key for one call. The column is VARCHAR(64).
+
+    Short ids stay ``call:{id}`` so rows already written still match.
+    Longer ids are hashed; the hash is stable, so a retry hits the same row.
+    """
+    raw = f"call:{call_id}"
+    if len(raw) <= 64:
+        return raw
+    return "call:" + hashlib.sha256(call_id.encode()).hexdigest()[:32]
 
 
 class BillingError(Exception):
@@ -261,10 +276,25 @@ class BillingService:
 
     # ------------------------------------------------------------------- usage
     async def meter_call(self, tenant_id: str, duration_seconds: int, call_id: Optional[str]) -> Dict[str, Any]:
-        """Debit a finished call. Idempotent per call id. The balance never goes below zero."""
+        """Debit a finished call. Idempotent per call id. The balance never goes below zero.
+
+        A missing call id is not debited. A random ledger key would charge
+        again on every webhook retry. The unique transaction id is the
+        backstop when two retries pass the existence check together: the
+        loser hits IntegrityError, the transaction rolls back, and the
+        committed balance is the one from the first insert.
+        """
         wallet = await self.get_or_create_wallet(tenant_id, lock=True)
-        txn_id = f"call:{call_id}" if call_id else f"call:{uuid.uuid4().hex}"
-        existing = await self._ledger_entry(txn_id) if call_id else None
+        call_key = (call_id or "").strip()
+        if not call_key:
+            logger.warning("Skipping call debit because call_id is missing")
+            res = await self.serialize(wallet)
+            res["last_call_debit_inr"] = 0.0
+            res["debit_skipped"] = "call_id_required"
+            return res
+
+        txn_id = usage_transaction_id(call_key)
+        existing = await self._ledger_entry(txn_id)
         if existing is not None:
             res = await self.serialize(wallet, idempotent_replay=True)
             res["circuit_breaker_triggered"] = wallet.deployment_status == STATUS_PAUSED_ZERO
@@ -281,16 +311,23 @@ class BillingService:
         note = f"Voice call {int(duration_seconds)}s"
         if debit < wanted:
             note += f" (balance ran out: Rs. {_inr(wanted - debit)} not recoverable)"
-        await self._add_entry(
-            wallet=wallet,
-            transaction_id=txn_id,
-            kind="CALL_USAGE",
-            gross_paise=debit,
-            profit_paise=max(debit - raw_cost, 0),
-            pool_paise=raw_cost,
-            credit_delta_paise=-debit,
-            description=note,
-        )
+        try:
+            await self._add_entry(
+                wallet=wallet,
+                transaction_id=txn_id,
+                kind="CALL_USAGE",
+                gross_paise=debit,
+                profit_paise=max(debit - raw_cost, 0),
+                pool_paise=raw_cost,
+                credit_delta_paise=-debit,
+                description=note,
+            )
+        except IntegrityError:
+            await self.session.rollback()
+            wallet = await self.get_or_create_wallet(tenant_id, lock=True)
+            res = await self.serialize(wallet, idempotent_replay=True)
+            res["circuit_breaker_triggered"] = wallet.deployment_status == STATUS_PAUSED_ZERO
+            return res
         res = await self.serialize(wallet)
         res["last_call_debit_inr"] = _inr(debit)
         res["last_call_provider_cost_inr"] = _inr(raw_cost)

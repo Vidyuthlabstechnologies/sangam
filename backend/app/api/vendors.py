@@ -216,12 +216,14 @@ async def upload_vendor_document(
         )
 
     di = DocumentIntelligence(session)
+    owner = vendor.owner_actor_id or current_actor.id
     doc = await di.extract(
         file_bytes=file_bytes,
         filename=file.filename or "document.pdf",
         document_type=document_type,
         vendor_id=vendor.id,
         language_code=language_code,
+        owner_id=str(owner),
     )
 
     if doc.status == ExtractionStatus.COMPLETED and document_type == "licence":

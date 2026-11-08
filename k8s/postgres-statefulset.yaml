@@ -1,3 +1,7 @@
+# Production database. POSTGRES_PASSWORD comes from the sangam-secrets Secret
+# (key: postgres_password). Do not put the password in this file.
+# Backup (run by an operator, never from CI):
+#   DATABASE_URL='postgresql://USER:PASSWORD@postgres:5432/sangam' ./scripts/backup_postgres.sh
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -42,7 +46,10 @@ spec:
             - name: POSTGRES_USER
               value: sangam
             - name: POSTGRES_PASSWORD
-              value: sangam
+              valueFrom:
+                secretKeyRef:
+                  name: sangam-secrets
+                  key: postgres_password
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data

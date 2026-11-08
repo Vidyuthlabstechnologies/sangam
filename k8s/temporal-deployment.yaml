@@ -24,7 +24,10 @@ spec:
             - name: POSTGRES_USER
               value: sangam
             - name: POSTGRES_PASSWORD
-              value: sangam
+              valueFrom:
+                secretKeyRef:
+                  name: sangam-secrets
+                  key: postgres_password
             - name: POSTGRES_SEEDS
               value: postgres
             - name: DYNAMIC_CONFIG_FILE_PATH

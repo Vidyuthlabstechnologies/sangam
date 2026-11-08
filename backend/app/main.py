@@ -1,10 +1,10 @@
-import uuid
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from app.config import settings, validate_production_settings
 from app.api.workflows import router as workflows_router
@@ -27,10 +27,12 @@ from app.api.voice import router as voice_router
 from app.api.agent_callbacks import router as agent_callbacks_router
 from app.api.agent_callbacks import webhook_router as agent_webhook_router
 from app.api.onboarding import router as onboarding_router
+from app.core.health import collect_readiness
 from app.core.middleware import (
     RequestIDMiddleware,
     RequestLoggingMiddleware,
     RateLimitMiddleware,
+    MetricsMiddleware,
     GlobalExceptionHandler,
 )
 
@@ -58,6 +60,7 @@ async def _ensure_added_columns() -> None:
         ("actors", "created_by_id", "VARCHAR(36)"),
         ("vendors", "owner_actor_id", "VARCHAR(36)"),
         ("tenant_wallets", "metering_key", "VARCHAR(128)"),
+        ("extracted_documents", "storage_key", "VARCHAR(512)"),
     )
     try:
         async with engine.begin() as conn:
@@ -120,6 +123,7 @@ app.add_middleware(
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(MetricsMiddleware)
 
 GlobalExceptionHandler.register(app)
 
@@ -153,6 +157,17 @@ async def health():
         "version": settings.app_version,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+
+
+@app.get("/ready")
+async def ready():
+    code, body = await collect_readiness()
+    return JSONResponse(status_code=code, content=body)
+
+
+@app.get("/metrics")
+async def metrics():
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/api/v1")

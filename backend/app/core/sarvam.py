@@ -2,9 +2,8 @@ from __future__ import annotations
 import io
 import os
 import json
-import base64
 import zipfile
-from typing import Optional, List, Dict, Any, BinaryIO
+from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
 
 import httpx
@@ -227,13 +226,19 @@ class SarvamAI:
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
     ) -> SarvamLLMResult:
-        if self.use_fixtures:
-            # Dispatch on the prompt so each caller gets a response of the
-            # shape it expects, rather than one payload for every request.
+        # USE_FIXTURES, or no Sarvam key and no local endpoint: canned response.
+        # A configured LLM_BASE_URL is an OpenAI-compatible local model and is
+        # used only when Sarvam itself is not configured. Tests force fixtures.
+        local = (settings.llm_base_url or "").strip()
+        if settings.use_fixtures or (not self.api_key and not local):
             data = fixtures.sarvam_llm_for(messages)
             return SarvamLLMResult(
                 content=data["choices"][0]["message"]["content"],
                 model=model,
+            )
+        if not self.api_key:
+            return await self._llm_openai_compatible(
+                messages, model, temperature, max_tokens
             )
 
         async with httpx.AsyncClient(timeout=120) as client:
@@ -265,6 +270,43 @@ class SarvamAI:
             content=content,
             model=model,
         )
+
+    async def _llm_openai_compatible(
+        self,
+        messages: List[Dict[str, str]],
+        model: str,
+        temperature: float,
+        max_tokens: Optional[int],
+    ) -> SarvamLLMResult:
+        """Chat against an operator-hosted OpenAI-compatible server.
+
+        The prompt is the request body and is not logged.
+        """
+        base = (settings.llm_base_url or "").rstrip("/")
+        chosen = (settings.llm_model or model or "local")
+        headers = {"Content-Type": "application/json"}
+        if settings.llm_api_key:
+            headers["Authorization"] = f"Bearer {settings.llm_api_key}"
+        payload: Dict[str, Any] = {
+            "model": chosen,
+            "messages": messages,
+            "temperature": temperature,
+        }
+        if max_tokens:
+            payload["max_tokens"] = max_tokens
+        async with httpx.AsyncClient(timeout=120) as client:
+            response = await client.post(
+                f"{base}/chat/completions",
+                headers=headers,
+                json=payload,
+            )
+            self._raise_for_status(response, "openai-compatible chat completion")
+            data = response.json()
+        content = ""
+        if data.get("choices"):
+            message = data["choices"][0].get("message") or {}
+            content = message.get("content") or ""
+        return SarvamLLMResult(content=content, model=chosen)
 
     async def text_analytics(
         self,

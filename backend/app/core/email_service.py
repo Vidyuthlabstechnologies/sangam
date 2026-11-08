@@ -1,19 +1,30 @@
 from __future__ import annotations
+import asyncio
 import logging
+import smtplib
+from email.message import EmailMessage
 from typing import Optional
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-
-import httpx
 
 from app.config import settings
 
 logger = logging.getLogger("sangam.email")
 
 
+def deliver_smtp(message: EmailMessage) -> None:
+    """Send one message with the stdlib SMTP client. No third-party mail SDK."""
+    host = settings.smtp_host or ""
+    with smtplib.SMTP(host, settings.smtp_port, timeout=15) as smtp:
+        smtp.ehlo()
+        if settings.smtp_use_tls:
+            smtp.starttls()
+            smtp.ehlo()
+        if settings.smtp_username and settings.smtp_password:
+            smtp.login(settings.smtp_username, settings.smtp_password)
+        smtp.send_message(message)
+
+
 class EmailService:
     def __init__(self):
-        self._api_key = settings.email_api_key or ""
         self._from_email = settings.email_from or "noreply@sangam.ai"
         self._from_name = settings.email_from_name or "Sangam"
 
@@ -24,43 +35,25 @@ class EmailService:
         html_body: str,
         text_body: Optional[str] = None,
     ) -> bool:
-        if not self._api_key:
-            logger.warning("Email not configured: no EMAIL_API_KEY")
+        if not (settings.smtp_host or "").strip():
+            logger.warning("Email not configured: no SMTP_HOST")
             return False
+
+        message = EmailMessage()
+        message["From"] = f"{self._from_name} <{self._from_email}>"
+        message["To"] = to_email
+        message["Subject"] = subject
+        message.set_content(text_body or "")
+        if html_body:
+            message.add_alternative(html_body, subtype="html")
 
         try:
-            payload = {
-                "personalizations": [{"to": [{"email": to_email}]}],
-                "from": {"email": self._from_email, "name": self._from_name},
-                "subject": subject,
-                "content": [
-                    {
-                        "type": "text/html",
-                        "value": html_body,
-                    }
-                ],
-            }
-            if text_body:
-                payload["content"].append({
-                    "type": "text/plain",
-                    "value": text_body,
-                })
-
-            async with httpx.AsyncClient(timeout=15) as client:
-                resp = await client.post(
-                    "https://api.sendgrid.com/v3/mail/send",
-                    headers={
-                        "Authorization": f"Bearer {self._api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json=payload,
-                )
-                resp.raise_for_status()
-                logger.info("Email sent to %s: %s", to_email, subject)
-                return True
-        except Exception as e:
-            logger.error("Email send failed to %s: %s", to_email, e)
+            await asyncio.to_thread(deliver_smtp, message)
+        except Exception as exc:
+            logger.error("Email send failed: %s", type(exc).__name__)
             return False
+        logger.info("Email sent: %s", subject)
+        return True
 
     async def send_workflow_notification(
         self,

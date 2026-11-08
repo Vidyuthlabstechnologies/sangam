@@ -2,16 +2,19 @@ from __future__ import annotations
 import time
 import uuid
 import logging
-from typing import Callable, Dict, Tuple
+from typing import Callable
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.types import ASGIApp
 
 from app.config import settings
+from app.core.metrics import HTTP_LATENCY, HTTP_REQUESTS, route_label
+from app.core.rate_limit import request_limiter
 
 logger = logging.getLogger("sangam.middleware")
+
+_SKIP_LIMITS = {"/health", "/ready", "/metrics", "/docs", "/redoc", "/openapi.json"}
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
@@ -38,42 +41,39 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         return response
 
 
-class RateLimitStore:
-    def __init__(self):
-        self._buckets: Dict[str, Tuple[float, int]] = {}
-
-    def check(self, key: str, max_requests: int, window_seconds: int = 60, burst: int = 10) -> bool:
-        now = time.monotonic()
-        window_start, count = self._buckets.get(key, (now, 0))
-        if now - window_start > window_seconds:
-            window_start = now
-            count = 0
-        if count >= max_requests:
-            return False
-        count += 1
-        self._buckets[key] = (window_start, count)
-        return True
-
-
-rate_limit_store = RateLimitStore()
-
 AI_PATHS = {"/ai/speech-to-text", "/ai/text-to-speech", "/ai/llm", "/ai/vision/extract", "/ai/speech-to-text-translate"}
+
+
+class MetricsMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next: Callable):
+        if request.url.path == "/metrics":
+            return await call_next(request)
+        start = time.perf_counter()
+        status = 500
+        try:
+            response = await call_next(request)
+            status = response.status_code
+            return response
+        finally:
+            path = route_label(request)
+            HTTP_REQUESTS.labels(request.method, path, str(status)).inc()
+            HTTP_LATENCY.labels(request.method, path).observe(time.perf_counter() - start)
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable):
         if not settings.rate_limit_enabled:
             return await call_next(request)
-        if request.url.path in ("/health", "/docs", "/redoc", "/openapi.json"):
+        if request.url.path in _SKIP_LIMITS:
             return await call_next(request)
         client_ip = request.client.host if request.client else "unknown"
         path = request.url.path
         is_ai = any(path.startswith(p) for p in AI_PATHS)
-        if is_ai:
-            limit = settings.rate_limit_per_minute_ai
-        else:
-            limit = settings.rate_limit_per_minute
-        if not rate_limit_store.check(f"{client_ip}:{path}", limit, 60, settings.rate_limit_burst):
+        limit = settings.rate_limit_per_minute_ai if is_ai else settings.rate_limit_per_minute
+        limiter = await request_limiter()
+        # The key is not logged. Redis shares it across replicas when configured.
+        allowed = await limiter.allow(f"{client_ip}:{path}", limit, 60)
+        if not allowed:
             return JSONResponse(
                 status_code=429,
                 content={
