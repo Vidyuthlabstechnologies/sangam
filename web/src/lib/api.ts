@@ -1,10 +1,17 @@
 const API_BASE = import.meta.env.VITE_API_URL || "/api/v1";
 
+let accessTokenGetter: () => string | null = () => null;
+
+/** Called by the OIDC client after it has validated the session. */
+export function setAccessTokenGetter(getter: () => string | null) {
+  accessTokenGetter = getter;
+}
+
 async function request<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = localStorage.getItem("sangam_token");
+  const token = accessTokenGetter();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
@@ -21,7 +28,7 @@ async function request<T>(
 
   if (!response.ok) {
     if (response.status === 401) {
-      localStorage.removeItem("sangam_token");
+      localStorage.removeItem("sangam_actor_id");
       window.location.href = "/login";
       throw new Error("Unauthorized");
     }

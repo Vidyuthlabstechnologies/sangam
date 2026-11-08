@@ -51,9 +51,16 @@ class Settings(BaseSettings):
     # paths. Keeps tests hermetic and lets the demo run without live spend.
     use_fixtures: bool = False
 
-    zitadel_domain: Optional[str] = None
+    # Self-hosted Zitadel. Leave the issuer empty in tests and in default local
+    # dev so the API never calls the network. Do not point this at Zitadel Cloud.
+    # Access tokens are RS256. Audience is the web client, the Android public
+    # client, or the Zitadel project id (Zitadel often puts the project in aud).
+    zitadel_issuer: Optional[str] = None
     zitadel_client_id: Optional[str] = None
-    zitadel_client_secret: Optional[str] = None
+    zitadel_android_client_id: Optional[str] = None
+    zitadel_project_id: Optional[str] = None
+    # Optional override. When unset, keys are read from {issuer}/oauth/v2/keys.
+    zitadel_jwks_url: Optional[str] = None
 
     qdrant_url: str = "http://localhost:6333"
     qdrant_collection: str = "capabilities"
@@ -105,24 +112,19 @@ class Settings(BaseSettings):
     whatsapp_template_lang: str = "en"
     whatsapp_graph_version: Optional[str] = None  # set to a currently supported Graph API version
 
+    # Zitadel resource-server settings.
+    zitadel_issuer: Optional[str] = None
+    zitadel_client_id: Optional[str] = None
+    zitadel_android_client_id: Optional[str] = None
+    zitadel_project_id: Optional[str] = None
+    zitadel_jwks_url: Optional[str] = None
+
     class Config:
         env_file = ".env"
         case_sensitive = False
 
 
 settings = Settings()
-
-_MIN_SECRET_LENGTH = 32
-
-# Values that appear in this repo for local development. A production process
-# that still has one of them can be forged by anyone who has read the source.
-_WEAK_JWT_MARKERS = (
-    "change-me",
-    "change-in-production",
-    "dev-secret",
-    "generate-a-random",
-)
-
 
 def database_password(url: str) -> str:
     """Return the password embedded in a SQLAlchemy URL, or ""."""
@@ -135,13 +137,7 @@ def database_password(url: str) -> str:
 
 
 def validate_production_settings(s: Settings) -> None:
-    """Refuse to start in production with settings that make it forgeable.
-
-    The default JWT secret is in source control, so anyone who has read the
-    repo could mint a valid token for any actor. Fixture mode returns canned
-    payment and AI responses. The local Postgres password is in the compose
-    file. None of those may run as "production".
-    """
+    """Refuse to start in production without safe authentication or secrets."""
     if s.environment.strip().lower() != "production":
         return
 
@@ -149,10 +145,16 @@ def validate_production_settings(s: Settings) -> None:
     secret = s.jwt_secret or ""
     lowered = secret.lower()
     weak = len(secret) < _MIN_SECRET_LENGTH or any(marker in lowered for marker in _WEAK_JWT_MARKERS)
-    if weak:
+    if not s.zitadel_issuer and weak:
         problems.append(
             f"JWT_SECRET must be a random value of at least {_MIN_SECRET_LENGTH} characters"
         )
+    if s.zitadel_issuer:
+        issuer = (s.zitadel_issuer or "").strip()
+        if not issuer.startswith("https://"):
+            problems.append("ZITADEL_ISSUER must be the https URL of the self-hosted Zitadel instance")
+        if not any((s.zitadel_client_id, s.zitadel_android_client_id, s.zitadel_project_id)):
+            problems.append("Set ZITADEL_CLIENT_ID or ZITADEL_PROJECT_ID so access-token audiences can be checked")
     if s.use_fixtures:
         problems.append("USE_FIXTURES must be false")
     if s.debug:

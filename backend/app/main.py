@@ -58,7 +58,11 @@ async def _ensure_added_columns() -> None:
 
     statements = (
         ("actors", "created_by_id", "VARCHAR(36)"),
+        ("actors", "zitadel_sub", "VARCHAR(256)"),
+        ("actors", "zitadel_org_id", "VARCHAR(128)"),
         ("vendors", "owner_actor_id", "VARCHAR(36)"),
+        ("vendors", "organization_id", "VARCHAR(128)"),
+        ("workflows", "organization_id", "VARCHAR(128)"),
         ("tenant_wallets", "metering_key", "VARCHAR(128)"),
         ("extracted_documents", "storage_key", "VARCHAR(512)"),
     )

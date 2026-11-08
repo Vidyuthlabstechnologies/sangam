@@ -7,13 +7,13 @@ from app.models.workflow import Workflow, WorkflowState
 from app.models.actor import Actor
 from app.models.approval import Approval, ApprovalStatus
 from app.api.dependencies import get_current_actor
-from app.core.access import workflow_visibility
+from app.core.access import org_column_match, workflows_visible_to
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 
-def _visible_workflows(actor_id):
-    return select(Workflow.id).where(workflow_visibility(actor_id))
+def _visible_workflows(actor: Actor):
+    return select(Workflow.id).where(workflows_visible_to(actor))
 
 
 @router.get("/summary")
@@ -21,7 +21,7 @@ async def analytics_summary(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
-    visible = workflow_visibility(current_actor.id)
+    visible = workflows_visible_to(current_actor)
     total_wf = await session.scalar(select(func.count(Workflow.id)).where(visible))
     active_wf = await session.scalar(
         select(func.count(Workflow.id)).where(visible, Workflow.state == WorkflowState.ACTIVE)
@@ -34,13 +34,14 @@ async def analytics_summary(
     )
     total_actors = await session.scalar(
         select(func.count(Actor.id)).where(
-            (Actor.id == current_actor.id) | (Actor.created_by_id == current_actor.id)
+            ((Actor.id == current_actor.id) | (Actor.created_by_id == current_actor.id)),
+            org_column_match(Actor.zitadel_org_id, current_actor.zitadel_org_id),
         )
     )
     pending_approvals = await session.scalar(
         select(func.count(Approval.id)).where(
             Approval.status == ApprovalStatus.PENDING,
-            Approval.workflow_id.in_(_visible_workflows(current_actor.id)),
+            Approval.workflow_id.in_(_visible_workflows(current_actor)),
         )
     )
     return {
@@ -58,7 +59,7 @@ async def workflows_by_state(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
-    visible = workflow_visibility(current_actor.id)
+    visible = workflows_visible_to(current_actor)
     rows = await session.execute(
         select(Workflow.state, func.count(Workflow.id)).where(visible).group_by(Workflow.state)
     )
@@ -72,7 +73,7 @@ async def approvals_over_time(
     current_actor: Actor = Depends(get_current_actor),
 ):
     from sqlalchemy import cast, Date
-    visible = workflow_visibility(current_actor.id)
+    visible = workflows_visible_to(current_actor)
     rows = await session.execute(
         select(
             cast(Workflow.created_at, Date).label("date"),

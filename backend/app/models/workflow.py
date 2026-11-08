@@ -35,6 +35,8 @@ class Workflow(Base):
     name: Mapped[str] = mapped_column(String(256), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
     initiator_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("actors.id"), nullable=False)
+    # Zitadel organization that owns this workflow. Taken from the caller's token, never from the body.
+    organization_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
     current_phase: Mapped[WorkflowPhase] = mapped_column(SAEnum(WorkflowPhase), nullable=False, default=WorkflowPhase.INITIATION)
     state: Mapped[WorkflowState] = mapped_column(SAEnum(WorkflowState), nullable=False, default=WorkflowState.DRAFT)
     phases: Mapped[List[WorkflowPhase]] = mapped_column(JSON, nullable=False, default=list)

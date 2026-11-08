@@ -57,6 +57,8 @@ class Vendor(Base):
     owner_actor_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("actors.id"), nullable=True, index=True
     )
+    # Zitadel organization of the actor who registered the vendor.
+    organization_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
     qualification_workflow_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), nullable=True
     )

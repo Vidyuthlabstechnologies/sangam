@@ -1,12 +1,14 @@
 """Application-layer visibility for the single shared deployment.
 
-There is no organization table and tests run on SQLite, so this does not
-turn on Postgres row-level security. Every check here is "does this actor
-participate, or did they create the row?" A miss is a 404 so ids cannot be
-probed.
+Tests run on SQLite, so this does not turn on Postgres row-level security.
+A row is visible when the actor participates and the Zitadel organization
+stamped on the row matches the organization in the caller's token. A miss
+is a 404 so ids cannot be probed. Actors with no organization only see
+legacy rows that also have none.
 """
 from __future__ import annotations
 
+from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import String, cast, or_, select
@@ -40,8 +42,15 @@ def grants_admin(roles, permissions) -> bool:
     return _ADMIN in role_set or _MANAGE_ACTORS in perm_set
 
 
-def workflow_visibility(actor_id: UUID):
-    """SQL predicate: workflows this actor initiated or participates in."""
+def org_column_match(column, organization_id: Optional[str]):
+    """SQL predicate: same Zitadel organization, or both unset for legacy rows."""
+    if organization_id:
+        return column == organization_id
+    return column.is_(None)
+
+
+def workflow_visibility(actor_id: UUID, organization_id: Optional[str] = None):
+    """SQL predicate: workflows this actor participates in, inside their organization."""
     actor_s = str(actor_id)
     mentioned = or_(
         cast(Approval.required_actors, String).contains(actor_s),
@@ -49,7 +58,7 @@ def workflow_visibility(actor_id: UUID):
         cast(Approval.rejected_by, String).contains(actor_s),
         Approval.escalated_to == actor_id,
     )
-    return or_(
+    participation = or_(
         Workflow.initiator_id == actor_id,
         Workflow.id.in_(select(Approval.workflow_id).where(mentioned)),
         Workflow.id.in_(
@@ -62,6 +71,11 @@ def workflow_visibility(actor_id: UUID):
             select(ExceptionWorkflow.parent_workflow_id).where(ExceptionWorkflow.assigned_to == actor_id)
         ),
     )
+    return participation & org_column_match(Workflow.organization_id, organization_id)
+
+
+def workflows_visible_to(actor: Actor):
+    return workflow_visibility(actor.id, actor.zitadel_org_id)
 
 
 async def actor_can_access_workflow_id(session: AsyncSession, actor_id: UUID, workflow_id: UUID) -> bool:
@@ -71,8 +85,14 @@ async def actor_can_access_workflow_id(session: AsyncSession, actor_id: UUID, wo
 async def load_accessible_workflow(
     session: AsyncSession, actor_id: UUID, workflow_id: UUID
 ) -> Workflow | None:
+    actor = await session.get(Actor, actor_id)
+    if actor is None or not actor.is_active:
+        return None
     result = await session.execute(
-        select(Workflow).where(Workflow.id == workflow_id, workflow_visibility(actor_id))
+        select(Workflow).where(
+            Workflow.id == workflow_id,
+            workflow_visibility(actor_id, actor.zitadel_org_id),
+        )
     )
     return result.scalar_one_or_none()
 

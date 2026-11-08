@@ -76,6 +76,12 @@ services:
       ENVIRONMENT: development
       # Dev-only signing key. Production refuses this value.
       JWT_SECRET: dev-secret-change-in-production
+      # Empty by default so `docker compose up` does not point at Zitadel Cloud.
+      ZITADEL_ISSUER: ${ZITADEL_ISSUER:-}
+      ZITADEL_CLIENT_ID: ${ZITADEL_CLIENT_ID:-}
+      ZITADEL_ANDROID_CLIENT_ID: ${ZITADEL_ANDROID_CLIENT_ID:-}
+      ZITADEL_PROJECT_ID: ${ZITADEL_PROJECT_ID:-}
+      ZITADEL_JWKS_URL: ${ZITADEL_JWKS_URL:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -100,6 +106,10 @@ services:
       - "9001:9001"
     volumes:
       - minio_data:/data
+
+  # Identity is a separate file so this stack does not require ZITADEL_MASTERKEY
+  # and does not point at Zitadel Cloud:
+  #   docker compose -f docker-compose.zitadel.yml up -d
 
 volumes:
   postgres_data:

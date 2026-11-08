@@ -17,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_actor
+from app.core.access import org_column_match
 from app.core.document_intelligence import DocumentIntelligence
 from app.db.session import get_session
 from app.models.actor import Actor
@@ -90,10 +91,17 @@ def _document_out(doc: ExtractedDocument) -> DocumentOut:
     )
 
 
+def _vendor_visible(actor: Actor):
+    return (
+        (Vendor.owner_actor_id == actor.id)
+        & org_column_match(Vendor.organization_id, actor.zitadel_org_id)
+    )
+
+
 async def _get_vendor_or_404(session: AsyncSession, vendor_id: UUID, actor: Actor) -> Vendor:
-    result = await session.execute(select(Vendor).where(Vendor.id == vendor_id))
+    result = await session.execute(select(Vendor).where(Vendor.id == vendor_id, _vendor_visible(actor)))
     vendor = result.scalar_one_or_none()
-    if not vendor or vendor.owner_actor_id != actor.id:
+    if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
     return vendor
 
@@ -124,6 +132,7 @@ async def create_vendor(
         contact_phone=req.contact_phone,
         status=VendorStatus.DRAFT,
         owner_actor_id=current_actor.id,
+        organization_id=current_actor.zitadel_org_id,
     )
     session.add(vendor)
     await session.commit()
@@ -137,7 +146,7 @@ async def list_vendors(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
-    stmt = select(Vendor).where(Vendor.owner_actor_id == current_actor.id).order_by(Vendor.created_at.desc())
+    stmt = select(Vendor).where(_vendor_visible(current_actor)).order_by(Vendor.created_at.desc())
     if status_filter:
         try:
             stmt = stmt.where(Vendor.status == VendorStatus(status_filter))
@@ -159,7 +168,7 @@ async def vendors_with_expiring_licences(
     The compliance early-warning view: a lapsed CDSCO licence halts
     production, so this is what a QA lead checks daily.
     """
-    result = await session.execute(select(Vendor).where(Vendor.owner_actor_id == current_actor.id))
+    result = await session.execute(select(Vendor).where(_vendor_visible(current_actor)))
     vendors = [v for v in result.scalars().all() if v.licences_expiring_within(days)]
     return [_vendor_out(v) for v in vendors]
 

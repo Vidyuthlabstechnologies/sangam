@@ -3,6 +3,8 @@ import uuid
 from uuid import UUID
 from httpx import AsyncClient
 
+from tests.identity_tokens import login
+
 pytestmark = pytest.mark.asyncio
 
 
@@ -19,58 +21,37 @@ class TestHealth:
 
 
 class TestAuth:
-    async def test_register_and_login(self, client: AsyncClient):
+    async def test_password_login_and_register_do_not_issue_tokens(self, client: AsyncClient, db_session):
+        from sqlalchemy import func, select
+        from app.models.actor import Actor
+
+        before = await db_session.scalar(select(func.count()).select_from(Actor))
         email = f"new-{uuid.uuid4().hex[:8]}@example.com"
-        r = await client.post("/auth/register", json={
+        registered = await client.post("/auth/register", json={
             "name": "New User", "email": email, "password": "pass123"
         })
-        assert r.status_code == 201
-        data = r.json()
-        assert "access_token" in data
-        assert data["token_type"] == "bearer"
-        assert data["name"] == "New User"
-
-        r = await client.post("/auth/login", json={
+        logged_in = await client.post("/auth/login", json={
             "email": email, "password": "pass123"
         })
-        assert r.status_code == 200
-        assert "access_token" in r.json()
+        refreshed = await client.post("/auth/refresh", json={"token": "pass123"})
+        after = await db_session.scalar(select(func.count()).select_from(Actor))
+        for response in (registered, logged_in, refreshed):
+            assert response.status_code == 410, response.text
+            assert "access_token" not in response.json()
+        assert before == after
 
-    async def test_login_wrong_password(self, client: AsyncClient):
-        r = await client.post("/auth/login", json={
-            "email": "nonexistent@example.com", "password": "wrong"
-        })
-        assert r.status_code == 401
-
-    async def test_register_duplicate(self, client: AsyncClient):
-        email = f"dup-{uuid.uuid4().hex[:8]}@example.com"
-        await client.post("/auth/register", json={
-            "name": "A", "email": email, "password": "pass"
-        })
-        r = await client.post("/auth/register", json={
-            "name": "B", "email": email, "password": "pass"
-        })
-        assert r.status_code == 409
-
-    async def test_token_refresh(self, client: AsyncClient):
-        email = f"refresh-{uuid.uuid4().hex[:8]}@example.com"
-        r = await client.post("/auth/register", json={
-            "name": "Refresh", "email": email, "password": "pass"
-        })
-        token = r.json()["access_token"]
-        r = await client.post("/auth/refresh", json={"token": token})
-        assert r.status_code == 200
-        assert "access_token" in r.json()
+    async def test_jit_actor_from_access_token(self, client: AsyncClient):
+        token, actor_id = await login(client, name="New User")
+        me = await client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+        assert me.status_code == 200
+        assert me.json()["actor_id"] == actor_id
+        assert me.json()["name"] == "New User"
+        assert me.json()["organization_id"]
 
 
 class TestWorkflows:
     async def _register(self, client):
-        email = f"wf-{uuid.uuid4().hex[:8]}@example.com"
-        r = await client.post("/auth/register", json={
-            "name": "WF User", "email": email, "password": "pass"
-        })
-        data = r.json()
-        return data["access_token"], data["actor_id"]
+        return await login(client, name="WF User")
 
     async def test_create_workflow(self, client):
         token, actor_id = await self._register(client)
@@ -164,22 +145,12 @@ class TestActors:
         assert r.status_code == 204
 
     async def _auth(self, client):
-        email = f"act-{uuid.uuid4().hex[:8]}@example.com"
-        r = await client.post("/auth/register", json={
-            "name": "Actor Tester", "email": email, "password": "pass"
-        })
-        data = r.json()
-        return data["access_token"], data["actor_id"]
+        return await login(client, name="Actor Tester")
 
 
 class TestApprovals:
     async def _auth(self, client):
-        email = f"app-{uuid.uuid4().hex[:8]}@example.com"
-        r = await client.post("/auth/register", json={
-            "name": "Approval Tester", "email": email, "password": "pass"
-        })
-        data = r.json()
-        return data["access_token"], data["actor_id"]
+        return await login(client, name="Approval Tester")
 
     async def test_approval_lifecycle(self, client):
         token, actor_id = await self._auth(client)
@@ -243,11 +214,8 @@ class TestApprovals:
 
 class TestTemplates:
     async def _auth(self, client):
-        email = f"tmpl-{uuid.uuid4().hex[:8]}@example.com"
-        r = await client.post("/auth/register", json={
-            "name": "Tmpl Tester", "email": email, "password": "pass"
-        })
-        return r.json()["access_token"]
+        token, _actor_id = await login(client, name="Tmpl Tester")
+        return token
 
     async def test_list_and_get(self, client):
         token = await self._auth(client)
@@ -270,11 +238,8 @@ class TestTemplates:
 
 class TestMCP:
     async def _auth(self, client):
-        email = f"mcp-{uuid.uuid4().hex[:8]}@example.com"
-        r = await client.post("/auth/register", json={
-            "name": "MCP Tester", "email": email, "password": "pass"
-        })
-        return r.json()["access_token"]
+        token, _actor_id = await login(client, name="MCP Tester")
+        return token
 
     async def test_list_and_manifest(self, client):
         token = await self._auth(client)
@@ -292,11 +257,8 @@ class TestMCP:
 
 class TestCapabilities:
     async def _auth(self, client):
-        email = f"cap-{uuid.uuid4().hex[:8]}@example.com"
-        r = await client.post("/auth/register", json={
-            "name": "Cap Tester", "email": email, "password": "pass"
-        })
-        return r.json()["access_token"]
+        token, _actor_id = await login(client, name="Cap Tester")
+        return token
 
     @pytest.mark.skip(reason="Requires Qdrant running on localhost:6333")
     async def test_register_search_delete(self, client):
@@ -324,9 +286,7 @@ class TestCapabilities:
 
 class TestAnalytics:
     async def _headers(self, client):
-        email = f"an-{uuid.uuid4().hex[:8]}@example.com"
-        r = await client.post("/auth/register", json={"name": "Analyst", "email": email, "password": "pass"})
-        token = r.json()["access_token"]
+        token, _actor_id = await login(client, name="Analyst")
         return {"Authorization": f"Bearer {token}"}
 
     async def test_summary(self, client: AsyncClient):

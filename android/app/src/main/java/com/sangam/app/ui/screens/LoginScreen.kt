@@ -1,22 +1,24 @@
 package com.sangam.app.ui.screens
 
+import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.ArrowDropUp
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +41,7 @@ import com.sangam.app.network.RealtimeClient
 import com.sangam.app.network.RegisterRequest
 import com.sangam.app.network.TokenManager
 import com.sangam.app.network.TokenResponse
+import com.sangam.app.network.ZitadelAuth
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
@@ -48,10 +51,20 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
+    val zitadelLoggedIn by ZitadelAuth.loggedIn.collectAsState()
+    val zitadelError by ZitadelAuth.error.collectAsState()
+
+    LaunchedEffect(zitadelLoggedIn) {
+        if (zitadelLoggedIn) {
+            onLoginSuccess()
+        }
+    }
+
     var isLogin by remember { mutableStateOf(true) }
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var isPasswordFocused by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -105,7 +118,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                         } catch (_: Exception) {}
                         onLoginSuccess()
                     } catch (e: Exception) {
-                        error = "Google Sign-In failed: ${e.message}"
+                        error = friendlyAuthError(e)
                     } finally {
                         loading = false
                     }
@@ -126,11 +139,11 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(scrollState)
-                .padding(horizontal = 24.dp, vertical = 32.dp),
+                .padding(horizontal = 24.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
                 "Sangam",
@@ -138,13 +151,52 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
-                "AI-Native Coordination Platform",
+                "AI Calling Agents Powered by Sarvam AI",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Witty Duolingo-style Mascot Speech Bubble (Clean White Theme)
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+            ) {
+                Text(
+                    text = if (isPasswordFocused) {
+                        "Psst! Enter your master password. I've got my wings over my eyes, totally not peeking!"
+                    } else {
+                        "Namaste, ${if (name.isNotBlank()) name else "Boss"}! Ready to deploy autonomous Indian voice agents?"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 100% Transparent Mascot (No background box!)
+            Image(
+                painter = painterResource(
+                    id = if (isPasswordFocused) R.drawable.mascot_kite_peekaboo else R.drawable.mascot_kite_idle
+                ),
+                contentDescription = "Kite Master Mascot",
+                modifier = Modifier
+                    .size(120.dp)
+                    .padding(bottom = 4.dp),
+                contentScale = ContentScale.Fit
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -161,68 +213,76 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp),
+                            .height(48.dp),
                         enabled = !loading,
                         colors = ButtonDefaults.outlinedButtonColors(
                             containerColor = MaterialTheme.colorScheme.surface,
-                            contentColor = MaterialTheme.colorScheme.onSurface,
                         ),
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.ic_google_logo),
-                            contentDescription = "Google Logo",
-                            modifier = Modifier.size(22.dp),
+                        Icon(
+                            Icons.Default.AccountCircle,
+                            contentDescription = "Google",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp),
                         )
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
                         Text(
                             "Continue with Google",
-                            style = MaterialTheme.typography.titleSmall,
+                            style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    // Divider with "OR"
+                    // Zitadel SSO Button (Self-Hosted Identity)
+                    OutlinedButton(
+                        onClick = {
+                            (context as? Activity)?.let { ZitadelAuth.startLogin(it) }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        enabled = !loading,
+                    ) {
+                        Icon(
+                            Icons.Default.Security,
+                            contentDescription = "Zitadel SSO",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            "Continue with Zitadel SSO",
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Divider with text
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         HorizontalDivider(modifier = Modifier.weight(1f))
                         Text(
-                            "  or  ",
-                            style = MaterialTheme.typography.bodySmall,
+                            "  or password  ",
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.outline,
                         )
                         HorizontalDivider(modifier = Modifier.weight(1f))
                     }
 
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Login / Register Selector
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                    ) {
-                        FilterChip(
-                            selected = isLogin,
-                            onClick = { isLogin = true; error = null },
-                            label = { Text("Login") },
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        FilterChip(
-                            selected = !isLogin,
-                            onClick = { isLogin = false; error = null },
-                            label = { Text("Register") },
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     if (!isLogin) {
                         OutlinedTextField(
                             value = name,
                             onValueChange = { name = it },
-                            label = { Text("Name") },
+                            label = { Text("Full Name") },
+                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
@@ -234,6 +294,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                         value = email,
                         onValueChange = { email = it },
                         label = { Text("Email") },
+                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(
@@ -247,7 +308,10 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                         value = password,
                         onValueChange = { password = it },
                         label = { Text("Password") },
-                        modifier = Modifier.fillMaxWidth(),
+                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { isPasswordFocused = it.isFocused },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(
@@ -256,37 +320,43 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                         ),
                     )
 
-                    if (error != null) {
-                        Spacer(modifier = Modifier.height(12.dp))
+                    val displayError = error ?: zitadelError
+                    if (displayError != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            error!!,
+                            text = displayError,
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Button(
                         onClick = {
+                            if (email.isBlank() || password.isBlank()) {
+                                error = "Please enter email and password"
+                                return@Button
+                            }
+                            if (!isLogin && name.isBlank()) {
+                                error = "Please enter your name"
+                                return@Button
+                            }
+                            loading = true
+                            error = null
                             scope.launch {
-                                loading = true
-                                error = null
                                 try {
-                                    val trimmedEmail = email.trim()
-                                    val trimmedName = name.trim()
-                                    val resp = if (isLogin) {
-                                        ApiClient.authApi.login(LoginRequest(trimmedEmail, password))
+                                    val resp: TokenResponse = if (isLogin) {
+                                        ApiClient.authApi.login(LoginRequest(email.trim(), password))
                                     } else {
-                                        ApiClient.authApi.register(RegisterRequest(trimmedName, trimmedEmail, password))
+                                        ApiClient.authApi.register(RegisterRequest(name.trim(), email.trim(), password))
                                     }
-
-                                    syncFirestoreProfile(resp.actor_id, trimmedEmail, resp.name, "email_password")
-                                    TokenManager.saveToken(resp.access_token, resp.actor_id, resp.name, trimmedEmail)
+                                    TokenManager.saveToken(resp.access_token, resp.actor_id, resp.name, email.trim())
                                     try {
                                         RealtimeClient.start()
                                     } catch (_: Exception) {}
-
                                     onLoginSuccess()
                                 } catch (e: Exception) {
                                     error = friendlyAuthError(e)
@@ -298,22 +368,40 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(48.dp),
-                        enabled = !loading && email.isNotBlank() && password.isNotBlank() && (isLogin || name.isNotBlank()),
+                        enabled = !loading,
                     ) {
                         if (loading) {
                             CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
+                                modifier = Modifier.size(24.dp),
                                 color = MaterialTheme.colorScheme.onPrimary,
                                 strokeWidth = 2.dp,
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                        } else {
+                            Text(
+                                if (isLogin) "Sign In" else "Create Account",
+                                style = MaterialTheme.typography.labelLarge,
+                            )
                         }
-                        Text(if (isLogin) "Sign In" else "Create Account")
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    TextButton(
+                        onClick = {
+                            isLogin = !isLogin
+                            error = null
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            if (isLogin) "Don't have an account? Sign Up" else "Already have an account? Sign In",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             // Expandable Server Connection Configuration
             Card(
@@ -354,7 +442,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 singleLine = true,
-                                placeholder = { Text("http://192.168.1.x:8000") },
+                                placeholder = { Text("http://192.168.0.x:8000") },
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Row(
@@ -389,7 +477,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                             }
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                "Note: On a physical phone, 10.0.2.2 is not reachable. Use your computer's Wi-Fi address (for example http://192.168.1.5:8000). Google sign-in still needs this server.",
+                                "Note: On a physical phone, 10.0.2.2 is not reachable. Use your computer's Wi-Fi address (for example http://192.168.0.103:8000). Google sign-in still needs this server.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.outline,
                             )
