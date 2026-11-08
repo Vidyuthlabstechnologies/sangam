@@ -12,6 +12,8 @@ object TokenManager {
     private const val KEY_AUTH_STATE = "zitadel_auth_state"
     private const val KEY_ACTOR_ID = "actor_id"
     private const val KEY_ACTOR_NAME = "actor_name"
+    private const val KEY_ACTOR_EMAIL = "actor_email"
+    private const val KEY_SERVER_URL = "server_url"
 
     private lateinit var prefs: SharedPreferences
     private lateinit var appContext: Context
@@ -38,6 +40,10 @@ object TokenManager {
                 .putString(KEY_ACTOR_NAME, legacy.getString(KEY_ACTOR_NAME, null))
                 .apply()
         }
+        val legacyServer = legacy.getString(KEY_SERVER_URL, null)
+        if (!legacyServer.isNullOrEmpty() && prefs.getString(KEY_SERVER_URL, null).isNullOrEmpty()) {
+            prefs.edit().putString(KEY_SERVER_URL, legacyServer).apply()
+        }
         legacy.edit().clear().apply()
     }
 
@@ -52,14 +58,18 @@ object TokenManager {
             .apply()
     }
 
-    fun saveProfile(actorId: String, name: String) {
-        prefs.edit()
+    fun saveProfile(actorId: String, name: String, email: String? = null) {
+        val editor = prefs.edit()
             .putString(KEY_ACTOR_ID, actorId)
             .putString(KEY_ACTOR_NAME, name)
-            .apply()
+        if (email != null) {
+            editor.putString(KEY_ACTOR_EMAIL, email)
+        }
+        editor.apply()
     }
 
     fun getToken(): String? {
+        if (!::prefs.isInitialized) return null
         val raw = prefs.getString(KEY_AUTH_STATE, null)
         if (!raw.isNullOrEmpty()) {
             return try {
@@ -71,13 +81,31 @@ object TokenManager {
         return prefs.getString(KEY_TOKEN, null)
     }
 
-    fun clear() {
-        prefs.edit().clear().apply()
+    fun getServerUrl(): String {
+        val saved = if (::prefs.isInitialized) prefs.getString(KEY_SERVER_URL, null) else null
+        return if (!saved.isNullOrBlank()) saved else com.sangam.app.BuildConfig.API_BASE_URL
     }
 
-    fun getActorId(): String? = prefs.getString(KEY_ACTOR_ID, null)
+    fun saveServerUrl(url: String) {
+        if (!::prefs.isInitialized) return
+        val clean = url.trim().trimEnd('/')
+        prefs.edit().putString(KEY_SERVER_URL, clean).apply()
+    }
 
-    fun getActorName(): String? = prefs.getString(KEY_ACTOR_NAME, null)
+    fun getActorEmail(): String? = if (::prefs.isInitialized) prefs.getString(KEY_ACTOR_EMAIL, null) else null
+
+    fun clear() {
+        if (!::prefs.isInitialized) return
+        val server = prefs.getString(KEY_SERVER_URL, null)
+        prefs.edit().clear().apply()
+        if (server != null) {
+            saveServerUrl(server)
+        }
+    }
+
+    fun getActorId(): String? = if (::prefs.isInitialized) prefs.getString(KEY_ACTOR_ID, null) else null
+
+    fun getActorName(): String? = if (::prefs.isInitialized) prefs.getString(KEY_ACTOR_NAME, null) else null
 
     fun isLoggedIn(): Boolean = getToken() != null
 }

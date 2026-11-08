@@ -1,6 +1,8 @@
 package com.sangam.app.network
 
 import com.sangam.app.BuildConfig
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.Interceptor
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody
@@ -562,11 +564,27 @@ interface SangamOnboardingApi {
 }
 
 object ApiClient {
+    private val dynamicUrlInterceptor = Interceptor { chain ->
+        var request = chain.request()
+        val customUrl = TokenManager.getServerUrl()
+        val parsed = customUrl.toHttpUrlOrNull()
+        if (parsed != null) {
+            val newUrl = request.url.newBuilder()
+                .scheme(parsed.scheme)
+                .host(parsed.host)
+                .port(parsed.port)
+                .build()
+            request = request.newBuilder().url(newUrl).build()
+        }
+        chain.proceed(request)
+    }
+
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
     }
 
     private val httpClient = OkHttpClient.Builder()
+        .addInterceptor(dynamicUrlInterceptor)
         .addInterceptor(AuthInterceptor())
         .addInterceptor(loggingInterceptor)
         .connectTimeout(30, TimeUnit.SECONDS)
