@@ -4,6 +4,7 @@ import android.content.Intent
 import android.media.MediaPlayer
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,10 +16,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.sangam.app.R
 import com.sangam.app.network.ApiClient
 import com.sangam.app.ui.theme.*
 import kotlinx.coroutines.launch
@@ -203,7 +208,35 @@ fun CallInboxScreen(
             } else if (loadError != null && leads.isEmpty()) {
                 item { Text(loadError!!, color = MaterialTheme.colorScheme.error) }
             } else if (filteredLeads.isEmpty()) {
-                item { Text("No calls yet.", color = SangamMuted) }
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 40.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        Image(
+                            painter = painterResource(R.drawable.mascot_kite_idle),
+                            contentDescription = "No incoming calls",
+                            modifier = Modifier.size(110.dp),
+                            contentScale = ContentScale.Fit,
+                        )
+                        Text(
+                            "All Quiet on the Phone Lines!",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = SangamObsidian,
+                        )
+                        Text(
+                            "Your Sarvam AI calling agent is on standby with zero missed leads. Sip your chai, we've got the line covered!",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = SangamMuted,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 24.dp),
+                        )
+                    }
+                }
             }
 
             items(filteredLeads, key = { it.id }) { lead ->
