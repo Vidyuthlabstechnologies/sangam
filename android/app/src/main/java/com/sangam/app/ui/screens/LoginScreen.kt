@@ -68,11 +68,6 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    // Server Configuration State
-    var showServerConfig by remember { mutableStateOf(false) }
-    var serverUrlInput by remember { mutableStateOf(TokenManager.getServerUrl()) }
-    var serverConfigSaved by remember { mutableStateOf(false) }
-
     // Google Sign-In Client
     val googleSignInClient = remember {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -125,7 +120,13 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                 }
             }
         } catch (e: ApiException) {
-            error = "Google Sign-In status ${e.statusCode}: ${e.message ?: "Sign-in was cancelled"}"
+            error = if (e.statusCode == 10) {
+                "Google Sign-In setup pending (Status 10: DEVELOPER_ERROR). Please complete OAuth in Google Cloud Console, or sign in below with Email/Password."
+            } else if (e.statusCode == 12501) {
+                "Sign-in was cancelled."
+            } else {
+                "Google Sign-In error (${e.statusCode}): ${e.localizedMessage ?: "Failed"}"
+            }
         } catch (e: Exception) {
             error = "Google Sign-In failed: ${e.message}"
         }
@@ -138,8 +139,10 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
                 .verticalScroll(scrollState)
-                .padding(horizontal = 24.dp, vertical = 24.dp),
+                .padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
@@ -219,10 +222,9 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                             containerColor = MaterialTheme.colorScheme.surface,
                         ),
                     ) {
-                        Icon(
-                            Icons.Default.AccountCircle,
+                        Image(
+                            painter = painterResource(R.drawable.ic_google_logo),
                             contentDescription = "Google",
-                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp),
                         )
                         Spacer(modifier = Modifier.width(10.dp))
@@ -401,90 +403,6 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Expandable Server Connection Configuration
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    TextButton(
-                        onClick = { showServerConfig = !showServerConfig },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Icon(Icons.Default.Dns, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            "Server Connection Settings",
-                            style = MaterialTheme.typography.labelLarge,
-                        )
-                        Spacer(modifier = Modifier.weight(1f))
-                        Icon(
-                            imageVector = if (showServerConfig) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
-                            contentDescription = null,
-                        )
-                    }
-
-                    AnimatedVisibility(visible = showServerConfig) {
-                        Column(modifier = Modifier.padding(top = 8.dp)) {
-                            Text(
-                                "Target Backend URL:",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            OutlinedTextField(
-                                value = serverUrlInput,
-                                onValueChange = {
-                                    serverUrlInput = it
-                                    serverConfigSaved = false
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true,
-                                placeholder = { Text("http://192.168.0.x:8000") },
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Button(
-                                    onClick = {
-                                        if (TokenManager.saveServerUrl(serverUrlInput)) {
-                                            serverUrlInput = TokenManager.getServerUrl()
-                                            serverConfigSaved = true
-                                            error = null
-                                        } else {
-                                            serverConfigSaved = false
-                                            error = "Enter a full http:// or https:// server URL."
-                                        }
-                                    },
-                                    modifier = Modifier.height(36.dp),
-                                ) {
-                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Apply URL", style = MaterialTheme.typography.labelMedium)
-                                }
-                                if (serverConfigSaved) {
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        "Saved!",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                "Note: On a physical phone, 10.0.2.2 is not reachable. Use your computer's Wi-Fi address (for example http://192.168.0.103:8000). Google sign-in still needs this server.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.outline,
-                            )
-                        }
-                    }
-                }
-            }
         }
     }
 }
