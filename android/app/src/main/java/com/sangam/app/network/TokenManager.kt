@@ -3,10 +3,8 @@ package com.sangam.app.network
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
-import android.util.Base64
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import java.security.SecureRandom
 
 object TokenManager {
     private const val PREFS_NAME = "sangam_secure_prefs"
@@ -17,6 +15,7 @@ object TokenManager {
     private const val KEY_ACTOR_NAME = "actor_name"
     private const val KEY_ACTOR_EMAIL = "actor_email"
     private const val KEY_SERVER_URL = "server_url"
+    // Written by builds before Firebase sign-in. Removed on startup.
     private const val KEY_GOOGLE_LINK_PREFIX = "google_link_"
 
     private lateinit var prefs: SharedPreferences
@@ -49,6 +48,14 @@ object TokenManager {
             prefs.edit().putString(KEY_SERVER_URL, legacyServer).apply()
         }
         legacy.edit().clear().apply()
+        // Older builds linked Google accounts with a random device password.
+        // Firebase replaces that, so the secrets are dropped.
+        val staleLinks = prefs.all.keys.filter { it.startsWith(KEY_GOOGLE_LINK_PREFIX) }
+        if (staleLinks.isNotEmpty()) {
+            val editor = prefs.edit()
+            staleLinks.forEach { editor.remove(it) }
+            editor.apply()
+        }
     }
 
     fun appContext(): Context = appContext
@@ -115,39 +122,19 @@ object TokenManager {
         return true
     }
 
-    /** Device-local password used only to link a Google account to the email/password API. */
-    fun googleLinkSecret(email: String): String {
-        if (!::prefs.isInitialized) return ""
-        val key = KEY_GOOGLE_LINK_PREFIX + email.trim().lowercase()
-        val existing = prefs.getString(key, null)
-        if (!existing.isNullOrBlank()) return existing
-        val bytes = ByteArray(32)
-        SecureRandom().nextBytes(bytes)
-        val secret = Base64.encodeToString(bytes, Base64.NO_WRAP or Base64.URL_SAFE)
-        prefs.edit().putString(key, secret).apply()
-        return secret
-    }
-
     fun getActorEmail(): String? = if (::prefs.isInitialized) prefs.getString(KEY_ACTOR_EMAIL, null) else null
 
     fun clear() {
         if (!::prefs.isInitialized) return
         val server = prefs.getString(KEY_SERVER_URL, null)
-        val links = prefs.all
-            .filterKeys { it.startsWith(KEY_GOOGLE_LINK_PREFIX) }
-            .mapNotNull { (key, value) -> (value as? String)?.let { key to it } }
         prefs.edit().clear().apply()
         if (server != null) saveServerUrl(server)
-        if (links.isNotEmpty()) {
-            val editor = prefs.edit()
-            links.forEach { (key, value) -> editor.putString(key, value) }
-            editor.apply()
-        }
     }
 
     fun getActorId(): String? = if (::prefs.isInitialized) prefs.getString(KEY_ACTOR_ID, null) else null
 
     fun getActorName(): String? = if (::prefs.isInitialized) prefs.getString(KEY_ACTOR_NAME, null) else null
 
-    fun isLoggedIn(): Boolean = getToken() != null
+    /** Signed in through Firebase (Google or email), or a legacy stored token. */
+    fun isLoggedIn(): Boolean = FirebaseSession.isSignedIn() || getToken() != null
 }

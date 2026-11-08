@@ -29,6 +29,13 @@ android {
             ?: ""
         buildConfigField("String", "ZITADEL_ISSUER", buildConfigString(zitadelIssuer))
         buildConfigField("String", "ZITADEL_CLIENT_ID", buildConfigString(zitadelClientId))
+        // Optional fallback for Google Sign-In. Normally read from
+        // default_web_client_id, which google-services.json provides once
+        // Google is enabled as a Firebase Authentication provider.
+        val googleWebClientId = (project.findProperty("GOOGLE_WEB_CLIENT_ID") as String?)
+            ?: System.getenv("GOOGLE_WEB_CLIENT_ID")
+            ?: ""
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", buildConfigString(googleWebClientId))
         manifestPlaceholders["appAuthRedirectScheme"] = "com.sangam.app"
     }
 

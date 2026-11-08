@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,6 +20,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.sangam.app.R
 import com.sangam.app.network.ApiClient
+import com.sangam.app.network.FirebaseSession
 import com.sangam.app.network.RealtimeClient
 import com.sangam.app.network.WorkflowResponse
 import kotlinx.coroutines.launch
@@ -35,7 +37,27 @@ fun DashboardScreen(
     onNavigateToVoiceWorkflow: () -> Unit = {},
     onNavigateToVendors: () -> Unit = {},
     onOpenWorkflow: (String) -> Unit = {},
+    onSignOut: () -> Unit = {},
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var confirmSignOut by remember { mutableStateOf(false) }
+    if (confirmSignOut) {
+        AlertDialog(
+            onDismissRequest = { confirmSignOut = false },
+            title = { Text("Sign out?") },
+            text = { Text("You can sign back in any time with Google or your email.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmSignOut = false
+                    FirebaseSession.signOut(context)
+                    onSignOut()
+                }) { Text("Sign out") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmSignOut = false }) { Text("Cancel") }
+            },
+        )
+    }
     val scope = rememberCoroutineScope()
     var workflows by remember { mutableStateOf<List<WorkflowResponse>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
@@ -89,6 +111,11 @@ fun DashboardScreen(
                                 else MaterialTheme.colorScheme.error,
                             )
                         }
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { confirmSignOut = true }) {
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Sign out")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

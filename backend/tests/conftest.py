@@ -10,7 +10,12 @@ from app.config import settings
 from app.db.base import Base
 from app.db.session import get_session
 from app.main import app
-from tests.identity_tokens import TEST_CLIENT_ID, TEST_ISSUER, install as install_test_identity
+from tests.identity_tokens import (
+    TEST_CLIENT_ID,
+    TEST_FIREBASE_PROJECT,
+    TEST_ISSUER,
+    install as install_test_identity,
+)
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test_sangam.db"
 
@@ -41,6 +46,9 @@ def _force_fixture_mode(monkeypatch):
     monkeypatch.setattr(settings, "zitadel_android_client_id", None)
     monkeypatch.setattr(settings, "zitadel_project_id", None)
     monkeypatch.setattr(settings, "zitadel_jwks_url", None)
+    monkeypatch.setattr(settings, "firebase_project_id", TEST_FIREBASE_PROJECT)
+    monkeypatch.setattr(settings, "firebase_jwks_url", None)
+    monkeypatch.setattr(settings, "firebase_require_verified_email", False)
     install_test_identity()
     yield
     install_test_identity()

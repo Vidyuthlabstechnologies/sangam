@@ -93,6 +93,10 @@ spec:
                   name: sangam-secrets
                   key: smtp_password
                   optional: true
+            - name: FIREBASE_PROJECT_ID
+              value: "sangamitra-ai"
+            - name: FIREBASE_REQUIRE_VERIFIED_EMAIL
+              value: "false"
             - name: ZITADEL_ISSUER
               valueFrom:
                 secretKeyRef:
