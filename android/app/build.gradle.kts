@@ -29,6 +29,7 @@ android {
             ?: ""
         buildConfigField("String", "ZITADEL_ISSUER", buildConfigString(zitadelIssuer))
         buildConfigField("String", "ZITADEL_CLIENT_ID", buildConfigString(zitadelClientId))
+        manifestPlaceholders["appAuthRedirectScheme"] = "com.sangam.app"
     }
 
     val releaseStorePassword = (project.findProperty("SANGAM_KEYSTORE_PASSWORD") as String?)
