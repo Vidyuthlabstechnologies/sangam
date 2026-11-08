@@ -8,6 +8,7 @@
     <application
         android:name=".SangamApp"
         android:allowBackup="true"
+        android:usesCleartextTraffic="true"
         android:icon="@mipmap/ic_launcher"
         android:label="Sangamitra"
         android:supportsRtl="true"

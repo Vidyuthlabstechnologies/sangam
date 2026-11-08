@@ -87,7 +87,8 @@ object RealtimeClient {
     fun connect(token: String) {
         disconnect()
         _state.value = RealtimeState.Connecting
-        val baseUrl = BuildConfig.API_BASE_URL
+        val server = TokenManager.getServerUrl()
+        val baseUrl = server
             .replace("http://", "ws://")
             .replace("https://", "wss://")
         val url = "$baseUrl/ws?token=$token"
