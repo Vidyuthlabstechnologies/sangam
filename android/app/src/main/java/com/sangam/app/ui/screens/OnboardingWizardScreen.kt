@@ -29,9 +29,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.sangam.app.R
 import com.sangam.app.network.*
 import com.sangam.app.ui.theme.*
 import kotlinx.coroutines.launch
@@ -43,13 +45,16 @@ data class MascotOption(
     val tagline: String,
 )
 
-val THREE_MASCOTS = listOf(
+val AVAILABLE_MASCOTS = listOf(
+    MascotOption("kite", "Kite Master", "Aviator Kite with Headset", "Autonomous telecom navigator powered by Sarvam AI"),
     MascotOption("v1", "Mitra", "Minimalist Editorial Ink", "Crisp ink-brush guide on pure white"),
     MascotOption("v2", "Swar", "Ceramic & Obsidian Voice Pod", "Tactile 3D studio hardware aesthetic"),
     MascotOption("v3", "Vani", "Artisan Flat Vector Concierge", "Warm Indian geometric vector receptionist"),
 )
 
-val MASCOT_POSES = listOf("namaste", "listening", "scanning", "thinking", "celebration", "guidance")
+val THREE_MASCOTS = AVAILABLE_MASCOTS
+
+val MASCOT_POSES = listOf("idle", "thinking", "victory", "peekaboo", "frozen", "adjudicator")
 
 val VERTICAL_PACK_CHIPS = listOf(
     "b2b_minerals" to "B2B Minerals & Factory",
@@ -69,9 +74,32 @@ val VERTICAL_PACK_CHIPS = listOf(
 @Composable
 fun MascotAvatar(
     mascotId: String,
-    pose: String = "namaste",
+    pose: String = "idle",
     sizeDp: Int = 56,
 ) {
+    if (mascotId == "kite") {
+        val resId = when (pose.lowercase()) {
+            "thinking", "scanning" -> R.drawable.mascot_kite_thinking
+            "celebration", "victory", "guidance" -> R.drawable.mascot_kite_victory
+            "peekaboo" -> R.drawable.mascot_kite_peekaboo
+            "frozen" -> R.drawable.mascot_kite_frozen
+            "adjudicator" -> R.drawable.mascot_kite_adjudicator
+            else -> R.drawable.mascot_kite_idle
+        }
+        Box(
+            modifier = Modifier.size(sizeDp.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Image(
+                painter = painterResource(resId),
+                contentDescription = "Kite Master ($pose)",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        return
+    }
+
     val context = LocalContext.current
     val bitmap = remember(mascotId, pose) {
         try {
@@ -117,8 +145,8 @@ fun OnboardingWizardScreen(
     val scope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("sangamitra_prefs", Context.MODE_PRIVATE) }
 
-    var selectedMascot by remember { mutableStateOf(prefs.getString("selected_mascot", "v1") ?: "v1") }
-    var currentPose by remember { mutableStateOf("namaste") }
+    var selectedMascot by remember { mutableStateOf(prefs.getString("selected_mascot", "kite") ?: "kite") }
+    var currentPose by remember { mutableStateOf("idle") }
     var selectedPack by remember { mutableStateOf("b2b_minerals") }
     var targetUrl by remember { mutableStateOf("https://abhishek-industries.pages.dev/") }
     var voiceTranscript by remember {
@@ -413,7 +441,7 @@ fun OnboardingWizardScreen(
                                     color = SangamMuted,
                                 )
                                 Text(
-                                    "Choose Mitra, Swar, or Vani",
+                                    "Choose Kite Master, Mitra, Swar, or Vani",
                                     style = MaterialTheme.typography.titleLarge,
                                 )
                             }
@@ -424,14 +452,14 @@ fun OnboardingWizardScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            THREE_MASCOTS.forEach { mascot ->
+                            AVAILABLE_MASCOTS.forEach { mascot ->
                                 val selected = selectedMascot == mascot.id
                                 OutlinedCard(
                                     modifier = Modifier
                                         .weight(1f)
                                         .clickable {
                                             selectedMascot = mascot.id
-                                            currentPose = "namaste"
+                                            currentPose = "idle"
                                             prefs.edit().putString("selected_mascot", mascot.id).apply()
                                             statusBanner = "Selected ${mascot.name} (${mascot.style}) as your app guide."
                                         },

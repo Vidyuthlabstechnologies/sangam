@@ -4,6 +4,7 @@ import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.os.Build
 import android.util.Base64
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -11,9 +12,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.sangam.app.R
 import com.sangam.app.network.ApiClient
 import com.sangam.app.network.TokenManager
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -106,12 +110,17 @@ fun VoiceWorkflowScreen(
                                 }
                             }
                         },
-                        modifier = Modifier.size(120.dp),
+                        modifier = Modifier.size(130.dp),
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("🎤", style = MaterialTheme.typography.displayLarge)
+                            Image(
+                                painter = painterResource(id = R.drawable.mascot_kite_idle),
+                                contentDescription = "Voice Mascot",
+                                modifier = Modifier.size(56.dp),
+                                contentScale = ContentScale.Fit
+                            )
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text("Start Recording")
+                            Text("Start Speaking", style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 }
@@ -173,26 +182,38 @@ fun VoiceWorkflowScreen(
                                 }
                             }
                         },
-                        modifier = Modifier.size(120.dp),
+                        modifier = Modifier.size(130.dp),
                         colors = ButtonDefaults.filledTonalButtonColors(
                             containerColor = MaterialTheme.colorScheme.errorContainer,
                         ),
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("🔴", style = MaterialTheme.typography.displayLarge)
+                            Image(
+                                painter = painterResource(id = R.drawable.mascot_kite_thinking),
+                                contentDescription = "Listening",
+                                modifier = Modifier.size(56.dp),
+                                contentScale = ContentScale.Fit
+                            )
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text("Stop & Process")
+                            Text("Stop & Process", style = MaterialTheme.typography.labelMedium)
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Recording...", color = MaterialTheme.colorScheme.error)
+                    Text("Listening with Sarvam AI...", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
                 }
 
                 VoiceState.PROCESSING -> {
+                    Image(
+                        painter = painterResource(id = R.drawable.mascot_kite_thinking),
+                        contentDescription = "Sarvam AI Processing",
+                        modifier = Modifier.size(110.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
                     CircularProgressIndicator()
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Processing with Sarvam AI...")
-                    Text("STT → LLM parsing", style = MaterialTheme.typography.bodySmall,
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text("Processing with Sarvam AI...", fontWeight = FontWeight.SemiBold)
+                    Text("Realtime Speech-to-Text → Intent Extraction", style = MaterialTheme.typography.bodySmall,
                          color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
@@ -284,9 +305,14 @@ fun VoiceWorkflowScreen(
                             modifier = Modifier.padding(24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            Text("✅", style = MaterialTheme.typography.displayLarge)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("Workflow created!", style = MaterialTheme.typography.headlineSmall)
+                            Image(
+                                painter = painterResource(id = R.drawable.mascot_kite_victory),
+                                contentDescription = "Workflow Created",
+                                modifier = Modifier.size(110.dp),
+                                contentScale = ContentScale.Fit
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text("Workflow created!", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(workflowName, fontWeight = FontWeight.Bold)
                             Spacer(modifier = Modifier.height(16.dp))

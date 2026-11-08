@@ -1,5 +1,7 @@
 package com.sangam.app.ui.screens
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -9,11 +11,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.sangam.app.R
 import com.sangam.app.network.ApiClient
 import com.sangam.app.network.LLMMessage
 import com.sangam.app.network.LLMRequest
+import com.sangam.app.ui.theme.*
 import kotlinx.coroutines.launch
 
 data class ChatMessage(
@@ -115,40 +121,94 @@ fun AIAssistantScreen(
         ) {
             items(messages) { msg ->
                 val isUser = msg.role == "user"
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = if (isUser) Alignment.End else Alignment.Start,
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(
-                            topStart = if (isUser) 16.dp else 4.dp,
-                            topEnd = if (isUser) 4.dp else 16.dp,
-                            bottomStart = 16.dp,
-                            bottomEnd = 16.dp,
-                        ),
-                        color = if (isUser) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.surfaceVariant,
+                if (isUser) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.End,
                     ) {
-                        Text(
-                            text = msg.content,
-                            modifier = Modifier.padding(12.dp),
-                            color = if (isUser) MaterialTheme.colorScheme.onPrimary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                        Surface(
+                            shape = RoundedCornerShape(
+                                topStart = 16.dp,
+                                topEnd = 4.dp,
+                                bottomStart = 16.dp,
+                                bottomEnd = 16.dp,
+                            ),
+                            color = SangamObsidian,
+                        ) {
+                            Text(
+                                text = msg.content,
+                                modifier = Modifier.padding(12.dp),
+                                color = SangamPureWhite,
+                            )
+                        }
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Image(
+                            painter = painterResource(R.drawable.mascot_kite_idle),
+                            contentDescription = "Kite Co-Pilot",
+                            modifier = Modifier.size(36.dp),
+                            contentScale = ContentScale.Fit,
                         )
+                        Surface(
+                            shape = RoundedCornerShape(
+                                topStart = 4.dp,
+                                topEnd = 16.dp,
+                                bottomStart = 16.dp,
+                                bottomEnd = 16.dp,
+                            ),
+                            color = SangamAlabaster,
+                            border = BorderStroke(1.dp, SangamBorder),
+                            modifier = Modifier.weight(1f, fill = false),
+                        ) {
+                            Text(
+                                text = msg.content,
+                                modifier = Modifier.padding(12.dp),
+                                color = SangamObsidian,
+                            )
+                        }
                     }
                 }
             }
             if (loading) {
                 item {
-                    Surface(
-                        shape = RoundedCornerShape(4.dp, 16.dp, 16.dp, 16.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
-                            "Thinking...",
-                            modifier = Modifier.padding(12.dp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        Image(
+                            painter = painterResource(R.drawable.mascot_kite_thinking),
+                            contentDescription = "Kite Thinking",
+                            modifier = Modifier.size(36.dp),
+                            contentScale = ContentScale.Fit,
                         )
+                        Surface(
+                            shape = RoundedCornerShape(4.dp, 16.dp, 16.dp, 16.dp),
+                            color = SangamAlabaster,
+                            border = BorderStroke(1.dp, SangamBorder),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(14.dp),
+                                    strokeWidth = 2.dp,
+                                    color = SangamObsidian,
+                                )
+                                Text(
+                                    "Consulting Sarvam AI neural model...",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = SangamMuted,
+                                )
+                            }
+                        }
                     }
                 }
             }
