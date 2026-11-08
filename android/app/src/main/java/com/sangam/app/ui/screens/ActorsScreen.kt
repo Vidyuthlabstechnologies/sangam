@@ -17,11 +17,14 @@ import com.sangam.app.network.ActorResponse
 fun ActorsScreen() {
     var actors by remember { mutableStateOf<List<ActorResponse>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         try {
             actors = ApiClient.api.listActors()
-        } catch (_: Exception) { }
+        } catch (e: Exception) {
+            error = e.message ?: "Could not load actors"
+        }
         loading = false
     }
 
@@ -35,6 +38,9 @@ fun ActorsScreen() {
     ) { padding ->
         when {
             loading -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            error != null -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                Text(error!!, color = MaterialTheme.colorScheme.error)
+            }
             actors.isEmpty() -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { Text("No actors found") }
             else -> {
                 LazyColumn(

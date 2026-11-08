@@ -39,10 +39,16 @@ export function WorkflowBuilder() {
     if (!name.trim()) return;
     setCreating(true);
     try {
+      const initiatorId = localStorage.getItem("sangam_actor_id");
+      if (!initiatorId) {
+        alert("Sign in again before creating a workflow.");
+        setCreating(false);
+        return;
+      }
       await api.workflows.create({
         name,
         description,
-        initiator_id: localStorage.getItem("sangam_actor_id") || "00000000-0000-0000-0000-000000000001",
+        initiator_id: initiatorId,
         phases: selectedPhases,
       });
       setName("");

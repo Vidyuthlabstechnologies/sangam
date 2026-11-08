@@ -32,8 +32,11 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     }
 
     override fun onPaymentSuccess(razorpayPaymentId: String?, data: PaymentData?) {
-        if (razorpayPaymentId != null && data?.orderId != null) {
-            RazorpayState.pendingListener?.invoke(razorpayPaymentId, data.orderId)
+        val signature = data?.signature
+        if (razorpayPaymentId != null && data?.orderId != null && !signature.isNullOrBlank()) {
+            RazorpayState.pendingListener?.invoke(razorpayPaymentId, data.orderId, signature)
+        } else {
+            RazorpayState.pendingErrorListener?.invoke("Payment succeeded but the signature was missing")
         }
         RazorpayState.pendingListener = null
         RazorpayState.pendingErrorListener = null

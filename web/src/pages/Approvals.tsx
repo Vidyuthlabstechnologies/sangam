@@ -19,6 +19,7 @@ interface Approval {
 export function Approvals() {
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetchApprovals();
@@ -31,7 +32,10 @@ export function Approvals() {
         (wf.approvals || []).map((a: any) => ({ ...a, workflow_name: wf.name }))
       );
       setApprovals(allApprovals);
-    } catch { }
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load approvals");
+    }
     setLoading(false);
   };
 
@@ -54,6 +58,8 @@ export function Approvals() {
         <CardContent>
           {loading ? (
             <p className="text-muted-foreground">Loading...</p>
+          ) : error ? (
+            <p className="text-destructive">{error}</p>
           ) : approvals.length === 0 ? (
             <p className="text-muted-foreground">No approvals found.</p>
           ) : (
@@ -80,8 +86,8 @@ export function Approvals() {
                         </span>
                       </td>
                       <td className="py-3 text-sm">{a.strategy}</td>
-                      <td className="py-3 text-sm">{a.approved_by.length}</td>
-                      <td className="py-3 text-sm">{a.required_actors.length}</td>
+                      <td className="py-3 text-sm">{a.approved_by?.length ?? 0}</td>
+                      <td className="py-3 text-sm">{a.required_actors?.length ?? 0}</td>
                       <td className="py-3">
                         <div className="flex gap-2">
                           {a.status === "pending" && (
@@ -89,8 +95,12 @@ export function Approvals() {
                               <Button
                                 size="sm"
                                 onClick={async () => {
-                                  await api.approvals.approve(a.id);
-                                  fetchApprovals();
+                                  try {
+                                    await api.approvals.approve(a.id);
+                                    fetchApprovals();
+                                  } catch (err) {
+                                    setError(err instanceof Error ? err.message : "Could not approve");
+                                  }
                                 }}
                               >
                                 Approve
@@ -99,8 +109,12 @@ export function Approvals() {
                                 size="sm"
                                 variant="destructive"
                                 onClick={async () => {
-                                  await api.approvals.reject(a.id);
-                                  fetchApprovals();
+                                  try {
+                                    await api.approvals.reject(a.id);
+                                    fetchApprovals();
+                                  } catch (err) {
+                                    setError(err instanceof Error ? err.message : "Could not reject");
+                                  }
                                 }}
                               >
                                 Reject

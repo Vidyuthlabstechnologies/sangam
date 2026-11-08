@@ -20,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_actor
+from app.api.onboarding import _is_admin, owned_tenant_ids
 from app.config import settings
 from app.core.agent_forwarders import forward_callback
 from app.core import composio_router
@@ -255,7 +256,11 @@ async def list_callbacks(
     if status is not None:
         query = query.where(VoiceCallback.status == status)
     if tenant_id is not None:
+        if not _is_admin(current_actor) and tenant_id not in await owned_tenant_ids(session, current_actor):
+            raise HTTPException(status_code=404, detail="Business not found")
         query = query.where(VoiceCallback.tenant_id == tenant_id)
+    elif not _is_admin(current_actor):
+        query = query.where(VoiceCallback.tenant_id.in_(await owned_tenant_ids(session, current_actor)))
     rows = (await session.execute(query)).scalars().all()
     return [_view(r) for r in rows]
 
@@ -269,6 +274,8 @@ async def update_status(
 ):
     row = await session.get(VoiceCallback, callback_id)
     if row is None:
+        raise HTTPException(status_code=404, detail="Callback request not found")
+    if not _is_admin(current_actor) and (row.tenant_id or "") not in await owned_tenant_ids(session, current_actor):
         raise HTTPException(status_code=404, detail="Callback request not found")
     row.status = body.status
     await session.commit()

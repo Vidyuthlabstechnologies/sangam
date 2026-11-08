@@ -1,9 +1,9 @@
 package com.sangam.app.network
 
-import com.sangam.app.BuildConfig
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import okhttp3.*
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
@@ -87,11 +87,18 @@ object RealtimeClient {
     fun connect(token: String) {
         disconnect()
         _state.value = RealtimeState.Connecting
-        val server = TokenManager.getServerUrl()
-        val baseUrl = server
-            .replace("http://", "ws://")
-            .replace("https://", "wss://")
-        val url = "$baseUrl/ws?token=$token"
+        val parsed = TokenManager.getServerUrl().toHttpUrlOrNull()
+        if (parsed == null) {
+            _state.value = RealtimeState.Error("Server URL is not valid")
+            return
+        }
+        val scheme = if (parsed.scheme == "https") "wss" else "ws"
+        val url = parsed.newBuilder()
+            .scheme(scheme)
+            .encodedPath("/ws")
+            .query(null)
+            .addQueryParameter("token", token)
+            .build()
         ws = client.newWebSocket(Request.Builder().url(url).build(), callback)
     }
 

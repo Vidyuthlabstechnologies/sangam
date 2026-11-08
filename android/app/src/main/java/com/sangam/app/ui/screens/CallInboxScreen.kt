@@ -48,47 +48,11 @@ fun CallInboxScreen(
     var searchQuery by remember { mutableStateOf("") }
     var playingAsset by remember { mutableStateOf<String?>(null) }
     var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
+    var loading by remember { mutableStateOf(true) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+    var lineLabel by remember { mutableStateOf("Your calls") }
 
-    val leads = remember {
-        mutableStateListOf(
-            CallLeadItem(
-                id = "cb_01",
-                callerName = "Raghavendra Ceramics Pvt Ltd",
-                callerPhone = "+919845098450",
-                service = "kaolin",
-                language = "kn-IN (Kannada)",
-                urgency = "urgent",
-                notes = "25 Tonnes China Clay (Kaolin) 325 Mesh for ceramic glaze production in Peenya, Bengaluru. Requested 1kg lab sample first.",
-                preferredTime = "Today 4:00 PM",
-                status = "new",
-                audioAsset = "audio/abhishek_kn.wav",
-            ),
-            CallLeadItem(
-                id = "cb_02",
-                callerName = "Cochin Polymers & Coatings",
-                callerPhone = "+919447011223",
-                service = "quartz",
-                language = "ml-IN (Malayalam)",
-                urgency = "normal",
-                notes = "40 Tonnes high-purity Quartz / Silica powder 200 Mesh delivered to Ernakulam, Kerala. Asked for delivered price per tonne.",
-                preferredTime = "Tomorrow 11:00 AM",
-                status = "new",
-                audioAsset = "audio/abhishek_ml.wav",
-            ),
-            CallLeadItem(
-                id = "cb_03",
-                callerName = "Deccan Glass & Refractories",
-                callerPhone = "+919000122334",
-                service = "feldspar",
-                language = "te-IN (Telugu)",
-                urgency = "urgent",
-                notes = "30 Tonnes Potash Feldspar + 15 Tonnes Dolomite for Hyderabad plant. Confirmed WhatsApp catalog receipt.",
-                preferredTime = "Today 5:30 PM",
-                status = "contacted",
-                audioAsset = "audio/abhishek_te.wav",
-            ),
-        )
-    }
+    val leads = remember { mutableStateListOf<CallLeadItem>() }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -120,28 +84,36 @@ fun CallInboxScreen(
 
     LaunchedEffect(Unit) {
         try {
+            val wallet = ApiClient.onboardingApi.getMyWallet()
+            val name = wallet["business_name"]?.toString()?.takeIf { it.isNotBlank() }
+            val phone = wallet["assigned_did"]?.toString()?.takeIf { it.isNotBlank() }
+            lineLabel = listOfNotNull(phone, name).joinToString(" · ").ifBlank { "Your calls" }
+        } catch (_: Exception) { }
+        try {
             val remote = ApiClient.onboardingApi.listCallbacks()
+            leads.clear()
             remote.forEach { row ->
                 val id = row["id"]?.toString() ?: return@forEach
-                if (leads.none { it.id == id }) {
-                    leads.add(
-                        0,
-                        CallLeadItem(
-                            id = id,
-                            callerName = row["caller_name"]?.toString() ?: "Verified Caller",
-                            callerPhone = row["caller_phone"]?.toString() ?: "+919845000000",
-                            service = row["service"]?.toString() ?: "mineral_inquiry",
-                            language = row["language"]?.toString() ?: "kn-IN",
-                            urgency = row["urgency"]?.toString() ?: "normal",
-                            notes = row["notes"]?.toString() ?: "",
-                            preferredTime = row["preferred_time"]?.toString() ?: "ASAP",
-                            status = row["status"]?.toString() ?: "new",
-                            audioAsset = "audio/abhishek_kn.wav",
-                        )
+                leads.add(
+                    CallLeadItem(
+                        id = id,
+                        callerName = row["caller_name"]?.toString()?.ifBlank { null } ?: "Caller",
+                        callerPhone = row["caller_phone"]?.toString().orEmpty(),
+                        service = row["service"]?.toString().orEmpty(),
+                        language = row["language"]?.toString().orEmpty(),
+                        urgency = row["urgency"]?.toString() ?: "normal",
+                        notes = row["notes"]?.toString().orEmpty(),
+                        preferredTime = row["preferred_time"]?.toString().orEmpty(),
+                        status = row["status"]?.toString() ?: "new",
+                        audioAsset = "",
                     )
-                }
+                )
             }
-        } catch (_: Exception) { }
+            loadError = null
+        } catch (e: Exception) {
+            loadError = e.message ?: "Could not load calls"
+        }
+        loading = false
     }
 
     val filteredLeads = leads.filter { item ->
@@ -159,7 +131,7 @@ fun CallInboxScreen(
                 title = {
                     Column {
                         Text("AI CALL INBOX & LEAD CRM", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text("+91 80 6427 0314 · Abhishek Industries", style = MaterialTheme.typography.bodySmall, color = SangamMuted)
+                        Text(lineLabel, style = MaterialTheme.typography.bodySmall, color = SangamMuted)
                     }
                 },
                 navigationIcon = {
@@ -222,6 +194,18 @@ fun CallInboxScreen(
                 }
             }
 
+            if (loading) {
+                item {
+                    Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                }
+            } else if (loadError != null && leads.isEmpty()) {
+                item { Text(loadError!!, color = MaterialTheme.colorScheme.error) }
+            } else if (filteredLeads.isEmpty()) {
+                item { Text("No calls yet.", color = SangamMuted) }
+            }
+
             items(filteredLeads, key = { it.id }) { lead ->
                 OutlinedCard(
                     colors = CardDefaults.outlinedCardColors(containerColor = SangamPureWhite),
@@ -282,7 +266,7 @@ fun CallInboxScreen(
 
                             OutlinedButton(
                                 onClick = {
-                                    val msg = Uri.encode("ನಮಸ್ಕಾರ ${lead.callerName}, Abhishek Industries Tumakuru ಇಂದ ನಿಮ್ಮ ${lead.service} ವಿಚಾರಣೆಗೆ quotation ಮತ್ತು ಸ್ಯಾಂಪಲ್ ವಿವರ ಕಳಿಸುತ್ತಿದ್ದೇವೆ.")
+                                    val msg = Uri.encode("Hello ${lead.callerName}, following up on your ${lead.service} enquiry.")
                                     val digits = lead.callerPhone.replace("+", "")
                                     val wa = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$digits?text=$msg"))
                                     context.startActivity(wa)
@@ -295,17 +279,19 @@ fun CallInboxScreen(
                                 Text("WhatsApp")
                             }
 
-                            OutlinedButton(
-                                onClick = { playAssetSample(lead.audioAsset) },
-                                border = BorderStroke(1.dp, SangamBorder),
-                            ) {
-                                Icon(
-                                    if (playingAsset == lead.audioAsset) Icons.Default.Stop else Icons.Default.PlayArrow,
-                                    contentDescription = "Play Audio",
-                                    modifier = Modifier.size(16.dp),
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(if (playingAsset == lead.audioAsset) "Stop" else "Audio")
+                            if (lead.audioAsset.isNotBlank()) {
+                                OutlinedButton(
+                                    onClick = { playAssetSample(lead.audioAsset) },
+                                    border = BorderStroke(1.dp, SangamBorder),
+                                ) {
+                                    Icon(
+                                        if (playingAsset == lead.audioAsset) Icons.Default.Stop else Icons.Default.PlayArrow,
+                                        contentDescription = "Play Audio",
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(if (playingAsset == lead.audioAsset) "Stop" else "Audio")
+                                }
                             }
                         }
 
@@ -313,14 +299,16 @@ fun CallInboxScreen(
                             listOf("new" to "Mark New", "contacted" to "Mark Contacted", "closed" to "Mark Closed").forEach { (st, title) ->
                                 AssistChip(
                                     onClick = {
-                                        val idx = leads.indexOfFirst { it.id == lead.id }
-                                        if (idx >= 0) {
-                                            leads[idx] = leads[idx].copy(status = st)
-                                        }
                                         scope.launch {
                                             try {
                                                 ApiClient.onboardingApi.updateCallbackStatus(lead.id, mapOf("status" to st))
-                                            } catch (_: Exception) { }
+                                                val idx = leads.indexOfFirst { it.id == lead.id }
+                                                if (idx >= 0) {
+                                                    leads[idx] = leads[idx].copy(status = st)
+                                                }
+                                            } catch (e: Exception) {
+                                                loadError = e.message ?: "Could not update this call"
+                                            }
                                         }
                                     },
                                     label = { Text(title, style = MaterialTheme.typography.bodySmall) },

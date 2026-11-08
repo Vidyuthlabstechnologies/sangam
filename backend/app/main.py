@@ -76,9 +76,47 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+class ApiV1AliasMiddleware:
+    """Web calls `/api/v1/...`. Routers are mounted at the root, and `/api/v1` itself is the index."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
+        path = scope.get("path") or ""
+        if not path.startswith("/api/v1/"):
+            await self.app(scope, receive, send)
+            return
+
+        scope = dict(scope)
+        rewritten = path[len("/api/v1"):] or "/"
+        scope["path"] = rewritten
+        if scope.get("raw_path") is not None:
+            scope["raw_path"] = rewritten.encode("ascii")
+
+        async def send_aliased(message):
+            if message["type"] == "http.response.start":
+                headers = []
+                for key, value in message.get("headers", []):
+                    if key.lower() == b"location":
+                        location = value.decode("latin1")
+                        if location.startswith("/") and not location.startswith("/api/v1"):
+                            value = f"/api/v1{location}".encode("latin1")
+                    headers.append((key, value))
+                message = dict(message)
+                message["headers"] = headers
+            await send(message)
+
+        await self.app(scope, receive, send_aliased)
+
+
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(ApiV1AliasMiddleware)
 
 GlobalExceptionHandler.register(app)
 

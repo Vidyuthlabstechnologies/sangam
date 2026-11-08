@@ -16,12 +16,16 @@ interface Workflow {
 export function WorkflowList() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     api.workflows.list().then((res) => {
       setWorkflows(res.items || []);
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch((err) => {
+      setError(err instanceof Error ? err.message : "Could not load workflows");
+      setLoading(false);
+    });
   }, []);
 
   const stateColors: Record<string, string> = {
@@ -36,6 +40,9 @@ export function WorkflowList() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Workflows</h1>
+        <Link to="/workflows/new">
+          <Button>New Workflow</Button>
+        </Link>
       </div>
 
       <Card>
@@ -45,6 +52,8 @@ export function WorkflowList() {
         <CardContent>
           {loading ? (
             <p className="text-muted-foreground">Loading...</p>
+          ) : error ? (
+            <p className="text-destructive">{error}</p>
           ) : workflows.length === 0 ? (
             <p className="text-muted-foreground">No workflows found.</p>
           ) : (

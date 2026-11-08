@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 object RazorpayState {
-    var pendingListener: ((razorpayPaymentId: String, razorpayOrderId: String) -> Unit)? = null
+    var pendingListener: ((razorpayPaymentId: String, razorpayOrderId: String, razorpaySignature: String) -> Unit)? = null
     var pendingErrorListener: ((message: String) -> Unit)? = null
 }
 
@@ -133,14 +133,14 @@ fun PaymentScreen(
                                 ),
                             )
 
-                            RazorpayState.pendingListener = { razorpayPaymentId, razorpayOrderId ->
+                            RazorpayState.pendingListener = { razorpayPaymentId, razorpayOrderId, razorpaySignature ->
                                 scope.launch {
                                     try {
                                         val verifyResult = ApiClient.paymentApi.verifyPayment(
                                             VerifyPaymentRequest(
                                                 razorpay_order_id = razorpayOrderId,
                                                 razorpay_payment_id = razorpayPaymentId,
-                                                razorpay_signature = "$razorpayOrderId|$razorpayPaymentId",
+                                                razorpay_signature = razorpaySignature,
                                             ),
                                         )
                                         paymentStatus = verifyResult.status

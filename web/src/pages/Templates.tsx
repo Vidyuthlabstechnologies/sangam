@@ -31,15 +31,29 @@ export function Templates() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const url = selectedCategory
       ? `${API_URL}/templates?category=${selectedCategory}`
       : `${API_URL}/templates`;
-    fetch(url)
-      .then((r) => r.json())
-      .then(setTemplates)
-      .catch(() => { })
+    const token = localStorage.getItem("sangam_token");
+    setLoading(true);
+    fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then(async (r) => {
+        if (!r.ok) {
+          const body = await r.json().catch(() => ({}));
+          throw new Error(body.detail || `HTTP ${r.status}`);
+        }
+        const data = await r.json();
+        if (!Array.isArray(data)) throw new Error("Unexpected templates response");
+        setTemplates(data);
+        setError("");
+      })
+      .catch((err) => {
+        setTemplates([]);
+        setError(err instanceof Error ? err.message : "Could not load templates");
+      })
       .finally(() => setLoading(false));
   }, [selectedCategory]);
 
@@ -83,6 +97,8 @@ export function Templates() {
 
       {loading ? (
         <p className="text-muted-foreground">Loading templates...</p>
+      ) : error ? (
+        <p className="text-destructive">{error}</p>
       ) : templates.length === 0 ? (
         <p className="text-muted-foreground">No templates found.</p>
       ) : (

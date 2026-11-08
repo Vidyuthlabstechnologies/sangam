@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
@@ -37,7 +38,9 @@ import com.sangam.app.network.LoginRequest
 import com.sangam.app.network.RealtimeClient
 import com.sangam.app.network.RegisterRequest
 import com.sangam.app.network.TokenManager
+import com.sangam.app.network.TokenResponse
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 
 @Composable
 fun LoginScreen(onLoginSuccess: () -> Unit) {
@@ -78,50 +81,28 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                     loading = true
                     error = null
                     try {
-                        val uid = account.id ?: ("google_" + (account.email?.hashCode() ?: System.currentTimeMillis()))
                         val accountName = account.displayName ?: account.givenName ?: "Google User"
-                        val accountEmail = account.email ?: ""
-
-                        // 1. Cloud Database Sync (Firestore)
-                        try {
-                            val db = FirebaseFirestore.getInstance()
-                            val userDoc = hashMapOf(
-                                "uid" to uid,
-                                "email" to accountEmail,
-                                "name" to accountName,
-                                "photoUrl" to (account.photoUrl?.toString() ?: ""),
-                                "authProvider" to "google",
-                                "lastLogin" to FieldValue.serverTimestamp()
-                            )
-                            db.collection("users").document(uid).set(userDoc, SetOptions.merge())
-                        } catch (_: Exception) {
-                            // Non-fatal if offline or firestore rules check in progress
+                        val accountEmail = account.email?.trim().orEmpty()
+                        if (accountEmail.isEmpty()) {
+                            error = "Google did not share an email address. Sign in with email and password."
+                            return@launch
                         }
-
-                        // 2. Synchronize with backend API if accessible
-                        var token = account.idToken ?: ("token_google_" + uid)
-                        try {
-                            val resp = ApiClient.authApi.login(
-                                LoginRequest(email = accountEmail, password = "google_auth_$uid")
-                            )
-                            token = resp.access_token
-                        } catch (_: Exception) {
-                            try {
-                                val regResp = ApiClient.authApi.register(
-                                    RegisterRequest(name = accountName, email = accountEmail, password = "google_auth_$uid")
-                                )
-                                token = regResp.access_token
-                            } catch (_: Exception) {
-                                // Backend not currently reachable; use Google / Cloud identity token
-                            }
+                        val secret = TokenManager.googleLinkSecret(accountEmail)
+                        if (secret.isEmpty()) {
+                            error = "Could not store this sign-in on the device."
+                            return@launch
                         }
-
-                        // 3. Persist session
-                        TokenManager.saveToken(token, uid, accountName, accountEmail)
+                        val resp = try {
+                            linkGoogleAccount(accountEmail, accountName, secret)
+                        } catch (e: Exception) {
+                            error = friendlyAuthError(e)
+                            return@launch
+                        }
+                        syncFirestoreProfile(resp.actor_id, accountEmail, resp.name, "google")
+                        TokenManager.saveToken(resp.access_token, resp.actor_id, resp.name, accountEmail)
                         try {
                             RealtimeClient.start()
                         } catch (_: Exception) {}
-
                         onLoginSuccess()
                     } catch (e: Exception) {
                         error = "Google Sign-In failed: ${e.message}"
@@ -300,20 +281,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                                         ApiClient.authApi.register(RegisterRequest(trimmedName, trimmedEmail, password))
                                     }
 
-                                    // Cloud Firestore backup sync
-                                    try {
-                                        val db = FirebaseFirestore.getInstance()
-                                        val docId = trimmedEmail.replace(".", "_")
-                                        val userDoc = hashMapOf(
-                                            "uid" to resp.actor_id,
-                                            "email" to trimmedEmail,
-                                            "name" to resp.name,
-                                            "authProvider" to "email_password",
-                                            "lastLogin" to FieldValue.serverTimestamp()
-                                        )
-                                        db.collection("users").document(docId).set(userDoc, SetOptions.merge())
-                                    } catch (_: Exception) {}
-
+                                    syncFirestoreProfile(resp.actor_id, trimmedEmail, resp.name, "email_password")
                                     TokenManager.saveToken(resp.access_token, resp.actor_id, resp.name, trimmedEmail)
                                     try {
                                         RealtimeClient.start()
@@ -321,12 +289,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
 
                                     onLoginSuccess()
                                 } catch (e: Exception) {
-                                    val rawMsg = e.message ?: "Authentication failed"
-                                    error = if (rawMsg.contains("10.0.2.2") || rawMsg.contains("CLEARTEXT") || rawMsg.contains("failed to connect")) {
-                                        "Could not reach backend at ${TokenManager.getServerUrl()}. If testing on a physical phone, expand 'Server Connection Settings' below to set your PC LAN IP, or use Google Sign-In."
-                                    } else {
-                                        rawMsg
-                                    }
+                                    error = friendlyAuthError(e)
                                 } finally {
                                     loading = false
                                 }
@@ -400,8 +363,14 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                             ) {
                                 Button(
                                     onClick = {
-                                        TokenManager.saveServerUrl(serverUrlInput)
-                                        serverConfigSaved = true
+                                        if (TokenManager.saveServerUrl(serverUrlInput)) {
+                                            serverUrlInput = TokenManager.getServerUrl()
+                                            serverConfigSaved = true
+                                            error = null
+                                        } else {
+                                            serverConfigSaved = false
+                                            error = "Enter a full http:// or https:// server URL."
+                                        }
                                     },
                                     modifier = Modifier.height(36.dp),
                                 ) {
@@ -420,7 +389,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                             }
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                "Note: On physical Android devices, 10.0.2.2 is not reachable. Use your computer's Wi-Fi IP (e.g. http://192.168.1.5:8000) or tunnel URL. Google Sign-In works directly over Cloud.",
+                                "Note: On a physical phone, 10.0.2.2 is not reachable. Use your computer's Wi-Fi address (for example http://192.168.1.5:8000). Google sign-in still needs this server.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.outline,
                             )
@@ -429,5 +398,58 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+private suspend fun linkGoogleAccount(email: String, name: String, secret: String): TokenResponse {
+    try {
+        return ApiClient.authApi.login(LoginRequest(email = email, password = secret))
+    } catch (loginError: HttpException) {
+        if (loginError.code() != 401) throw loginError
+    }
+    try {
+        return ApiClient.authApi.register(RegisterRequest(name = name, email = email, password = secret))
+    } catch (registerError: HttpException) {
+        if (registerError.code() == 409) {
+            throw IllegalStateException("This email already has a password. Sign in with email instead.")
+        }
+        throw registerError
+    }
+}
+
+private fun syncFirestoreProfile(actorId: String, email: String, name: String, provider: String) {
+    val firebaseUser = try {
+        FirebaseAuth.getInstance().currentUser
+    } catch (_: Exception) {
+        null
+    } ?: return
+    try {
+        val userDoc = hashMapOf(
+            "uid" to firebaseUser.uid,
+            "actorId" to actorId,
+            "email" to email,
+            "name" to name,
+            "authProvider" to provider,
+            "lastLogin" to FieldValue.serverTimestamp(),
+        )
+        FirebaseFirestore.getInstance()
+            .collection("users")
+            .document(firebaseUser.uid)
+            .set(userDoc, SetOptions.merge())
+    } catch (_: Exception) {
+    }
+}
+
+private fun friendlyAuthError(e: Exception): String {
+    val raw = when (e) {
+        is HttpException -> e.response()?.errorBody()?.string()?.let { body ->
+            Regex(""""detail"\s*:\s*"([^"]+)"""").find(body)?.groupValues?.get(1)
+        } ?: e.message
+        else -> e.message
+    } ?: "Authentication failed"
+    return if (raw.contains("10.0.2.2") || raw.contains("CLEARTEXT", ignoreCase = true) || raw.contains("failed to connect")) {
+        "Could not reach backend at ${TokenManager.getServerUrl()}. On a phone, open Server Connection Settings and enter your computer's http:// address."
+    } else {
+        raw
     }
 }

@@ -15,12 +15,16 @@ interface Workflow {
 export function Dashboard() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     api.workflows.list({ page_size: "5" }).then((res) => {
       setWorkflows(res.items || []);
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch((err) => {
+      setError(err instanceof Error ? err.message : "Could not load workflows");
+      setLoading(false);
+    });
   }, []);
 
   const stats = {
@@ -34,7 +38,7 @@ export function Dashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <Link to="/workflows">
+        <Link to="/workflows/new">
           <Button>New Workflow</Button>
         </Link>
       </div>
@@ -81,6 +85,8 @@ export function Dashboard() {
         <CardContent>
           {loading ? (
             <p className="text-muted-foreground">Loading...</p>
+          ) : error ? (
+            <p className="text-destructive">{error}</p>
           ) : workflows.length === 0 ? (
             <p className="text-muted-foreground">No workflows yet. Create your first one.</p>
           ) : (

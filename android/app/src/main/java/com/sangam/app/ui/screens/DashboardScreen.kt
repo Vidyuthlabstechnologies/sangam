@@ -29,17 +29,22 @@ fun DashboardScreen(
     onNavigateToAIAssistant: () -> Unit = {},
     onNavigateToVoiceWorkflow: () -> Unit = {},
     onNavigateToVendors: () -> Unit = {},
+    onOpenWorkflow: (String) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var workflows by remember { mutableStateOf<List<WorkflowResponse>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    var loadError by remember { mutableStateOf<String?>(null) }
     var wsState by remember { mutableStateOf("") }
 
     suspend fun refresh() {
         try {
             val response = ApiClient.api.listWorkflows(pageSize = 10)
             workflows = response.items
-        } catch (_: Exception) { }
+            loadError = null
+        } catch (e: Exception) {
+            loadError = e.message ?: "Could not load workflows"
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -158,7 +163,7 @@ fun DashboardScreen(
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
-                            "Live lines: +91 80 6427 0314 (Abhishek Industries) · +91 80 6427 0306 (Surya Enterprises) · Choose Mitra, Swar, or Vani mascot · Plans from ₹799 (60% Profit Economics)",
+                            "Choose a mascot, paste your website, and pick a plan. Your line and wallet stay on this account.",
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
@@ -207,6 +212,56 @@ fun DashboardScreen(
                             Spacer(modifier = Modifier.height(8.dp))
                             Text("AI Assistant", fontWeight = FontWeight.Bold)
                             Text("Chat with Sarvam LLM", style = MaterialTheme.typography.bodySmall,
+                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                 textAlign = TextAlign.Center)
+                        }
+                    }
+                    ElevatedCard(
+                        onClick = onNavigateToApprovals,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Icon(
+                                Icons.Default.CheckCircle,
+                                contentDescription = "Approvals",
+                                modifier = Modifier.size(32.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Approvals", fontWeight = FontWeight.Bold)
+                            Text("Waiting decisions", style = MaterialTheme.typography.bodySmall,
+                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                 textAlign = TextAlign.Center)
+                        }
+                    }
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    ElevatedCard(
+                        onClick = onNavigateToActors,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Icon(
+                                Icons.Default.People,
+                                contentDescription = "Actors",
+                                modifier = Modifier.size(32.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Actors", fontWeight = FontWeight.Bold)
+                            Text("People and agents", style = MaterialTheme.typography.bodySmall,
                                  color = MaterialTheme.colorScheme.onSurfaceVariant,
                                  textAlign = TextAlign.Center)
                         }
@@ -262,6 +317,10 @@ fun DashboardScreen(
                         CircularProgressIndicator()
                     }
                 }
+            } else if (loadError != null && workflows.isEmpty()) {
+                item {
+                    Text(loadError!!, color = MaterialTheme.colorScheme.error)
+                }
             } else if (workflows.isEmpty()) {
                 item {
                     Card(
@@ -277,7 +336,7 @@ fun DashboardScreen(
                 }
             } else {
                 items(workflows) { wf ->
-                    WorkflowCard(wf)
+                    WorkflowCard(wf, onClick = { onOpenWorkflow(wf.id) })
                 }
             }
         }
@@ -310,10 +369,10 @@ fun RowScope.StatCard(label: String, count: Int, color: Color) {
 }
 
 @Composable
-fun WorkflowCard(workflow: WorkflowResponse) {
+fun WorkflowCard(workflow: WorkflowResponse, onClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        onClick = {},
+        onClick = onClick,
     ) {
         Row(
             modifier = Modifier

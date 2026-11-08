@@ -5,6 +5,7 @@ import android.content.Intent
 import android.graphics.BitmapFactory
 import android.media.MediaPlayer
 import android.net.Uri
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,9 +33,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.razorpay.Checkout
 import com.sangam.app.network.*
 import com.sangam.app.ui.theme.*
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 data class MascotOption(
     val id: String,
@@ -120,22 +123,18 @@ fun OnboardingWizardScreen(
     var selectedMascot by remember { mutableStateOf(prefs.getString("selected_mascot", "v1") ?: "v1") }
     var currentPose by remember { mutableStateOf("namaste") }
     var selectedPack by remember { mutableStateOf("b2b_minerals") }
-    var targetUrl by remember { mutableStateOf("https://abhishek-industries.pages.dev/") }
-    var voiceTranscript by remember {
-        mutableStateOf("ನಮ್ಮದು ತುಮಕೂರಿನಲ್ಲಿ ಅಭಿಷೇಕ್ ಇಂಡಸ್ಟ್ರೀಸ್, ನಾವು ಕಾವೋಲಿನ್, ಕ್ವಾರ್ಟ್ಜ್, ಫೆಲ್ಡ್ಸ್ಪಾರ್ ಮಿನರಲ್ ಪೌಡರ್ ಸಪ್ಲೈ ಮಾಡ್ತೀವಿ.")
-    }
+    var targetUrl by remember { mutableStateOf("") }
+    var voiceTranscript by remember { mutableStateOf("") }
     var statusBanner by remember {
         mutableStateOf("Ready: Paste a website URL, scan a shop board photo, or speak in any of 22 Indian languages.")
     }
     var isBusy by remember { mutableStateOf(false) }
 
     // Live provisioned agent state
-    var deployedPhone by remember { mutableStateOf("+91 80 6427 0314") }
-    var deployedBusiness by remember { mutableStateOf("Abhishek Industries (Tumakuru)") }
-    var defaultLanguage by remember { mutableStateOf("Kannada (Colloquial Sales + Code-Mixed English)") }
-    var openingGreeting by remember {
-        mutableStateOf("ನಮಸ್ಕಾರ ಸರ್! ಅಭಿಷೇಕ್ ಇಂಡಸ್ಟ್ರೀಸ್ ತುಮಕೂರು, ನಾನು ಮೀರಾ ಮಾತಾಡ್ತಿರೋದು. ಹೇಳಿ ಸರ್, ನಿಮ್ಮ factory ಗೆ ಯಾವ mineral powder requirement ಇತ್ತು?")
-    }
+    var deployedPhone by remember { mutableStateOf("Not assigned") }
+    var deployedBusiness by remember { mutableStateOf("Your business") }
+    var defaultLanguage by remember { mutableStateOf("Not set") }
+    var openingGreeting by remember { mutableStateOf("Your agent greeting will show here after setup.") }
 
     // Audio sample player state
     var playingAudioAsset by remember { mutableStateOf<String?>(null) }
@@ -154,10 +153,10 @@ fun OnboardingWizardScreen(
         )
     }
     var selectedPlanId by remember { mutableStateOf("vyapar") }
-    var walletBalanceInr by remember { mutableStateOf(2351.50) }
-    var isStarterActive by remember { mutableStateOf(true) }
-    var upiAutopayEnabled by remember { mutableStateOf(true) }
-    var referralCode by remember { mutableStateOf("SANGAM-ABHISHEK") }
+    var walletBalanceInr by remember { mutableStateOf(0.0) }
+    var isStarterActive by remember { mutableStateOf(false) }
+    var upiAutopayEnabled by remember { mutableStateOf(false) }
+    var referralCode by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         try {
@@ -177,6 +176,12 @@ fun OnboardingWizardScreen(
             if (!ref.isNullOrBlank()) referralCode = ref
             val phone = w["assigned_did"] as? String
             if (!phone.isNullOrBlank()) deployedPhone = phone
+            val business = w["business_name"] as? String
+            if (!business.isNullOrBlank()) deployedBusiness = business
+            val language = w["primary_language"] as? String
+            if (!language.isNullOrBlank()) defaultLanguage = language
+            val autopay = w["upi_autopay_enabled"] as? Boolean
+            if (autopay != null) upiAutopayEnabled = autopay
         } catch (_: Exception) { }
     }
 
@@ -203,6 +208,53 @@ fun OnboardingWizardScreen(
 
     DisposableEffect(Unit) {
         onDispose { mediaPlayer?.release() }
+    }
+
+    fun beginCheckout(order: CreateWalletOrderResponseDto) {
+        val activity = context as? ComponentActivity
+        val key = order.key_id
+        if (activity == null || key.isNullOrBlank()) {
+            statusBanner = "Order ${order.order_id} was created. Checkout did not open, so nothing was charged."
+            return
+        }
+        RazorpayState.pendingListener = { paymentId, orderId, signature ->
+            scope.launch {
+                try {
+                    ApiClient.onboardingApi.verifyWalletPayment(
+                        VerifyWalletPaymentRequestDto(
+                            razorpay_order_id = orderId,
+                            razorpay_payment_id = paymentId,
+                            razorpay_signature = signature,
+                        )
+                    )
+                    val w = ApiClient.onboardingApi.getMyWallet()
+                    val bal = (w["call_balance_inr"] as? Number)?.toDouble()
+                    if (bal != null) walletBalanceInr = bal
+                    isStarterActive = (w["deployment_status"] as? String) == "ACTIVE"
+                    statusBanner = "Payment verified."
+                } catch (e: Exception) {
+                    statusBanner = "Payment verification failed: ${e.message ?: "request failed"}"
+                }
+            }
+        }
+        RazorpayState.pendingErrorListener = {
+            statusBanner = "Payment cancelled. Nothing was charged."
+        }
+        try {
+            val checkout = Checkout()
+            checkout.setKeyID(key)
+            val options = JSONObject().apply {
+                put("name", "Sangamitra")
+                put("description", order.purpose)
+                put("order_id", order.order_id)
+                put("currency", order.currency)
+                put("amount", order.amount_paise)
+            }
+            checkout.open(activity, options)
+            statusBanner = "Complete the Razorpay payment. The wallet updates after verification."
+        } catch (e: Exception) {
+            statusBanner = "Checkout could not open: ${e.message ?: "request failed"}"
+        }
     }
 
     fun playVoiceSample(assetPath: String, label: String) {
@@ -234,45 +286,41 @@ fun OnboardingWizardScreen(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
-            scope.launch {
-                isBusy = true
-                currentPose = "scanning"
-                statusBanner = "Running Indic Vision OCR on selected shop-board / brochure photo..."
-                try {
-                    val res = ApiClient.onboardingApi.ingestImageOcr(
-                        mapOf(
-                            "extracted_text" to "Abhishek Industries Tumakuru · China Clay, Quartz, Feldspar, Dolomite · +91 9739999992",
-                            "filename" to (uri.lastPathSegment ?: "shop_board.jpg"),
-                            "languages" to listOf("kn-IN", "ml-IN", "te-IN"),
-                        )
-                    )
-                    deployedBusiness = (res["business_profile"] as? Map<*, *>)?.get("business_name")?.toString() ?: deployedBusiness
-                } catch (_: Exception) { }
-                currentPose = "celebration"
-                statusBanner = "Shop-board OCR compiled into 24/7 Kannada/Multilingual Sales Agent."
-                isBusy = false
-            }
+            currentPose = "guidance"
+            statusBanner = "Photo selected (${uri.lastPathSegment ?: "image"}). This build does not read text from the image, so nothing was sent."
         }
     }
 
     val micPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
-    ) { _ ->
+    ) { granted ->
+        if (!granted) {
+            statusBanner = "Microphone permission is required before a narration can be sent."
+            return@rememberLauncherForActivityResult
+        }
+        val transcript = voiceTranscript.trim()
+        if (transcript.isEmpty()) {
+            statusBanner = "This button does not record yet. Type a narration first, or use URL setup."
+            return@rememberLauncherForActivityResult
+        }
         scope.launch {
             isBusy = true
             currentPose = "listening"
-            statusBanner = "Listening to spoken narration & compiling zero-prompt voice agent..."
+            statusBanner = "Sending the narration..."
             try {
                 ApiClient.onboardingApi.ingestVoice(
                     VoiceNarrationRequestDto(
-                        transcript = voiceTranscript,
+                        transcript = transcript,
                         language_code = "kn-IN",
                         mascot_id = selectedMascot,
                     )
                 )
-            } catch (_: Exception) { }
-            currentPose = "celebration"
-            statusBanner = "Spoken Kannada narration compiled into proactive sales persona."
+                currentPose = "celebration"
+                statusBanner = "Narration submitted."
+            } catch (e: Exception) {
+                currentPose = "guidance"
+                statusBanner = "Voice setup failed: ${e.message ?: "request failed"}"
+            }
             isBusy = false
         }
     }
@@ -289,10 +337,17 @@ fun OnboardingWizardScreen(
                     onClick = {
                         showDeleteConfirmDialog = false
                         scope.launch {
+                            val actorId = TokenManager.getActorId()
+                            if (actorId.isNullOrBlank()) {
+                                statusBanner = "Sign in again before deleting this account."
+                                return@launch
+                            }
                             try {
-                                ApiClient.onboardingApi.deleteAccount("abhishek-industries")
-                            } catch (_: Exception) { }
-                            statusBanner = "Account and all associated voice/wallet data permanently deleted."
+                                ApiClient.onboardingApi.deleteAccount(actorId)
+                                statusBanner = "This account's voice and wallet data were deleted."
+                            } catch (e: Exception) {
+                                statusBanner = "Could not delete the account: ${e.message ?: "request failed"}"
+                            }
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = SangamCrimson),
@@ -323,13 +378,15 @@ fun OnboardingWizardScreen(
                             try {
                                 ApiClient.onboardingApi.reportAiOutput(
                                     AiReportRequestDto(
-                                        user_id = "abhishek-industries",
+                                        user_id = TokenManager.getActorId() ?: "self",
                                         call_id = "call_live_verify",
                                         reason = "User flagged utterance for guardrail tuning",
                                     )
                                 )
-                            } catch (_: Exception) { }
-                            statusBanner = "AI output report logged for Play Store Generative AI safety review."
+                                statusBanner = "AI output report logged for review."
+                            } catch (e: Exception) {
+                                statusBanner = "Could not file the report: ${e.message ?: "request failed"}"
+                            }
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = SangamObsidian),
@@ -539,6 +596,14 @@ fun OnboardingWizardScreen(
                         }
 
                         OutlinedTextField(
+                            value = voiceTranscript,
+                            onValueChange = { voiceTranscript = it },
+                            label = { Text("Spoken narration (recording is not wired on this screen)") },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 2,
+                        )
+
+                        OutlinedTextField(
                             value = targetUrl,
                             onValueChange = { targetUrl = it },
                             label = { Text("Website, Google Maps, IndiaMART, or Instagram URL") },
@@ -563,12 +628,12 @@ fun OnboardingWizardScreen(
                                                 )
                                             )
                                             currentPose = "celebration"
-                                            val biz = res["business_name"]?.toString() ?: "Abhishek Industries"
+                                            val biz = res["business_name"]?.toString()?.takeIf { it.isNotBlank() } ?: deployedBusiness
                                             deployedBusiness = biz
-                                            statusBanner = "Compiled human Kannada sales agent for $biz on $deployedPhone."
-                                        } catch (_: Exception) {
-                                            currentPose = "celebration"
-                                            statusBanner = "Verified live agent: Abhishek Industries on +91 80 6427 0314."
+                                            statusBanner = "Compiled a sales agent for $biz."
+                                        } catch (e: Exception) {
+                                            currentPose = "guidance"
+                                            statusBanner = "URL setup failed: ${e.message ?: "request failed"}"
                                         } finally {
                                             isBusy = false
                                         }
@@ -635,7 +700,7 @@ fun OnboardingWizardScreen(
                                 shape = RoundedCornerShape(4.dp),
                             ) {
                                 Text(
-                                    "ACTIVE 24/7 IST",
+                                    if (isStarterActive) "ACTIVE" else "NOT LIVE",
                                     color = SangamObsidian,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
@@ -808,11 +873,14 @@ fun OnboardingWizardScreen(
                                             try {
                                                 ApiClient.onboardingApi.connectComposioTool(
                                                     ComposioConnectRequestDto(
-                                                        user_id = "abhishek-industries",
+                                                        user_id = TokenManager.getActorId() ?: "self",
                                                         toolkit = toolkit,
                                                     )
                                                 )
-                                            } catch (_: Exception) { }
+                                            } catch (e: Exception) {
+                                                connectedTools[toolkit] = !checked
+                                                statusBanner = "Could not update $toolkit: ${e.message ?: "request failed"}"
+                                            }
                                         }
                                     },
                                 )
@@ -845,7 +913,7 @@ fun OnboardingWizardScreen(
                                     style = MaterialTheme.typography.headlineMedium,
                                 )
                                 Text(
-                                    "Status: ${if (isStarterActive) "ACTIVE (Line Live)" else "UNPROVISIONED"} · ₹7.50/min (60% Profit Guard)",
+                                    "Status: ${if (isStarterActive) "ACTIVE" else "UNPROVISIONED"} · ₹7.50/min",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (isStarterActive) Color(0xFF166534) else SangamMuted,
                                     fontWeight = FontWeight.SemiBold,
@@ -911,9 +979,12 @@ fun OnboardingWizardScreen(
                                     scope.launch {
                                         try {
                                             ApiClient.onboardingApi.configureAutopay(
-                                                mapOf("tenant_id" to "abhishek-industries", "enabled" to checked)
+                                                mapOf<String, Any>("enabled" to checked)
                                             )
-                                        } catch (_: Exception) { }
+                                        } catch (e: Exception) {
+                                            upiAutopayEnabled = !checked
+                                            statusBanner = "Could not save autopay: ${e.message ?: "request failed"}"
+                                        }
                                     }
                                 },
                             )
@@ -927,18 +998,13 @@ fun OnboardingWizardScreen(
                                             val order = ApiClient.onboardingApi.createWalletOrder(
                                                 CreateWalletOrderRequestDto(
                                                     plan_id = selectedPlanId,
-                                                    business_name = deployedBusiness,
+                                                    business_name = deployedBusiness.takeIf { it != "Your business" },
                                                     mascot_id = selectedMascot,
                                                 )
                                             )
-                                            walletBalanceInr += order.wallet_credit_inr
-                                            isStarterActive = true
-                                            currentPose = "celebration"
-                                            statusBanner = "Plan ${activePlan.name} active! Total ₹${"%.2f".format(order.amount_payable_inr)} (Incl. 18% GST) · ~${order.included_minutes} mins talktime ready."
+                                            beginCheckout(order)
                                         } catch (e: Exception) {
-                                            walletBalanceInr += activePlan.wallet_credit_inr
-                                            isStarterActive = true
-                                            statusBanner = "Plan ${activePlan.name} active! ₹${"%.2f".format(walletBalanceInr)} call balance ready."
+                                            statusBanner = "Could not start the plan payment: ${e.message ?: "request failed"}"
                                         }
                                     }
                                 },
@@ -952,14 +1018,15 @@ fun OnboardingWizardScreen(
                                 onClick = {
                                     scope.launch {
                                         try {
-                                            ApiClient.onboardingApi.createWalletOrder(
+                                            val order = ApiClient.onboardingApi.createWalletOrder(
                                                 CreateWalletOrderRequestDto(
                                                     topup_amount_inr = 500.0,
                                                 )
                                             )
-                                        } catch (_: Exception) { }
-                                        walletBalanceInr += 500.0
-                                        statusBanner = "Added ₹500 UPI Top-Up (60% platform profit locked)."
+                                            beginCheckout(order)
+                                        } catch (e: Exception) {
+                                            statusBanner = "Could not start the top-up: ${e.message ?: "request failed"}"
+                                        }
                                     }
                                 },
                                 border = BorderStroke(1.dp, SangamObsidian),

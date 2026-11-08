@@ -564,6 +564,11 @@ interface SangamOnboardingApi {
 }
 
 object ApiClient {
+    private fun apiBaseUrl(): String {
+        val raw = BuildConfig.API_BASE_URL.trim().trimEnd('/')
+        return if (raw.isBlank()) "http://10.0.2.2:8000/" else "$raw/"
+    }
+
     private val dynamicUrlInterceptor = Interceptor { chain ->
         var request = chain.request()
         val customUrl = TokenManager.getServerUrl()
@@ -593,7 +598,7 @@ object ApiClient {
 
     val api: SangamApi by lazy {
         Retrofit.Builder()
-            .baseUrl(BuildConfig.API_BASE_URL)
+            .baseUrl(apiBaseUrl())
             .client(httpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
@@ -602,7 +607,7 @@ object ApiClient {
 
     val authApi: AuthApi by lazy {
         Retrofit.Builder()
-            .baseUrl(BuildConfig.API_BASE_URL)
+            .baseUrl(apiBaseUrl())
             .client(httpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
@@ -611,7 +616,7 @@ object ApiClient {
 
     val paymentApi: SangamPaymentApi by lazy {
         Retrofit.Builder()
-            .baseUrl(BuildConfig.API_BASE_URL)
+            .baseUrl(apiBaseUrl())
             .client(httpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
@@ -620,12 +625,12 @@ object ApiClient {
 
     val aiApi: SangamAiApi by lazy {
         Retrofit.Builder()
-            .baseUrl(BuildConfig.API_BASE_URL)
+            .baseUrl(apiBaseUrl())
             .client(httpClient.newBuilder().readTimeout(120, TimeUnit.SECONDS).build())
             .build()
             .let {
                 Retrofit.Builder()
-                    .baseUrl(BuildConfig.API_BASE_URL)
+                    .baseUrl(apiBaseUrl())
                     .client(httpClient.newBuilder().readTimeout(120, TimeUnit.SECONDS).build())
                     .addConverterFactory(GsonConverterFactory.create())
                     .build()
@@ -635,7 +640,7 @@ object ApiClient {
 
     val onboardingApi: SangamOnboardingApi by lazy {
         Retrofit.Builder()
-            .baseUrl(BuildConfig.API_BASE_URL)
+            .baseUrl(apiBaseUrl())
             .client(httpClient.newBuilder().readTimeout(60, TimeUnit.SECONDS).build())
             .addConverterFactory(GsonConverterFactory.create())
             .build()
