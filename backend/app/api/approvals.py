@@ -101,6 +101,22 @@ async def get_approval(
     return result
 
 
+async def _reject_other_organization(session: AsyncSession, actor: Actor, approval_id: UUID) -> None:
+    """Hide an approval that belongs to another Zitadel organization.
+
+    Participation rules stay in the approval engine, which answers 403 when
+    the caller is in the organization but is not allowed to act.
+    """
+    approval = await session.get(Approval, approval_id)
+    if approval is None:
+        return
+    workflow = await session.get(Workflow, approval.workflow_id)
+    if workflow is None:
+        return
+    if (actor.zitadel_org_id or None) != (workflow.organization_id or None):
+        raise HTTPException(status_code=404, detail="Approval not found")
+
+
 @router.post("/{approval_id}/approve", response_model=ApprovalResponse)
 async def approve(
     approval_id: UUID,
@@ -108,6 +124,7 @@ async def approve(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
+    await _reject_other_organization(session, current_actor, approval_id)
     engine = ApprovalEngine(session)
     try:
         approval = await engine.approve(approval_id, current_actor.id, reason)
@@ -135,6 +152,7 @@ async def reject(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
+    await _reject_other_organization(session, current_actor, approval_id)
     engine = ApprovalEngine(session)
     try:
         approval = await engine.reject(approval_id, current_actor.id, reason)
@@ -162,6 +180,7 @@ async def escalate(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
+    await _reject_other_organization(session, current_actor, approval_id)
     engine = ApprovalEngine(session)
     try:
         approval = await engine.escalate(
@@ -181,6 +200,7 @@ async def delegate(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
+    await _reject_other_organization(session, current_actor, approval_id)
     engine = ApprovalEngine(session)
     try:
         approval = await engine.delegate(

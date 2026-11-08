@@ -9,7 +9,7 @@ from app.db.session import get_session
 from app.models.actor import Actor
 from app.schemas.actor import ActorCreate, ActorUpdate, ActorResponse
 from app.api.dependencies import get_current_actor
-from app.core.access import grants_admin, is_admin
+from app.core.access import grants_admin, is_admin, org_column_match
 
 router = APIRouter(prefix="/actors", tags=["actors"])
 
@@ -30,7 +30,10 @@ def _reject_privilege_escalation(actor: Actor, roles, permissions) -> None:
 
 
 async def _visible_actor(session: AsyncSession, current: Actor, actor_id: UUID) -> Optional[Actor]:
-    stmt = select(Actor).where(Actor.id == actor_id)
+    stmt = select(Actor).where(
+        Actor.id == actor_id,
+        org_column_match(Actor.zitadel_org_id, current.zitadel_org_id),
+    )
     if not is_admin(current):
         stmt = stmt.where(_visible_to(current))
     result = await session.execute(stmt)
@@ -52,6 +55,7 @@ async def create_actor(
         permissions=data.permissions,
         extra_attributes=data.extra_attributes,
         created_by_id=current_actor.id,
+        zitadel_org_id=current_actor.zitadel_org_id,
     )
     session.add(actor)
     await session.commit()
@@ -67,7 +71,13 @@ async def list_actors(
     current_actor: Actor = Depends(get_current_actor),
 ):
     result = await session.execute(
-        select(Actor).where(_visible_to(current_actor)).offset(skip).limit(limit)
+        select(Actor)
+        .where(
+            _visible_to(current_actor),
+            org_column_match(Actor.zitadel_org_id, current_actor.zitadel_org_id),
+        )
+        .offset(skip)
+        .limit(limit)
     )
     return result.scalars().all()
 

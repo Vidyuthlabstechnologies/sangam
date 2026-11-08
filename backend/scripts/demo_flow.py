@@ -14,6 +14,7 @@ import argparse
 import asyncio
 import base64
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -22,9 +23,6 @@ from typing import Any, Dict, List
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import httpx  # noqa: E402
-
-EMAIL = "qa@meridian.demo"
-PASSWORD = "sangam-demo"
 
 SAMPLE_PDF = Path(__file__).resolve().parents[2] / "docs" / "demo" / "sample_cdsco_licence.pdf"
 
@@ -65,16 +63,20 @@ async def main(base_url: str) -> int:
     print(f"\nSangam one-phone demo flow  ->  {base_url}\n" + "=" * 78)
 
     async with httpx.AsyncClient(base_url=base_url, timeout=180) as c:
-        # 1 - authenticate
+        # 1 - the access token is issued by Zitadel (authorization code + PKCE).
+        access_token = os.environ.get("SANGAM_ACCESS_TOKEN", "").strip()
+        if not access_token:
+            print("\nSet SANGAM_ACCESS_TOKEN to a Zitadel access token. Sangam does not take a password.")
+            return 1
+        headers = {"Authorization": f"Bearer {access_token}"}
         resp = await timed(
-            "1. Authenticate (QA Head)",
-            c.post("/auth/login", json={"email": EMAIL, "password": PASSWORD}),
+            "1. Authenticate (Zitadel access token)",
+            c.get("/auth/me", headers=headers),
             lambda r: r.json()["name"],
         )
         if not resp:
-            print("\nCannot continue without auth. Is the backend running and seeded?")
+            print("\nCannot continue without a valid Zitadel access token.")
             return 1
-        headers = {"Authorization": f"Bearer {resp.json()['access_token']}"}
 
         # 2 - register vendor
         resp = await timed(

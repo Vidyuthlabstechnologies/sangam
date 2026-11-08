@@ -11,6 +11,7 @@ from app.config import settings
 from app.db.base import Base
 from app.db.session import get_session
 from app.main import app
+from tests.identity_tokens import TEST_CLIENT_ID, TEST_ISSUER, install as install_test_identity
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test_sangam.db"
 
@@ -23,8 +24,20 @@ settings.use_fixtures = True
 @pytest.fixture(autouse=True)
 def _force_fixture_mode(monkeypatch):
     """Belt-and-braces: re-assert fixture mode per test in case a test
-    mutates settings and fails before restoring it."""
+    mutates settings and fails before restoring it.
+
+    Identity verification uses a process-local key. The issuer is set so
+    tokens can be checked, and the JWKS override means httpx is not called.
+    """
     monkeypatch.setattr(settings, "use_fixtures", True)
+    monkeypatch.setattr(settings, "zitadel_issuer", TEST_ISSUER)
+    monkeypatch.setattr(settings, "zitadel_client_id", TEST_CLIENT_ID)
+    monkeypatch.setattr(settings, "zitadel_android_client_id", None)
+    monkeypatch.setattr(settings, "zitadel_project_id", None)
+    monkeypatch.setattr(settings, "zitadel_jwks_url", None)
+    install_test_identity()
+    yield
+    install_test_identity()
 
 
 @pytest.fixture(scope="session")

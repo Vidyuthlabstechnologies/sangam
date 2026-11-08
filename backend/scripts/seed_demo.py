@@ -12,6 +12,7 @@ Idempotent: safe to re-run. Existing rows are left alone.
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 import uuid
 from datetime import date, datetime, timedelta
@@ -27,10 +28,8 @@ from app.models import (  # noqa: E402,F401  (import registers all mappers)
     Actor, ActorType, Role, Permission,
     Vendor, VendorLicence, VendorStatus, LicenceType,
 )
-from app.core.security import get_password_hash  # noqa: E402
 
 DEMO_EMAIL = "qa@meridian.demo"
-DEMO_PASSWORD = "sangam-demo"
 
 
 async def create_tables() -> None:
@@ -50,7 +49,9 @@ async def seed() -> None:
                 type=ActorType.HUMAN,
                 name="Priya Nair (QA Head)",
                 email=DEMO_EMAIL,
-                password_hash=get_password_hash(DEMO_PASSWORD),
+                password_hash=None,
+                zitadel_sub=os.environ.get("DEMO_ZITADEL_SUB") or None,
+                zitadel_org_id=os.environ.get("DEMO_ZITADEL_ORG_ID") or None,
                 roles=[Role.APPROVER, Role.INITIATOR],
                 permissions=[
                     Permission.CREATE_WORKFLOW,
@@ -62,7 +63,7 @@ async def seed() -> None:
             )
             session.add(actor)
             await session.commit()
-            print(f"[ok] demo user {DEMO_EMAIL} / {DEMO_PASSWORD}")
+            print(f"[ok] demo actor {DEMO_EMAIL} (no password; sign in through Zitadel)")
         else:
             print(f"[skip] demo user {DEMO_EMAIL} already exists")
 

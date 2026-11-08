@@ -6,7 +6,7 @@ import okhttp3.Response
 class AuthInterceptor : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val original = chain.request()
-        val token = TokenManager.getToken()
+        val token = ZitadelAuth.accessTokenForRequest()
         val request = if (token != null) {
             original.newBuilder()
                 .header("Authorization", "Bearer $token")

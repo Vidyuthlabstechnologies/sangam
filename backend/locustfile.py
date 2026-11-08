@@ -1,8 +1,11 @@
 from locust import HttpUser, task, between, tag
+import os
 import random
 import json
 
-USER_EMAILS = [f"test{i}@sangam.ai" for i in range(1, 51)]
+# Locust does not register passwords. Export a Zitadel access token first.
+ACCESS_TOKEN = os.environ.get("SANGAM_ACCESS_TOKEN", "")
+
 WORKFLOW_NAMES = [
     "Procurement Request", "Vendor KYC", "Expense Report",
     "Employee Onboarding", "Contract Review", "Change Request",
@@ -17,29 +20,16 @@ class SangamUser(HttpUser):
     actor_id = None
 
     def on_start(self):
-        email = random.choice(USER_EMAILS)
-        name = email.split("@")[0]
-        try:
-            resp = self.client.post(
-                "/auth/register",
-                json={"name": name, "email": email, "password": "test123"},
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                self.token = data["access_token"]
-                self.actor_id = data["actor_id"]
-        except Exception:
-            try:
-                resp = self.client.post(
-                    "/auth/login",
-                    json={"email": email, "password": "test123"},
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    self.token = data["access_token"]
-                    self.actor_id = data["actor_id"]
-            except Exception:
-                pass
+        self.token = ACCESS_TOKEN or None
+        if not self.token:
+            return
+        resp = self.client.get(
+            "/auth/me",
+            headers={"Authorization": f"Bearer {self.token}"},
+            name="auth_me",
+        )
+        if resp.status_code == 200:
+            self.actor_id = resp.json().get("actor_id")
 
     @tag("workflows")
     @task(5)
@@ -147,16 +137,7 @@ class AIHeavyUser(HttpUser):
     token = None
 
     def on_start(self):
-        email = f"ai_user_{random.randint(1,9999)}@sangam.ai"
-        try:
-            resp = self.client.post(
-                "/auth/register",
-                json={"name": "AI Heavy User", "email": email, "password": "test123"},
-            )
-            if resp.status_code == 200:
-                self.token = resp.json()["access_token"]
-        except Exception:
-            pass
+        self.token = ACCESS_TOKEN or None
 
     @tag("ai-heavy")
     @task(1)

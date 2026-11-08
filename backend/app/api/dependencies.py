@@ -1,48 +1,30 @@
-from typing import Optional
-from uuid import UUID
+from __future__ import annotations
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
+from app.core.oidc import InvalidAccessToken, link_actor, verify_access_token
 from app.db.session import get_session
 from app.models.actor import Actor
-from app.core.security import decode_access_token
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 async def get_current_actor(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
     session: AsyncSession = Depends(get_session),
 ) -> Actor:
-    payload = decode_access_token(credentials.credentials)
-    if payload is None:
+    if credentials is None or not credentials.credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
         )
-    actor_id = payload.get("sub")
-    if not actor_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token payload",
-        )
     try:
-        actor_uuid = UUID(str(actor_id))
-    except ValueError:
-        # A validly signed token with a non-UUID subject used to raise here
-        # and surface as a 500.
+        claims = verify_access_token(credentials.credentials)
+        return await link_actor(session, claims)
+    except InvalidAccessToken:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token payload",
+            detail="Invalid or expired token",
         )
-    result = await session.execute(select(Actor).where(Actor.id == actor_uuid))
-    actor = result.scalar_one_or_none()
-    if not actor or not actor.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Actor not found or inactive",
-        )
-    return actor

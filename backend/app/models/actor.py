@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Optional, Dict, Any
 
-from sqlalchemy import Column, String, DateTime, Enum as SAEnum, JSON, ForeignKey
+from sqlalchemy import Column, String, DateTime, Enum as SAEnum, JSON, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -43,6 +43,9 @@ class Permission(str, Enum):
 
 class Actor(Base):
     __tablename__ = "actors"
+    __table_args__ = (
+        UniqueConstraint("zitadel_sub", "zitadel_org_id", name="uq_actor_zitadel_identity"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     type: Mapped[ActorType] = mapped_column(SAEnum(ActorType), nullable=False)
@@ -51,6 +54,9 @@ class Actor(Base):
     roles: Mapped[List[Role]] = mapped_column(JSON, nullable=False, default=list)
     permissions: Mapped[List[Permission]] = mapped_column(JSON, nullable=False, default=list)
     password_hash: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
+    # Zitadel subject and organization. The pair is the account key. Passwords are not stored.
+    zitadel_sub: Mapped[Optional[str]] = mapped_column(String(256), nullable=True, index=True)
+    zitadel_org_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
     extra_attributes: Mapped[Optional[Dict[str, Any]]] = mapped_column("extra_attributes", JSON, nullable=True)
     # Actor who created this row (an agent or colleague). Null for self-registration.
     created_by_id: Mapped[Optional[uuid.UUID]] = mapped_column(

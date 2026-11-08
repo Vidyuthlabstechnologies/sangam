@@ -1,34 +1,45 @@
-"""Production must not boot forgeable, and a bad token must be a 401, not a 500."""
+"""Production must not boot without Zitadel, and a bad token must be a 401."""
 import uuid
 
 import pytest
 
 from app.config import Settings, settings, validate_production_settings
-from app.core.security import create_access_token
+from tests.identity_tokens import mint_access_token
 
 
 def _settings(**overrides):
     return Settings(_env_file=None, **overrides)
 
 
-def test_development_may_use_the_default_secret():
+def test_development_may_omit_the_issuer():
     validate_production_settings(_settings(environment="development"))
 
 
-def test_production_refuses_the_default_secret():
-    with pytest.raises(RuntimeError, match="JWT_SECRET"):
-        validate_production_settings(_settings(environment="production"))
+def test_production_refuses_a_missing_issuer():
+    with pytest.raises(RuntimeError, match="ZITADEL_ISSUER"):
+        validate_production_settings(_settings(environment="production", zitadel_client_id="web"))
 
 
-def test_production_refuses_a_short_secret():
-    with pytest.raises(RuntimeError, match="JWT_SECRET"):
-        validate_production_settings(_settings(environment="production", jwt_secret="short"))
+def test_production_refuses_an_http_issuer():
+    with pytest.raises(RuntimeError, match="ZITADEL_ISSUER"):
+        validate_production_settings(
+            _settings(
+                environment="production",
+                zitadel_issuer="http://localhost:8080",
+                zitadel_client_id="web",
+            )
+        )
 
 
 def test_production_refuses_fixture_mode():
     with pytest.raises(RuntimeError, match="USE_FIXTURES"):
         validate_production_settings(
-            _settings(environment="production", jwt_secret="x" * 40, use_fixtures=True)
+            _settings(
+                environment="production",
+                zitadel_issuer="https://auth.example.test",
+                zitadel_client_id="web",
+                use_fixtures=True,
+            )
         )
 
 
@@ -41,16 +52,26 @@ async def test_production_refuses_to_seed_live_pilot_wallets(db_session, monkeyp
         await seed_live_tenants(db_session)
 
 
-def test_production_accepts_a_strong_secret():
-    validate_production_settings(_settings(environment="production", jwt_secret="x" * 40))
+def test_production_accepts_an_https_issuer():
+    validate_production_settings(
+        _settings(
+            environment="production",
+            zitadel_issuer="https://auth.example.test",
+            zitadel_project_id="project",
+        )
+    )
 
 
 @pytest.mark.asyncio
-async def test_token_with_a_malformed_subject_is_401_not_500(client):
-    token = create_access_token("not-a-uuid")
-
+async def test_zitadel_subject_need_not_be_a_uuid(client):
+    """Zitadel subjects are opaque strings. A non-UUID subject must not 500."""
+    token = mint_access_token(sub="not-a-uuid", organization_id="org-a")
     resp = await client.get(
         f"/payments/{uuid.uuid4()}", headers={"Authorization": f"Bearer {token}"}
     )
+    assert resp.status_code == 404
 
-    assert resp.status_code == 401
+    rejected = await client.get(
+        f"/payments/{uuid.uuid4()}", headers={"Authorization": "Bearer not-a-token"}
+    )
+    assert rejected.status_code == 401

@@ -4,11 +4,9 @@ from uuid import UUID
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
 from app.db.session import get_session
-from app.models.actor import Actor
-from app.core.security import decode_access_token
+from app.core.oidc import InvalidAccessToken, link_actor, verify_access_token
 from app.core.streaming import stream_manager
 from app.core.access import actor_can_access_workflow_id
 
@@ -22,21 +20,13 @@ async def websocket_endpoint(
     token: str = Query(""),
     session: AsyncSession = Depends(get_session),
 ):
-    payload = decode_access_token(token)
-    if not payload:
+    try:
+        actor = await link_actor(session, verify_access_token(token))
+    except InvalidAccessToken:
         await ws.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    actor_id = payload.get("sub", "")
-    try:
-        result = await session.execute(select(Actor).where(Actor.id == UUID(actor_id)))
-        actor = result.scalar_one_or_none()
-        if not actor or not actor.is_active:
-            await ws.close(code=status.WS_1008_POLICY_VIOLATION)
-            return
-    except Exception:
-        await ws.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
+    actor_id = str(actor.id)
 
     async def can_subscribe(connected_actor_id: str, workflow_id: str) -> bool:
         try:
@@ -63,20 +53,12 @@ async def voice_stream_endpoint(
     language: str = Query("unknown"),
     session: AsyncSession = Depends(get_session),
 ):
-    payload = decode_access_token(token)
-    if not payload:
-        await ws.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
-    actor_id = payload.get("sub", "")
     try:
-        result = await session.execute(select(Actor).where(Actor.id == UUID(actor_id)))
-        actor = result.scalar_one_or_none()
-        if not actor or not actor.is_active:
-            await ws.close(code=status.WS_1008_POLICY_VIOLATION)
-            return
-    except Exception:
+        actor = await link_actor(session, verify_access_token(token))
+    except InvalidAccessToken:
         await ws.close(code=status.WS_1008_POLICY_VIOLATION)
         return
+    actor_id = str(actor.id)
     await stream_manager.connect(ws, actor_id)
 
     try:

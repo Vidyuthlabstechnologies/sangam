@@ -13,7 +13,7 @@ from app.schemas.workflow import (
 )
 from app.api.dependencies import get_current_actor
 from app.models.actor import Actor
-from app.core.access import load_accessible_workflow, workflow_visibility
+from app.core.access import load_accessible_workflow, workflows_visible_to
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 
@@ -36,6 +36,7 @@ async def create_workflow(
         name=data.name,
         description=data.description,
         initiator_id=current_actor.id,
+        organization_id=current_actor.zitadel_org_id,
         phases=data.phases if data.phases else [p for p in WorkflowPhase],
         extra_attributes=data.extra_attributes,
     )
@@ -54,7 +55,7 @@ async def list_workflows(
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
 ):
-    query = select(Workflow).where(workflow_visibility(current_actor.id))
+    query = select(Workflow).where(workflows_visible_to(current_actor))
 
     if state:
         query = query.where(Workflow.state == state)

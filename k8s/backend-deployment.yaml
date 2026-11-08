@@ -46,6 +46,36 @@ spec:
                 secretKeyRef:
                   name: sangam-secrets
                   key: jwt_secret
+            - name: ZITADEL_ISSUER
+              valueFrom:
+                secretKeyRef:
+                  name: sangam-secrets
+                  key: zitadel_issuer
+                  optional: true
+            - name: ZITADEL_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: sangam-secrets
+                  key: zitadel_client_id
+                  optional: true
+            - name: ZITADEL_ANDROID_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: sangam-secrets
+                  key: zitadel_android_client_id
+                  optional: true
+            - name: ZITADEL_PROJECT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: sangam-secrets
+                  key: zitadel_project_id
+                  optional: true
+            - name: ZITADEL_JWKS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: sangam-secrets
+                  key: zitadel_jwks_url
+                  optional: true
           resources:
             requests:
               cpu: "500m"

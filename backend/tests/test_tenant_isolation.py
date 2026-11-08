@@ -1,4 +1,6 @@
 """Cross-customer reads and debits must fail on the shared deployment."""
+from __future__ import annotations
+
 import uuid
 
 import pytest
@@ -7,23 +9,21 @@ from sqlalchemy import select
 from app.config import settings
 from app.core.billing_service import BillingService
 from app.core.coordinator import Coordinator
-from app.core.security import create_access_token
 from app.models.actor import Actor, ActorType, Role
 from app.models.vendor import Vendor
 from app.models.workflow import Workflow
+from tests.identity_tokens import login
 
 SECRET = "isolation-webhook-secret-0123456789"
 
 
-async def _register(client, name: str):
-    email = f"{name}-{uuid.uuid4().hex[:8]}@example.com"
-    resp = await client.post(
-        "/auth/register",
-        json={"name": name, "email": email, "password": "pass12345"},
+async def _register(client, name: str, organization_id: str | None = None):
+    token, actor_id = await login(
+        client,
+        name=name,
+        organization_id=organization_id or f"org-{name}-{uuid.uuid4().hex[:8]}",
     )
-    assert resp.status_code == 201, resp.text
-    body = resp.json()
-    return {"Authorization": f"Bearer {body['access_token']}"}, body["actor_id"]
+    return {"Authorization": f"Bearer {token}"}, actor_id
 
 
 @pytest.mark.asyncio
@@ -192,15 +192,17 @@ async def test_notification_test_cannot_target_another_actor(client):
 
 @pytest.mark.asyncio
 async def test_refresh_rejects_an_inactive_actor(client, db_session):
-    _headers, actor_id = await _register(client, "sleepy")
+    headers, actor_id = await _register(client, "sleepy")
     actor = (
         await db_session.execute(select(Actor).where(Actor.id == uuid.UUID(actor_id)))
     ).scalar_one()
-    token = create_access_token(actor_id)
     actor.is_active = False
     await db_session.commit()
-    resp = await client.post("/auth/refresh", json={"token": token})
+    resp = await client.get("/auth/me", headers=headers)
     assert resp.status_code == 401
+    minted = await client.post("/auth/refresh", json={"token": headers["Authorization"].split()[1]})
+    assert minted.status_code == 410
+    assert "access_token" not in minted.json()
 
 
 @pytest.mark.asyncio
@@ -273,4 +275,5 @@ async def test_account_deletion_removes_owned_personal_data_and_keeps_shared_wor
         "/auth/refresh",
         json={"token": headers_a["Authorization"].split()[1]},
     )
-    assert refresh.status_code == 401
+    assert refresh.status_code == 410
+    assert "access_token" not in refresh.json()
