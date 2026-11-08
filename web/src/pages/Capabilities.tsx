@@ -19,16 +19,26 @@ export function Capabilities() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Capability[]>([]);
   const [searched, setSearched] = useState(false);
+  const [error, setError] = useState("");
 
   const search = async () => {
     if (!query.trim()) return;
+    setError("");
     try {
+      const token = localStorage.getItem("sangam_token");
       const res = await fetch(
-        `${API_URL}/capabilities/search?q=${encodeURIComponent(query)}&limit=20`
+        `${API_URL}/capabilities/search?q=${encodeURIComponent(query)}&limit=20`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
       );
-      const data = await res.json();
-      setResults(data || []);
-    } catch { }
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !Array.isArray(data)) {
+        throw new Error((data && data.detail) || `HTTP ${res.status}`);
+      }
+      setResults(data);
+    } catch (err) {
+      setResults([]);
+      setError(err instanceof Error ? err.message : "Search failed");
+    }
     setSearched(true);
   };
 
@@ -65,7 +75,9 @@ export function Capabilities() {
             <CardTitle>Results ({results.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            {results.length === 0 ? (
+            {error ? (
+              <p className="text-destructive">{error}</p>
+            ) : results.length === 0 ? (
               <p className="text-muted-foreground">No capabilities found. Try a different query.</p>
             ) : (
               <div className="grid gap-4 md:grid-cols-2">

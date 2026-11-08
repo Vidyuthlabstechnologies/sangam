@@ -19,7 +19,7 @@ export function Layout() {
   const { isAuthenticated, logout } = useAuth();
   const { isLoading } = useRequireAuth();
 
-  if (isLoading) return null;
+  if (isLoading || !isAuthenticated) return null;
 
   return (
     <div className="min-h-screen bg-background">

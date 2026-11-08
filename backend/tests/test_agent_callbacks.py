@@ -11,6 +11,7 @@ import uuid
 import pytest
 
 from app.config import settings
+from app.models.actor import Role
 
 SECRET = "test-webhook-secret-0123456789"
 HOOK = {"X-Webhook-Secret": SECRET}
@@ -35,6 +36,11 @@ def _body(**over):
     }
     body.update(over)
     return body
+
+
+def _as_admin(current_actor):
+    """Callback rows land on the pilot tenant. Only an admin may read that inbox."""
+    current_actor.roles = [Role.ADMIN]
 
 
 async def _find(client, auth_headers, call_id):
@@ -83,7 +89,8 @@ async def test_listing_requires_a_logged_in_user(client):
 
 
 @pytest.mark.asyncio
-async def test_records_a_callback_request(client, auth_headers):
+async def test_records_a_callback_request(client, auth_headers, current_actor):
+    _as_admin(current_actor)
     body = _body()
     resp = await client.post("/agent-callbacks", json=body, headers=HOOK)
 
@@ -99,7 +106,8 @@ async def test_records_a_callback_request(client, auth_headers):
 @pytest.mark.parametrize(
     "raw", ["9876543210", "98765 43210", "+91 98765-43210", "919876543210"]
 )
-async def test_phone_numbers_are_normalised(client, auth_headers, raw):
+async def test_phone_numbers_are_normalised(client, auth_headers, current_actor, raw):
+    _as_admin(current_actor)
     body = _body(caller_phone=raw)
     assert (await client.post("/agent-callbacks", json=body, headers=HOOK)).status_code == 201
     assert (await _find(client, auth_headers, body["call_id"]))["caller_phone"] == "+919876543210"
@@ -113,7 +121,8 @@ async def test_things_that_are_not_phone_numbers_are_refused(client, raw):
 
 
 @pytest.mark.asyncio
-async def test_aadhaar_like_numbers_are_masked_in_free_text(client, auth_headers):
+async def test_aadhaar_like_numbers_are_masked_in_free_text(client, auth_headers, current_actor):
+    _as_admin(current_actor)
     body = _body(
         notes=f"my aadhaar is {AADHAAR_LIKE} please update",
         caller_name="Ravi 234567890123",
@@ -127,7 +136,8 @@ async def test_aadhaar_like_numbers_are_masked_in_free_text(client, auth_headers
 
 
 @pytest.mark.asyncio
-async def test_unknown_service_is_stored_as_unclear(client, auth_headers):
+async def test_unknown_service_is_stored_as_unclear(client, auth_headers, current_actor):
+    _as_admin(current_actor)
     body = _body(service="driving licence")
     assert (await client.post("/agent-callbacks", json=body, headers=HOOK)).status_code == 201
     assert (await _find(client, auth_headers, body["call_id"]))["service"] == "unclear"
@@ -140,7 +150,8 @@ async def test_bad_urgency_is_refused(client):
 
 
 @pytest.mark.asyncio
-async def test_a_retry_with_the_same_call_id_does_not_duplicate(client, auth_headers):
+async def test_a_retry_with_the_same_call_id_does_not_duplicate(client, auth_headers, current_actor):
+    _as_admin(current_actor)
     body = _body()
     first = await client.post("/agent-callbacks", json=body, headers=HOOK)
     second = await client.post("/agent-callbacks", json=body, headers=HOOK)
@@ -157,7 +168,8 @@ async def test_a_retry_with_the_same_call_id_does_not_duplicate(client, auth_hea
 
 
 @pytest.mark.asyncio
-async def test_list_is_newest_first_and_can_filter_by_status(client, auth_headers):
+async def test_list_is_newest_first_and_can_filter_by_status(client, auth_headers, current_actor):
+    _as_admin(current_actor)
     older, newer = _body(), _body()
     first = (await client.post("/agent-callbacks", json=older, headers=HOOK)).json()["id"]
     await client.post("/agent-callbacks", json=newer, headers=HOOK)
@@ -178,6 +190,18 @@ async def test_list_is_newest_first_and_can_filter_by_status(client, auth_header
     ).json()
     assert older["call_id"] not in [r["call_id"] for r in new_only]
     assert newer["call_id"] in [r["call_id"] for r in new_only]
+
+
+@pytest.mark.asyncio
+async def test_a_non_owner_cannot_read_or_update_another_tenants_callback(client, auth_headers):
+    created = (await client.post("/agent-callbacks", json=_body(), headers=HOOK)).json()
+    listed = await client.get("/agent-callbacks", params={"limit": 100}, headers=auth_headers)
+    assert listed.status_code == 200
+    assert created["id"] not in [row["id"] for row in listed.json()]
+    patched = await client.patch(
+        f"/agent-callbacks/{created['id']}", json={"status": "closed"}, headers=auth_headers
+    )
+    assert patched.status_code == 404
 
 
 @pytest.mark.asyncio

@@ -26,13 +26,17 @@ export function WorkflowDetail() {
   const { id } = useParams<{ id: string }>();
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
   const [loading, setLoading] = useState(true);
+  const [actionError, setActionError] = useState("");
 
   useEffect(() => {
     if (!id) return;
     api.workflows.get(id).then((data) => {
       setWorkflow(data);
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch(() => {
+      setWorkflow(null);
+      setLoading(false);
+    });
   }, [id]);
 
   if (loading) return <p>Loading...</p>;
@@ -40,22 +44,14 @@ export function WorkflowDetail() {
 
   const currentPhaseIndex = phaseOrder.indexOf(workflow.current_phase);
 
-  const handlePause = async () => {
+  const runAction = async (action: (workflowId: string) => Promise<Workflow>) => {
     if (!id) return;
-    const updated = await api.workflows.pause(id);
-    setWorkflow(updated);
-  };
-
-  const handleResume = async () => {
-    if (!id) return;
-    const updated = await api.workflows.resume(id);
-    setWorkflow(updated);
-  };
-
-  const handleCancel = async () => {
-    if (!id) return;
-    const updated = await api.workflows.cancel(id);
-    setWorkflow(updated);
+    setActionError("");
+    try {
+      setWorkflow(await action(id));
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Request failed");
+    }
   };
 
   return (
@@ -69,16 +65,18 @@ export function WorkflowDetail() {
         </div>
         <div className="flex gap-2">
           {workflow.state === "active" && (
-            <Button variant="secondary" onClick={handlePause}>Pause</Button>
+            <Button variant="secondary" onClick={() => runAction(api.workflows.pause)}>Pause</Button>
           )}
           {workflow.state === "paused" && (
-            <Button onClick={handleResume}>Resume</Button>
+            <Button onClick={() => runAction(api.workflows.resume)}>Resume</Button>
           )}
           {(workflow.state === "active" || workflow.state === "paused") && (
-            <Button variant="destructive" onClick={handleCancel}>Cancel</Button>
+            <Button variant="destructive" onClick={() => runAction(api.workflows.cancel)}>Cancel</Button>
           )}
         </div>
       </div>
+
+      {actionError && <p className="text-destructive">{actionError}</p>}
 
       <Card>
         <CardHeader>

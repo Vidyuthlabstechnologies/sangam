@@ -54,6 +54,7 @@ fun SangamNavHost(
                 onNavigateToAIAssistant = { navController.navigate(Routes.AI_ASSISTANT) },
                 onNavigateToVoiceWorkflow = { navController.navigate(Routes.VOICE_WORKFLOW) },
                 onNavigateToVendors = { navController.navigate(Routes.VENDORS) },
+                onOpenWorkflow = { id -> navController.navigate(Routes.workflowDetail(id)) },
             )
         }
         composable(Routes.ONBOARDING_WIZARD) {

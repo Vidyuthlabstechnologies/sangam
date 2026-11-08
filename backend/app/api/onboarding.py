@@ -88,6 +88,18 @@ async def resolve_tenant(
     raise HTTPException(status_code=404, detail="Business not found")
 
 
+async def owned_tenant_ids(session: AsyncSession, actor: Actor) -> set[str]:
+    """Tenant ids this actor may read. Admins are handled by the caller."""
+    from app.models.sangamitra_release import TenantWalletModel
+
+    ids = {str(actor.id)}
+    rows = await session.execute(
+        select(TenantWalletModel.tenant_id).where(TenantWalletModel.owner_actor_id == actor.id)
+    )
+    ids.update(rows.scalars().all())
+    return ids
+
+
 def _billing_http(exc: BillingError) -> HTTPException:
     return HTTPException(status_code=exc.status_code, detail=exc.detail)
 

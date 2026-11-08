@@ -16,12 +16,16 @@ interface Actor {
 export function Actors() {
   const [actors, setActors] = useState<Actor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     api.actors.list().then((data) => {
       setActors(data || []);
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch((err) => {
+      setError(err instanceof Error ? err.message : "Could not load actors");
+      setLoading(false);
+    });
   }, []);
 
   const typeColors: Record<string, string> = {
@@ -35,11 +39,16 @@ export function Actors() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Actors</h1>
         <Button onClick={async () => {
-          await api.actors.create({
-            type: "agent", name: "New Agent", roles: ["executor"]
-          });
-          const data = await api.actors.list();
-          setActors(data || []);
+          try {
+            await api.actors.create({
+              type: "agent", name: "New Agent", roles: ["executor"]
+            });
+            const data = await api.actors.list();
+            setActors(data || []);
+            setError("");
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Could not add an actor");
+          }
         }}>
           Add Actor
         </Button>
@@ -52,6 +61,8 @@ export function Actors() {
         <CardContent>
           {loading ? (
             <p className="text-muted-foreground">Loading...</p>
+          ) : error ? (
+            <p className="text-destructive">{error}</p>
           ) : actors.length === 0 ? (
             <p className="text-muted-foreground">No actors found.</p>
           ) : (

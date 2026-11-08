@@ -32,6 +32,19 @@ async def test_root_endpoint():
 
 
 @pytest.mark.asyncio
+async def test_api_v1_prefix_reaches_the_same_routers():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        health = await client.get("/api/v1/health")
+        assert health.status_code == 200
+        assert health.json()["status"] == "ok"
+        workflows = await client.get("/api/v1/workflows", follow_redirects=True)
+        assert workflows.status_code in (401, 403)
+        missing = await client.get("/api/v1/does-not-exist")
+        assert missing.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_openapi_schema():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
