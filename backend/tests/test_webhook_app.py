@@ -34,8 +34,9 @@ def test_the_app_mounts_only_the_webhook_and_health():
     # Included routers are wrapper objects in recent FastAPI, so list paths via
     # the schema generator. The public /openapi.json URL is switched off, but
     # the generator itself still reports exactly what is mounted.
-    assert set(webhook_app.openapi()["paths"]) == {"/agent-callbacks", "/health"}
+    assert set(webhook_app.openapi()["paths"]) == {"/agent-callbacks", "/agent-callbacks/call-ended", "/health"}
     assert set(webhook_app.openapi()["paths"]["/agent-callbacks"]) == {"post"}
+    assert set(webhook_app.openapi()["paths"]["/agent-callbacks/call-ended"]) == {"post"}
 
 
 @pytest.mark.asyncio

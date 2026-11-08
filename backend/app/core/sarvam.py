@@ -172,12 +172,9 @@ class SarvamAI:
                 "text": text,
                 "target_language_code": target_language_code,
                 "speaker": speaker,
-                "model": "bulbul:v2",
+                "model": "bulbul:v3",
                 "pace": pace,
-                "pitch": pitch,
-                "loudness": loudness,
                 "speech_sample_rate": speech_sample_rate,
-                "enable_preprocessing": True,
             }
             response = await client.post(
                 f"{SARVAM_BASE}/text-to-speech",

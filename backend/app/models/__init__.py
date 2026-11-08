@@ -13,6 +13,15 @@ from app.models.document import ExtractedDocument, ExtractionStatus
 from app.models.audit_log import AuditLog
 from app.models.sla import SLAConfig, SLATracking
 from app.models.voice_callback import VoiceCallback, CallbackStatus
+from app.models.sangamitra_release import (
+    TenantAgentProfile,
+    TenantWalletModel,
+    WalletLedgerEntryModel,
+    ComposioConnectionModel,
+    ComposioExecutionLogModel,
+    AiSafetyReportModel,
+    AccountDeletionAuditModel,
+)
 
 __all__ = [
     "Workflow", "WorkflowPhase", "WorkflowState", "WaitingEvent",
@@ -25,4 +34,11 @@ __all__ = [
     "ExtractedDocument", "ExtractionStatus",
     "AuditLog", "SLAConfig", "SLATracking",
     "VoiceCallback", "CallbackStatus",
+    "TenantAgentProfile",
+    "TenantWalletModel",
+    "WalletLedgerEntryModel",
+    "ComposioConnectionModel",
+    "ComposioExecutionLogModel",
+    "AiSafetyReportModel",
+    "AccountDeletionAuditModel",
 ]

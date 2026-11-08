@@ -1,0 +1,2744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sangamitra — 24-Screen Launch UI Kit, Mascot Studio, Backend & Live Abhishek Industries Test</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-canvas: #F8F8F7;
+      --bg-surface: #FFFFFF;
+      --ink-primary: #09090B;
+      --ink-secondary: #3F3F46;
+      --ink-muted: #71717A;
+      --border-hairline: rgba(9, 9, 11, 0.08);
+    }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-canvas);
+      color: var(--ink-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .bezel-outer {
+      background: rgba(9, 9, 11, 0.025);
+      border: 1px solid rgba(9, 9, 11, 0.08);
+      border-radius: 24px;
+      padding: 6px;
+    }
+    .bezel-inner {
+      background: #FFFFFF;
+      border: 1px solid rgba(9, 9, 11, 0.07);
+      border-radius: 18px;
+      box-shadow: 0 4px 20px -4px rgba(9, 9, 11, 0.04), 0 1px 2px rgba(9, 9, 11, 0.03);
+    }
+    .device-shell {
+      width: 392px;
+      height: 804px;
+      background: #E4E4E7;
+      border-radius: 52px;
+      padding: 10px;
+      box-shadow:
+        0 30px 60px -15px rgba(9, 9, 11, 0.14),
+        0 0 0 1px rgba(9, 9, 11, 0.1),
+        inset 0 1px 1px rgba(255, 255, 255, 0.9);
+      position: relative;
+      flex-shrink: 0;
+    }
+    .device-screen {
+      width: 100%;
+      height: 100%;
+      background: #FFFFFF;
+      border-radius: 42px;
+      border: 1px solid rgba(9, 9, 11, 0.09);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .device-speaker {
+      width: 76px;
+      height: 5px;
+      background: #A1A1AA;
+      border-radius: 999px;
+      margin: 10px auto 4px auto;
+    }
+    .spring-transition {
+      transition: all 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    .screen-tab-active {
+      background: #09090B !important;
+      color: #FFFFFF !important;
+      border-color: #09090B !important;
+    }
+    .screen-tab-active .tab-sub {
+      color: #A1A1AA !important;
+    }
+    .screen-tab-active .tab-badge {
+      background: #27272A !important;
+      color: #FFFFFF !important;
+    }
+    .module-pill-active {
+      background: #09090B !important;
+      color: #FFFFFF !important;
+      border-color: #09090B !important;
+    }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #D4D4D8; border-radius: 999px; }
+  </style>
+</head>
+<body class="min-h-[100dvh] selection:bg-zinc-950 selection:text-white">
+
+  <!-- Top Navigation Bar (Pure White & Obsidian — Zero Green / Zero Blue) -->
+  <div class="sticky top-3 z-40 px-4 sm:px-8">
+    <header class="max-w-7xl mx-auto bg-white/95 backdrop-blur-xl border border-zinc-200 rounded-full px-5 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3.5">
+        <div class="w-10 h-10 rounded-xl bg-zinc-950 flex items-center justify-center shadow-sm">
+          <!-- Pure Monochrome Geometric Confluence Logo Mark -->
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 7C8.5 7 9.5 12 12 12C14.5 12 15.5 17 20 17" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round"/>
+            <path d="M4 17C8.5 17 9.5 12 12 12C14.5 12 15.5 7 20 7" stroke="#A1A1AA" stroke-width="2.2" stroke-linecap="round"/>
+            <circle cx="12" cy="12" r="2.8" fill="#FFFFFF" stroke="#09090B" stroke-width="1.5"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-base font-extrabold tracking-tight text-zinc-950">Sangamitra</span>
+            <span class="text-[11px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-zinc-100 text-zinc-800 border border-zinc-300">24-Screen Launch Kit</span>
+          </div>
+          <p class="text-xs text-zinc-500">Pure Monochrome Architecture • Mascot Guide • Live Kannada / Malayalam / Telugu Test</p>
+        </div>
+      </div>
+
+      <!-- Active Mascot Guide Selector -->
+      <div class="flex items-center gap-1.5 bg-zinc-100 p-1 rounded-full border border-zinc-200">
+        <span class="text-[11px] font-semibold text-zinc-500 px-2.5">In-App Mascot:</span>
+        <button onclick="setMascotVersion('v1', 'Mitra (Editorial Ink)')" id="mascot-btn-v1" class="mascot-btn px-3 py-1 rounded-full text-xs font-semibold bg-zinc-950 text-white spring-transition">V1: Mitra (Ink)</button>
+        <button onclick="setMascotVersion('v2', 'Swar (3D Ceramic Pod)')" id="mascot-btn-v2" class="mascot-btn px-3 py-1 rounded-full text-xs font-semibold text-zinc-600 hover:text-zinc-950 spring-transition">V2: Swar (3D Pod)</button>
+        <button onclick="setMascotVersion('v3', 'Vani (Modern Concierge)')" id="mascot-btn-v3" class="mascot-btn px-3 py-1 rounded-full text-xs font-semibold text-zinc-600 hover:text-zinc-950 spring-transition">V3: Vani (Vector)</button>
+      </div>
+
+      <nav class="hidden xl:flex items-center gap-5 text-xs font-semibold text-zinc-600">
+        <a href="#mascot-studio" class="hover:text-zinc-950">1. Mascot Review (3 Versions)</a>
+        <a href="#abhishek-live" class="hover:text-zinc-950">2. Abhishek Industries Test (KN/ML/TE)</a>
+        <a href="#ui-kit" class="hover:text-zinc-950">3. 24-Screen UI Kit</a>
+        <a href="#backend-arch" class="hover:text-zinc-950">4. Backend Inventory</a>
+      </nav>
+    </header>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-8 pt-8 pb-24 space-y-20">
+
+    <!-- SECTION 1: MASCOT REVIEW STUDIO -->
+    <section id="mascot-studio" class="space-y-8">
+      <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6 border-b border-zinc-200 pb-6">
+        <div class="space-y-2 max-w-3xl">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-zinc-200 text-xs font-semibold text-zinc-700">
+            <i class="ph-bold ph-sparkle text-zinc-900"></i>
+            <span>Interactive Mascot Guide System • Zero Green / Zero Blue Palette</span>
+          </div>
+          <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950">
+            Review the 3 Sangamitra Mascot Versions &amp; 6 Guide Expressions.
+          </h1>
+          <p class="text-sm text-zinc-600 leading-relaxed">
+            Each mascot version is designed on a pure white studio canvas with <strong>6 contextual expressions</strong> (<em>Namaste Welcome, Listening to Voice, Scanning Website/Document, AI Thinking/Building, Celebration/Live Number, and Step-by-Step Guidance</em>). Click any version below to activate it inside the 24-screen mobile simulator.
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="setMascotVersion('v1', 'Mitra (Editorial Ink)')" class="px-4 py-2 rounded-full bg-zinc-950 text-white text-xs font-bold hover:bg-zinc-800">Try V1 in Simulator</button>
+          <button onclick="setMascotVersion('v2', 'Swar (3D Ceramic Pod)')" class="px-4 py-2 rounded-full bg-white border border-zinc-300 text-zinc-900 text-xs font-bold hover:bg-zinc-100">Try V2 in Simulator</button>
+          <button onclick="setMascotVersion('v3', 'Vani (Modern Concierge)')" class="px-4 py-2 rounded-full bg-white border border-zinc-300 text-zinc-900 text-xs font-bold hover:bg-zinc-100">Try V3 in Simulator</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Version 1 -->
+        <div class="bezel-outer">
+          <div class="bezel-inner p-5 space-y-4 flex flex-col justify-between h-full">
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-md bg-zinc-950 text-white">Version 01 • Mitra</span>
+                <span class="mono text-[11px] text-zinc-500">Notion / Linear Ink Style</span>
+              </div>
+              <h3 class="text-lg font-extrabold text-zinc-950">Minimalist Editorial Ink Receptionist</h3>
+              <p class="text-xs text-zinc-600 leading-relaxed">
+                Fine studio black linework with warm grey tonal shading. Projects human warmth, clarity, and approachable professionalism for Indian business owners and individuals.
+              </p>
+              <div class="rounded-xl overflow-hidden border border-zinc-200 bg-white">
+                <img src="assets/mascots/v1_sheet.jpg" alt="Mascot Version 1 - Mitra Editorial Ink" class="w-full h-auto object-cover" />
+              </div>
+            </div>
+            <button onclick="setMascotVersion('v1', 'Mitra (Editorial Ink)'); document.getElementById('ui-kit').scrollIntoView({behavior:'smooth'});" class="w-full py-2.5 rounded-full bg-zinc-950 text-white text-xs font-bold hover:bg-zinc-800 flex items-center justify-center gap-2">
+              <i class="ph-bold ph-check-circle"></i>
+              <span>Select V1 (Mitra) for Mobile App</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Version 2 -->
+        <div class="bezel-outer">
+          <div class="bezel-inner p-5 space-y-4 flex flex-col justify-between h-full">
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-md bg-zinc-950 text-white">Version 02 • Swar</span>
+                <span class="mono text-[11px] text-zinc-500">Nothing / Apple 3D Tactile</span>
+              </div>
+              <h3 class="text-lg font-extrabold text-zinc-950">3D Matte Ceramic &amp; Obsidian Voice Pod</h3>
+              <p class="text-xs text-zinc-600 leading-relaxed">
+                Tactile matte-white porcelain body with an obsidian glass matrix visor and warm brass acoustic mesh. Expressive dot-matrix eyes react to live voice waveforms.
+              </p>
+              <div class="rounded-xl overflow-hidden border border-zinc-200 bg-white">
+                <img src="assets/mascots/v2_sheet.jpg" alt="Mascot Version 2 - Swar Ceramic Pod" class="w-full h-auto object-cover" />
+              </div>
+            </div>
+            <button onclick="setMascotVersion('v2', 'Swar (3D Ceramic Pod)'); document.getElementById('ui-kit').scrollIntoView({behavior:'smooth'});" class="w-full py-2.5 rounded-full bg-zinc-950 text-white text-xs font-bold hover:bg-zinc-800 flex items-center justify-center gap-2">
+              <i class="ph-bold ph-check-circle"></i>
+              <span>Select V2 (Swar) for Mobile App</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Version 3 -->
+        <div class="bezel-outer">
+          <div class="bezel-inner p-5 space-y-4 flex flex-col justify-between h-full">
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-md bg-zinc-950 text-white">Version 03 • Vani</span>
+                <span class="mono text-[11px] text-zinc-500">Stripe / Duolingo Vector</span>
+              </div>
+              <h3 class="text-lg font-extrabold text-zinc-950">Modern Flat Vector Indian Concierge</h3>
+              <p class="text-xs text-zinc-600 leading-relaxed">
+                Dressed in a charcoal Nehru-collar bandhgala jacket with wireless headset and warm terracotta/stone accents. Ideal for MSMEs, B2B factories, and executive assistants.
+              </p>
+              <div class="rounded-xl overflow-hidden border border-zinc-200 bg-white">
+                <img src="assets/mascots/v3_sheet.jpg" alt="Mascot Version 3 - Vani Concierge" class="w-full h-auto object-cover" />
+              </div>
+            </div>
+            <button onclick="setMascotVersion('v3', 'Vani (Modern Concierge)'); document.getElementById('ui-kit').scrollIntoView({behavior:'smooth'});" class="w-full py-2.5 rounded-full bg-zinc-950 text-white text-xs font-bold hover:bg-zinc-800 flex items-center justify-center gap-2">
+              <i class="ph-bold ph-check-circle"></i>
+              <span>Select V3 (Vani) for Mobile App</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: LIVE AUTOMATED TEST ON ABHISHEK INDUSTRIES -->
+    <section id="abhishek-live" class="space-y-8 pt-12 border-t border-zinc-200">
+      <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+        <div class="space-y-2 max-w-3xl">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-zinc-200 text-xs font-semibold text-zinc-800">
+            <i class="ph-bold ph-globe-hemisphere-east"></i>
+            <span>Verified Live Backend Execution • POST /onboarding/ingest-url + Sarvam 105B + Bulbul v3 TTS</span>
+          </div>
+          <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-950">
+            Automated Zero-Prompt Test: <span class="underline decoration-zinc-400">abhishek-industries.pages.dev</span>
+          </h2>
+          <p class="text-sm text-zinc-600">
+            We passed only the URL <span class="mono font-semibold text-zinc-900">https://abhishek-industries.pages.dev/</span> and target languages <span class="mono font-semibold text-zinc-900">["kn-IN", "ml-IN", "te-IN"]</span> into <span class="mono text-zinc-900">app/core/onboarding_engine.py</span>. Below is the exact extracted business profile, compiled multilingual greetings, and live audio responses in <strong>Kannada, Malayalam, and Telugu</strong>.
+          </p>
+        </div>
+        <div class="mono text-xs bg-zinc-950 text-white px-4 py-2.5 rounded-xl">
+          pytest tests/test_onboarding_abhishek.py • 2 PASSED (0.97s)
+        </div>
+      </div>
+
+      <!-- Extracted Business Intelligence Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-5 bezel-outer">
+          <div class="bezel-inner p-6 space-y-4 h-full">
+            <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+              <div>
+                <span class="text-[11px] font-bold uppercase tracking-wider text-zinc-500">Auto-Scraped Business Profile</span>
+                <h3 class="text-lg font-extrabold text-zinc-950">Abhishek Industries</h3>
+              </div>
+              <span class="mono text-[11px] px-2.5 py-1 rounded bg-zinc-100 text-zinc-900 font-semibold border border-zinc-200">b2b_manufacturing</span>
+            </div>
+
+            <div class="space-y-2.5 text-xs">
+              <div class="flex justify-between py-1 border-b border-zinc-100">
+                <span class="text-zinc-500">Founder &amp; CEO</span>
+                <span class="font-bold text-zinc-950">Balaji CL (Founder & CEO)</span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-zinc-100">
+                <span class="text-zinc-500">Location</span>
+                <span class="font-bold text-zinc-950">Hirehalli, KIADB Industrial Area, Tumakuru, Karnataka, IN</span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-zinc-100">
+                <span class="text-zinc-500">Sales &amp; WhatsApp Line</span>
+                <span class="mono font-bold text-zinc-950">+919739999992</span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-zinc-100">
+                <span class="text-zinc-500">States Served</span>
+                <span class="font-bold text-zinc-950">Karnataka, Andhra Pradesh, Tamil Nadu, Kerala</span>
+              </div>
+            </div>
+
+            <div class="space-y-2 pt-1">
+              <div class="text-[11px] font-bold uppercase tracking-wider text-zinc-500">6 Extracted Industrial Minerals</div>
+              <div class="grid grid-cols-2 gap-2 text-xs">
+
+                <div class="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200">
+                  <div class="font-bold text-zinc-950">China clay</div>
+                  <div class="text-[11px] text-zinc-500 truncate">Ceramics · Sanitaryware · Coatings</div>
+                </div>
+
+                <div class="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200">
+                  <div class="font-bold text-zinc-950">Quartz</div>
+                  <div class="text-[11px] text-zinc-500 truncate">Glass · Ceramics · Engineered stone</div>
+                </div>
+
+                <div class="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200">
+                  <div class="font-bold text-zinc-950">Feldspar</div>
+                  <div class="text-[11px] text-zinc-500 truncate">Ceramics · Glass · Glazes</div>
+                </div>
+
+                <div class="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200">
+                  <div class="font-bold text-zinc-950">Dolomite</div>
+                  <div class="text-[11px] text-zinc-500 truncate">Glass · Ceramics · Mineral fillers</div>
+                </div>
+
+                <div class="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200">
+                  <div class="font-bold text-zinc-950">Bentonite</div>
+                  <div class="text-[11px] text-zinc-500 truncate">Foundry · Drilling · Construction</div>
+                </div>
+
+                <div class="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200">
+                  <div class="font-bold text-zinc-950">Soapstone</div>
+                  <div class="text-[11px] text-zinc-500 truncate">Paints · Polymers · Ceramics</div>
+                </div>
+
+              </div>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-zinc-950 text-white text-xs space-y-1.5">
+              <div class="font-bold flex items-center justify-between">
+                <span>Auto-Attached Composio Toolset</span>
+                <span class="mono text-[10px] text-zinc-400">3 ACTIVE</span>
+              </div>
+              <p class="text-[11px] text-zinc-300 leading-relaxed">
+                1. <span class="mono text-white">WHATSAPP</span>: Sends mineral, mesh size, tonnage &amp; city brief to Mr. Balaji CL (+91 9739999992).<br/>
+                2. <span class="mono text-white">GOOGLESHEETS</span>: Appends row to Live B2B Enquiries Sheet.<br/>
+                3. <span class="mono text-white">GOOGLECALENDAR</span>: Books sample evaluation callback.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3 Live Multilingual Call Turns (Kannada, Malayalam, Telugu) -->
+        <div class="lg:col-span-7 space-y-4">
+
+          <div class="bezel-outer">
+            <div class="bezel-inner p-5 space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 pb-2.5">
+                <div class="flex items-center gap-2">
+                  <span class="px-2.5 py-1 rounded-md bg-zinc-950 text-white text-xs font-bold">Kannada (ಕನ್ನಡ)</span>
+                  <span class="text-xs font-bold text-zinc-800">Raghavendra Ceramic Works, Bengaluru</span>
+                </div>
+                <span class="mono text-[11px] text-zinc-500">sarvam-105b-conversations + bulbul:v3</span>
+              </div>
+
+              <div class="space-y-2 text-xs">
+                <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 space-y-1">
+                  <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Compiled Auto-Greeting (kn-IN)</div>
+                  <div class="font-medium text-zinc-900">ನಮಸ್ಕಾರ! Abhishek Industries ಗೆ ಸ್ವಾಗತ. ನಾನು ನಿಮ್ಮ ಎಐ ಸಹಾಯಕಿ. ಕನ್ನಡ, ಮಲಯಾಳಂ, ತೆಲುಗು ಅಥವಾ ಇಂಗ್ಲಿಷ್‌ನಲ್ಲಿ ಮಾತನಾಡಬಹುದು. ನಿಮಗೆ ಹೇಗೆ సహಾಯ ಮಾಡಲಿ?</div>
+                </div>
+
+                <div class="p-3 rounded-xl bg-white border border-zinc-200 space-y-1">
+                  <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Incoming Buyer Utterance</div>
+                  <div class="font-semibold text-zinc-950">ನಮಸ್ಕಾರ, ನಮಗೆ ಬೆಂಗಳೂರಿನ ಟೈಲ್ಸ್ ಫ್ಯಾಕ್ಟರಿಗೆ 25 ಟನ್ ಚೈನಾ ಕ್ಲೇ (China Clay) ಮತ್ತು ಕ್ವಾರ್ಟ್ಜ್ ಪೌಡರ್ ಬೇಕಾಗಿದೆ. ಟನ್ ಬೆಲೆ ಹೇಗೆ ಮತ್ತು ಸ್ಯಾಂಪಲ್ ಸಿಗುತ್ತದೆಯೇ?</div>
+                </div>
+
+                <div class="p-3.5 rounded-xl bg-zinc-950 text-white space-y-1.5">
+                  <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                    <span>Sangamitra AI Receptionist Live Reply (Spoken Audio Below)</span>
+                    <span>Verified Fact-Grounded</span>
+                  </div>
+                  <div class="text-xs leading-relaxed text-zinc-100">ನಮಸ್ಕಾರ ಸರ್, ಖಂಡಿತ ಸಹಾಯ ಮಾಡುತ್ತೇನೆ. ಸ್ಯಾಂಪಲ್ ಬಗ್ಗೆ ಹೇಳಬೇಕೆಂದರೆ, ನಿಮ್ಮ ಪ್ರೊಡಕ್ಷನ್‌ನಲ್ಲಿ ಚೆಕ್ ಮಾಡಲು ನಾವು representative sample ಕೊಡಬಹುದು. ಬೆಲೆ ಬಗ್ಗೆ ಹೇಳುವುದಾದರೆ, ಅದು grade, mesh size ಹಾಗೂ delivery location ಮೇಲೆ depend ಆಗುತ್ತೆ. ನಿಮಗೆ ಮೊದಲು ಯಾವ mineral ಬಗ್ಗೆ details ಬೇಕು ಸರ್, China clay ಅಥವಾ Quartz?</div>
+                  
+              <div class="pt-2">
+                <audio controls class="w-full h-9">
+                  <source src="assets/abhishek_test/abhishek_kn.wav" type="audio/wav" />
+                </audio>
+              </div>
+        
+                </div>
+              </div>
+            </div>
+          </div>
+    
+          <div class="bezel-outer">
+            <div class="bezel-inner p-5 space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 pb-2.5">
+                <div class="flex items-center gap-2">
+                  <span class="px-2.5 py-1 rounded-md bg-zinc-950 text-white text-xs font-bold">Malayalam (മലയാളം)</span>
+                  <span class="text-xs font-bold text-zinc-800">Malabar Coatings Pvt Ltd, Kochi</span>
+                </div>
+                <span class="mono text-[11px] text-zinc-500">sarvam-105b-conversations + bulbul:v3</span>
+              </div>
+
+              <div class="space-y-2 text-xs">
+                <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 space-y-1">
+                  <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Compiled Auto-Greeting (ml-IN)</div>
+                  <div class="font-medium text-zinc-900">നമസ്കാരം! Abhishek Industries-ലേക്ക് സ്വാഗതം. എനിക്ക് മലയാളം, കന്നഡ, തെലുങ്ക്, ഇംഗ്ലീഷ് എന്നിവയിൽ സംസാരിക്കാൻ കഴിയും. ഞാൻ എങ്ങനെയാണ് സഹായിക്കേണ്ടത്?</div>
+                </div>
+
+                <div class="p-3 rounded-xl bg-white border border-zinc-200 space-y-1">
+                  <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Incoming Buyer Utterance</div>
+                  <div class="font-semibold text-zinc-950">നമസ്കാരം, കൊച്ചിയിലെ ഞങ്ങളുടെ പെയിന്റ് കമ്പനിക്ക് 15 ടൺ സോപ്പ്സ്റ്റോൺ (Soapstone) പൗഡറും ഡോളമൈറ്റും വേണം. കേരളത്തിലേക്ക് ഡেলিവറി ഉണ്ടോ?</div>
+                </div>
+
+                <div class="p-3.5 rounded-xl bg-zinc-950 text-white space-y-1.5">
+                  <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                    <span>Sangamitra AI Receptionist Live Reply (Spoken Audio Below)</span>
+                    <span>Verified Fact-Grounded</span>
+                  </div>
+                  <div class="text-xs leading-relaxed text-zinc-100">നമസ്കാരം സർ, അതെ, ഞങ്ങൾ കേരളത്തിലേക്ക് ഡെലിവറി ചെയ്യുന്നുണ്ട്. സോപ്പ്സ്റ്റോൺ ഏത് ആവശ്യത്തിനാണ് വേണ്ടത്, അതുപോലെ ഡോളമൈറ്റിന്റെ ഗ്രേഡോ മെഷ് സൈസോ എന്തെങ്കിലും പ്രത്യേകതയുണ്ടോ?</div>
+                  
+              <div class="pt-2">
+                <audio controls class="w-full h-9">
+                  <source src="assets/abhishek_test/abhishek_ml.wav" type="audio/wav" />
+                </audio>
+              </div>
+        
+                </div>
+              </div>
+            </div>
+          </div>
+    
+          <div class="bezel-outer">
+            <div class="bezel-inner p-5 space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 pb-2.5">
+                <div class="flex items-center gap-2">
+                  <span class="px-2.5 py-1 rounded-md bg-zinc-950 text-white text-xs font-bold">Telugu (తెలుగు)</span>
+                  <span class="text-xs font-bold text-zinc-800">Sri Durga Refractories, Vijayawada</span>
+                </div>
+                <span class="mono text-[11px] text-zinc-500">sarvam-105b-conversations + bulbul:v3</span>
+              </div>
+
+              <div class="space-y-2 text-xs">
+                <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 space-y-1">
+                  <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Compiled Auto-Greeting (te-IN)</div>
+                  <div class="font-medium text-zinc-900">నమస్కారం అండీ! Abhishek Industries కి స్వాగతం. మీరు తెలుగు, కన్నడ, మలయాళం లేదా ఇంగ్లీష్‌లో మాట్లాడవచ్చు. మీకు ఏ విధంగా సహాయం చేయగలను?</div>
+                </div>
+
+                <div class="p-3 rounded-xl bg-white border border-zinc-200 space-y-1">
+                  <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Incoming Buyer Utterance</div>
+                  <div class="font-semibold text-zinc-950">నమస్కారం అండీ, విజయవాడలో మా సిరామిక్ ఫ్యాక్టరీ కోసం 30 టన్నుల ఫెల్డ్‌స్పార్ (Feldspar) మరియు బెంటోనైట్ పౌడర్ కావాలి. కొటేషన్ ఎలా ఇస్తారు?</div>
+                </div>
+
+                <div class="p-3.5 rounded-xl bg-zinc-950 text-white space-y-1.5">
+                  <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                    <span>Sangamitra AI Receptionist Live Reply (Spoken Audio Below)</span>
+                    <span>Verified Fact-Grounded</span>
+                  </div>
+                  <div class="text-xs leading-relaxed text-zinc-100">నమస్కారం అండీ. తప్పకుండా చెప్తాను. మా bulk quotations అన్నీ per tonne లెక్కన ఇస్తాం. మీరు అడిగిన price అనేది grade, mesh size, quantity, packing మరియు delivery location పైన ఆధారపడి ఉంటుంది. మీకు ఏ mesh size లేదా grade కావాలో చెప్తారా?</div>
+                  
+              <div class="pt-2">
+                <audio controls class="w-full h-9">
+                  <source src="assets/abhishek_test/abhishek_te.wav" type="audio/wav" />
+                </audio>
+              </div>
+        
+                </div>
+              </div>
+            </div>
+          </div>
+    
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 3: 24-SCREEN PLAY STORE LAUNCH UI KIT -->
+    <section id="ui-kit" class="space-y-8 pt-12 border-t border-zinc-200">
+      <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+        <div class="space-y-2 max-w-3xl">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-zinc-200 text-xs font-semibold text-zinc-800">
+            <i class="ph-bold ph-device-mobile-camera"></i>
+            <span>Complete 24-Screen Production Launch UI Kit • 6 Modules</span>
+          </div>
+          <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-950">
+            Every screen required for Google Play Store launch &amp; daily retention.
+          </h2>
+          <p class="text-sm text-zinc-600">
+            Benchmarked against Superfone, MyOperator, Goodcall, and Google Play India 2026 regulatory policies (DoT eKYC, GenAI Flag/Report button, Runtime Permission Primers, Prepaid Rs. 0 Circuit Breaker, and In-App Account Deletion).
+          </p>
+        </div>
+
+        <!-- Module Filter Pills -->
+        <div class="flex flex-wrap gap-1.5">
+          <button onclick="filterModule('ALL')" id="mod-ALL" class="module-pill module-pill-active px-3 py-1.5 rounded-full text-xs font-bold border border-zinc-300 bg-white text-zinc-800 spring-transition">All 24 Screens</button>
+          <button onclick="filterModule('A')" id="mod-A" class="module-pill px-3 py-1.5 rounded-full text-xs font-bold border border-zinc-300 bg-white text-zinc-800 spring-transition">A. Onboarding (01-06)</button>
+          <button onclick="filterModule('B')" id="mod-B" class="module-pill px-3 py-1.5 rounded-full text-xs font-bold border border-zinc-300 bg-white text-zinc-800 spring-transition">B. UPI &amp; eKYC (07-10)</button>
+          <button onclick="filterModule('C')" id="mod-C" class="module-pill px-3 py-1.5 rounded-full text-xs font-bold border border-zinc-300 bg-white text-zinc-800 spring-transition">C. Inbox &amp; CRM (11-15)</button>
+          <button onclick="filterModule('D')" id="mod-D" class="module-pill px-3 py-1.5 rounded-full text-xs font-bold border border-zinc-300 bg-white text-zinc-800 spring-transition">D. Training &amp; Outbound (16-19)</button>
+          <button onclick="filterModule('E')" id="mod-E" class="module-pill px-3 py-1.5 rounded-full text-xs font-bold border border-zinc-300 bg-white text-zinc-800 spring-transition">E. Wallet &amp; Team (20-22)</button>
+          <button onclick="filterModule('F')" id="mod-F" class="module-pill px-3 py-1.5 rounded-full text-xs font-bold border border-zinc-300 bg-white text-zinc-800 spring-transition">F. Play Store Safety (23-24)</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <!-- Left Column: 24-Screen Navigator Grid -->
+        <div class="lg:col-span-7 space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[640px] overflow-y-auto pr-1" id="screenGrid">
+
+            <button onclick="showScreen(1)" id="tab-1" data-module="A" class="screen-tab screen-tab-active text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">01</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module A • Onboarding & Setup</div>
+                <div class="text-xs font-extrabold truncate">Language, Mascot Picker & 1-Tap Google Auth</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">User picks Mitra, Swar, or Vani + 11 Indian languages</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(2)" id="tab-2" data-module="A" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">02</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module A • Onboarding & Setup</div>
+                <div class="text-xs font-extrabold truncate">Entity Mode, Category & Direction Picker</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">40+ Business Categories + Personal Assistant Mode</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(3)" id="tab-3" data-module="A" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">03</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module A • Onboarding & Setup</div>
+                <div class="text-xs font-extrabold truncate">Zero-Prompt Multimodal Ingestion</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">Website URL, Voice Note, Social Link, or Shop Board Photo</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(4)" id="tab-4" data-module="A" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">04</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module A • Onboarding & Setup</div>
+                <div class="text-xs font-extrabold truncate">AI Harness & 1-Tap Composio Tools</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">System Guardrails + WhatsApp, Sheets & Calendar</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(5)" id="tab-5" data-module="A" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">05</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module A • Onboarding & Setup</div>
+                <div class="text-xs font-extrabold truncate">Free In-App Voice Sandbox & Tuner</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">Test in Kannada, Malayalam & Telugu before paying</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(6)" id="tab-6" data-module="A" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">06</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module A • Onboarding & Setup</div>
+                <div class="text-xs font-extrabold truncate">Mic & Notification Permission Primer</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">Play Store Runtime Permission Compliance</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(7)" id="tab-7" data-module="B" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">07</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module B • Checkout & Activation</div>
+                <div class="text-xs font-extrabold truncate">Rs. 499 UPI Checkout & Number Picker</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">All-India Dedicated DID + 60/40 Split Ledger</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(8)" id="tab-8" data-module="B" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">08</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module B • Checkout & Activation</div>
+                <div class="text-xs font-extrabold truncate">DoT / TRAI Light-Touch eKYC & CAF</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">Mandatory Indian Cloud Telephony Verification</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(9)" id="tab-9" data-module="B" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">09</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module B • Checkout & Activation</div>
+                <div class="text-xs font-extrabold truncate">1-Tap SIM Call Forwarding Wizard</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">Forward existing mobile (+91 9739999992) when busy</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(10)" id="tab-10" data-module="B" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">10</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module B • Checkout & Activation</div>
+                <div class="text-xs font-extrabold truncate">Number Live & AI Visiting Card Poster</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">Shareable QR & WhatsApp Business Card</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(11)" id="tab-11" data-module="C" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">11</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module C • Daily Operations & CRM</div>
+                <div class="text-xs font-extrabold truncate">Live Command Center Dashboard</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">Real-time KPIs, Active Line Status & Wallet Meter</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(12)" id="tab-12" data-module="C" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">12</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module C • Daily Operations & CRM</div>
+                <div class="text-xs font-extrabold truncate">Unified Call & WhatsApp Lead Inbox</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">Filter by Quote Needed, Sample Request, Urgent, Spam</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(13)" id="tab-13" data-module="C" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">13</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module C • Daily Operations & CRM</div>
+                <div class="text-xs font-extrabold truncate">Call Detail, Audio & Transcript Drawer</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">Extracted B2B Brief + Play Store Report AI Button</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(14)" id="tab-14" data-module="C" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">14</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module C • Daily Operations & CRM</div>
+                <div class="text-xs font-extrabold truncate">Built-in Mini-CRM & B2B Lead Pipeline</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">Track Sample Sent → Quoted → Bulk Order Dispatched</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(15)" id="tab-15" data-module="C" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">15</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module C • Daily Operations & CRM</div>
+                <div class="text-xs font-extrabold truncate">Sample Evaluation & Callback Schedule</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">Synced with Google Calendar & Mr. Balaji CL's Phone</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(16)" id="tab-16" data-module="D" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">16</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module D • AI Training & Outbound</div>
+                <div class="text-xs font-extrabold truncate">10-Second Voice Note Knowledge Trainer</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">Update stock, mesh grades, or holidays by speaking</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(17)" id="tab-17" data-module="D" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">17</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module D • AI Training & Outbound</div>
+                <div class="text-xs font-extrabold truncate">Call Routing, Hours & Human Escalation</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">24/7 Mode, VIP Transfer & Factory Hours</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(18)" id="tab-18" data-module="D" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">18</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module D • AI Training & Outbound</div>
+                <div class="text-xs font-extrabold truncate">Outbound Follow-Up & Sample Campaign</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">Automated Sample Feedback & Repeat Order Calls</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(19)" id="tab-19" data-module="D" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">19</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module D • AI Training & Outbound</div>
+                <div class="text-xs font-extrabold truncate">Composio Integrations & Tool Execution Log</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">OAuth Health + Real-Time Webhook Audit Trail</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(20)" id="tab-20" data-module="E" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">20</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module E • Wallet, Billing & Growth</div>
+                <div class="text-xs font-extrabold truncate">Prepaid Wallet, UPI Top-Up & GST Invoices</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">Transparent Per-Minute Ledger + Auto-Recharge</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(21)" id="tab-21" data-module="E" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">21</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module E • Wallet, Billing & Growth</div>
+                <div class="text-xs font-extrabold truncate">Wallet Rs. 0 Circuit Breaker & 1-Tap Resume</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">Zero Unfunded Liability Guarantee for Platform</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(22)" id="tab-22" data-module="E" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">22</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module E • Wallet, Billing & Growth</div>
+                <div class="text-xs font-extrabold truncate">Multi-User Team & Viral Referral Hub</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">Invite Sales Staff + Earn Rs. 100 Per Referred Business</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(23)" id="tab-23" data-module="F" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">23</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module F • Play Store Compliance</div>
+                <div class="text-xs font-extrabold truncate">AI Safety, Recording Disclosure & Guardrails</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">PII Redaction, Spam Blocking & Consent Toggle</div>
+              </div>
+            </button>
+    
+            <button onclick="showScreen(24)" id="tab-24" data-module="F" class="screen-tab  text-left p-3.5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 spring-transition flex items-start gap-3">
+              <span class="tab-badge mono text-xs font-bold px-2 py-1 rounded-lg bg-zinc-100 text-zinc-900 shrink-0">24</span>
+              <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Module F • Play Store Compliance</div>
+                <div class="text-xs font-extrabold truncate">Data Privacy & Mandatory Account Deletion</div>
+                <div class="tab-sub text-[11px] text-zinc-500 truncate mt-0.5">Google Play Store 2026 Account & Data Wipe Policy</div>
+              </div>
+            </button>
+    
+          </div>
+
+          <!-- Active Screen Technical Contract Card -->
+          <div class="bezel-outer">
+            <div class="bezel-inner p-5 space-y-2">
+              <div class="flex items-center justify-between text-xs font-bold text-zinc-500">
+                <span id="specHeader" class="uppercase tracking-wider text-zinc-900">SCREEN 01 — TECHNICAL &amp; API CONTRACT</span>
+                <span id="specApi" class="mono text-[11px] px-2.5 py-0.5 rounded bg-zinc-100 text-zinc-900 border border-zinc-200">POST /auth/google</span>
+              </div>
+              <p id="specBody" class="text-xs text-zinc-600 leading-relaxed">
+                Uses Android Credential Manager (GetGoogleIdOption) for 1-tap Google Sign-In and binds the user's primary language (Kannada, Malayalam, Telugu, Hindi, Tamil, etc.) to their actor profile.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Interactive White Hardware Phone Simulator with Live Mascot Guide -->
+        <div class="lg:col-span-5 flex justify-center">
+          <div class="device-shell">
+            <div class="device-screen">
+              <!-- Status Bar -->
+              <div class="px-6 pt-2 pb-1 flex items-center justify-between text-[11px] font-semibold text-zinc-900">
+                <span class="mono">9:41</span>
+                <div class="device-speaker"></div>
+                <div class="flex items-center gap-1.5 text-zinc-800">
+                  <i class="ph-bold ph-cell-signal-full text-xs"></i>
+                  <i class="ph-bold ph-wifi-high text-xs"></i>
+                  <i class="ph-fill ph-battery-high text-sm"></i>
+                </div>
+              </div>
+
+              <!-- Dynamic Phone Screen Container -->
+              <div class="flex-1 overflow-y-auto px-5 pt-2 pb-5 flex flex-col justify-between">
+
+                <div id="phone-screen-1" class="phone-screen  flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">01/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">Onboarding & Setup</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(24)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(2)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_namaste.jpg"
+                        data-pose="namaste"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">namaste</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">Namaste! Choose your preferred AI Guide Mascot (Mitra, Swar, or Vani) and your language—we will guide you across every screen.</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">Language, Mascot Picker & 1-Tap Google Auth</h3>
+                      <p class="text-[11px] text-zinc-500">User picks Mitra, Swar, or Vani + 11 Indian languages</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">User-Selectable AI Guide Mascot</div>
+                        <div class="text-xs font-bold text-white leading-snug">Choose V1: Mitra (Ink) • V2: Swar (3D Pod) • V3: Vani (Concierge)</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Selected Interface & Voice Languages</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Kannada (ಕನ್ನಡ) • Malayalam (മലയാളം) • Telugu (తెలుగు)</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Identity Provider</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Google OAuth 2.0 (One-Tap Credential Manager)</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: POST /auth/google</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(2)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Continue with Google Account</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-2" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">02/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">Onboarding & Setup</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(1)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(3)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_guidance.jpg"
+                        data-pose="guidance"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">guidance</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">Choose whether this line is for your Business or your Personal Phone, or let me auto-detect it from your website.</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">Entity Mode, Category & Direction Picker</h3>
+                      <p class="text-[11px] text-zinc-500">40+ Business Categories + Personal Assistant Mode</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Selected Mode</div>
+                        <div class="text-xs font-bold text-white leading-snug">Business / B2B Manufacturing & Industrial Supply</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Sub-Category Preset</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Industrial Minerals & Powder Supplier</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Agent Direction</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">24/7 Inbound Receptionist + Outbound Quote Follow-up</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: GET /onboarding/categories</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(3)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Proceed to Business Ingestion</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-3" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">03/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">Onboarding & Setup</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(2)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(4)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_scanning.jpg"
+                        data-pose="scanning"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">scanning</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">Just paste your website link, speak in Kannada/Malayalam/Telugu, or snap a photo of your brochure—I extract everything automatically.</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">Zero-Prompt Multimodal Ingestion</h3>
+                      <p class="text-[11px] text-zinc-500">Website URL, Voice Note, Social Link, or Shop Board Photo</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Ingested Source URL</div>
+                        <div class="text-xs font-bold text-white leading-snug">https://abhishek-industries.pages.dev/</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Extracted Business & Founder</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Abhishek Industries • Mr. Balaji CL (Founder & CEO)</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Extracted Catalog (6 Minerals)</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">China Clay, Quartz, Feldspar, Dolomite, Bentonite, Soapstone</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Regions & Languages Configured</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Karnataka, AP, Kerala, TN • Kannada, Malayalam, Telugu</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: POST /onboarding/ingest-url</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(4)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Compile Multilingual AI Agent</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-4" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">04/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">Onboarding & Setup</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(3)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(5)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_thinking.jpg"
+                        data-pose="thinking"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">thinking</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">I have compiled your B2B mineral enquiry flow and connected WhatsApp and Google Sheets so Mr. Balaji CL gets every lead instantly.</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">AI Harness & 1-Tap Composio Tools</h3>
+                      <p class="text-[11px] text-zinc-500">System Guardrails + WhatsApp, Sheets & Calendar</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Multilingual Greeting (KN / ML / TE)</div>
+                        <div class="text-xs font-bold text-white leading-snug">ನಮಸ್ಕಾರ! • നമസ്കാരം! • నమస్కారం అండీ!</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Enquiry Fields Captured</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Mineral, Grade/Mesh Size, Quantity (Tonnes), Delivery City</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Connected Composio Tools</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">WHATSAPP (+91 9739999992) • GOOGLESHEETS • GOOGLECALENDAR</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: POST /onboarding/ingest-url</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(5)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Test Agent in Free Voice Sandbox</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-5" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">05/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">Onboarding & Setup</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(4)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(6)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_listening.jpg"
+                        data-pose="listening"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">listening</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">Speak to your AI agent right now for free! If you want to change anything, just tell me by voice.</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">Free In-App Voice Sandbox & Tuner</h3>
+                      <p class="text-[11px] text-zinc-500">Test in Kannada, Malayalam & Telugu before paying</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Kannada Buyer Test (Bengaluru)</div>
+                        <div class="text-xs font-bold text-white leading-snug">25 Tonnes China Clay & Quartz — Verified native response</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Malayalam Buyer Test (Kochi)</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">15 Tonnes Soapstone & Dolomite to Kerala — Verified native response</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Telugu Buyer Test (Vijayawada)</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">30 Tonnes Feldspar & Bentonite quote — Verified native response</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: POST /onboarding/simulate-turn</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(6)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Approve Agent & Continue</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-6" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">06/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">Onboarding & Setup</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(5)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(7)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_guidance.jpg"
+                        data-pose="guidance"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">guidance</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">Allow microphone access for voice training and notifications so you never miss an urgent bulk order alert.</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">Mic & Notification Permission Primer</h3>
+                      <p class="text-[11px] text-zinc-500">Play Store Runtime Permission Compliance</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Microphone Access (RECORD_AUDIO)</div>
+                        <div class="text-xs font-bold text-white leading-snug">Used only when you record voice instructions or test in Sandbox</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Instant Lead Alerts (POST_NOTIFICATIONS)</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Push alert whenever a buyer requests a bulk quote or transfer</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Strict Privacy</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Zero background recording; Aadhaar & sensitive digits auto-redacted</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: POST /notifications/register-device</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(7)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Grant Permissions & Pick Number</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-7" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">07/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">Checkout & Activation</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(6)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(8)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_guidance.jpg"
+                        data-pose="guidance"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">guidance</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">Pay Rs. 499 once via any UPI app to claim your dedicated All-India phone number and starter call balance.</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">Rs. 499 UPI Checkout & Number Picker</h3>
+                      <p class="text-[11px] text-zinc-500">All-India Dedicated DID + 60/40 Split Ledger</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Selected All-India Virtual Number</div>
+                        <div class="text-xs font-bold text-white leading-snug">+91 80 6427 0314 (Dedicated Abhishek Industries DID)</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Starter Pack Upfront Payment</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Rs. 499.00 (Includes 1st Month Number + 46 Call Minutes)</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Pay-As-You-Go Rate Thereafter</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Rs. 7.50 / min (60% Platform Margin • 40% Sarvam COGS)</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: POST /payments/orders</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(8)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Pay Rs. 499 via UPI & Provision</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-8" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">08/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">Checkout & Activation</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(7)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(9)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_scanning.jpg"
+                        data-pose="scanning"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">scanning</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">Indian telecom rules require a quick 30-second GST or Aadhaar OTP verification to keep your virtual number active permanently.</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">DoT / TRAI Light-Touch eKYC & CAF</h3>
+                      <p class="text-[11px] text-zinc-500">Mandatory Indian Cloud Telephony Verification</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Entity Legal Name</div>
+                        <div class="text-xs font-bold text-white leading-snug">Abhishek Industries (Hirehalli KIADB, Tumakuru)</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Authorized Signatory</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Mr. Balaji CL • Founder & CEO</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">TRAI Compliance Declaration</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Transactional & Inbound B2B Receptionist Use Only</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: POST /govstack/verify-identity</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(9)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Verify eKYC & Activate Line</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-9" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">09/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">Checkout & Activation</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(8)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(10)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_guidance.jpg"
+                        data-pose="guidance"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">guidance</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">Want buyers calling your existing number (+91 9739999992) to reach me when you are busy or at the factory? Tap once below!</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">1-Tap SIM Call Forwarding Wizard</h3>
+                      <p class="text-[11px] text-zinc-500">Forward existing mobile (+91 9739999992) when busy</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Forward When Busy / Unanswered</div>
+                        <div class="text-xs font-bold text-white leading-snug">Dials *67*08064270306# and *61*08064270306# automatically</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Forward All Calls (24/7 Mode)</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Dials *21*08064270306# on primary SIM</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">1-Tap Reset to Normal</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Dials ##002# anytime to disable call forwarding</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: Android ACTION_CALL USSD Intent</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(10)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Enable Busy/Unanswered Forwarding</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-10" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">10/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">Checkout & Activation</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(9)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(11)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_celebration.jpg"
+                        data-pose="celebration"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">celebration</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">Congratulations! Your multilingual AI receptionist is LIVE on +91 80 6427 0306. Share your AI card with buyers right away!</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">Number Live & AI Visiting Card Poster</h3>
+                      <p class="text-[11px] text-zinc-500">Shareable QR & WhatsApp Business Card</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Live Receptionist Number</div>
+                        <div class="text-xs font-bold text-white leading-snug">+91 80 6427 0314 (Abhishek Industries • Active 24/7)</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Languages Active on Line</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Kannada (ಕನ್ನಡ) • Malayalam (മലയാളം) • Telugu (తెలుగు) • English</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Viral Growth Reward</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Share card on WhatsApp — Earn Rs. 100 call credits per referral</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: GET /analytics/summary</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(11)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Open Live Command Center</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-11" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">11/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">Daily Operations & CRM</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(10)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(12)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_namaste.jpg"
+                        data-pose="namaste"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">namaste</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">Here is your daily overview. Today I answered 14 buyer calls across Karnataka, Kerala, and Andhra Pradesh!</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">Live Command Center Dashboard</h3>
+                      <p class="text-[11px] text-zinc-500">Real-time KPIs, Active Line Status & Wallet Meter</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Today's Handled Calls</div>
+                        <div class="text-xs font-bold text-white leading-snug">14 Calls • 0 Missed • Avg Duration: 1m 42s</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Language Split Today</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">6 Kannada • 4 Malayalam • 4 Telugu</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Prepaid Call Wallet Balance</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Rs. 140.60 Remaining (~46 mins) • Auto-Pause Armed</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: GET /analytics/dashboard</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(12)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Open Unified Call Inbox</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-12" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">12/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">Daily Operations & CRM</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(11)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(13)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_guidance.jpg"
+                        data-pose="guidance"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">guidance</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">Tap any call below to listen to the recording, read the bilingual transcript, or send a quotation on WhatsApp.</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">Unified Call & WhatsApp Lead Inbox</h3>
+                      <p class="text-[11px] text-zinc-500">Filter by Quote Needed, Sample Request, Urgent, Spam</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Raghavendra Ceramic Works (Bengaluru)</div>
+                        <div class="text-xs font-bold text-white leading-snug">Kannada • 25T China Clay & Quartz • Sample + Quote Requested</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Malabar Coatings Pvt Ltd (Kochi)</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Malayalam • 15T Soapstone & Dolomite • Delivery to Kerala</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Sri Durga Refractories (Vijayawada)</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Telugu • 30T Feldspar & Bentonite • Per-Tonne Quote Needed</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: GET /agent-callbacks?status=pending</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(13)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Inspect Call Transcript & Audio</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-13" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">13/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">Daily Operations & CRM</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(12)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(14)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_listening.jpg"
+                        data-pose="listening"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">listening</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">I extracted the exact mineral, mesh size, tonnage, and delivery city from this call. Tap 'Report AI Output' if any sentence needs correction.</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">Call Detail, Audio & Transcript Drawer</h3>
+                      <p class="text-[11px] text-zinc-500">Extracted B2B Brief + Play Store Report AI Button</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Extracted Mineral & Tonnage</div>
+                        <div class="text-xs font-bold text-white leading-snug">China Clay (Kaolin) & Quartz • 25 Tonnes • Ceramics Grade</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Transcript & Audio Recording</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">01:38 WAV Recording • Native Kannada + English Summary</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Play Store GenAI Policy Action</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">[Flag / Report Inaccurate AI Output] — Instant feedback loop</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: GET /agent-callbacks/{id}</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(14)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Sync Lead to Mini-CRM Pipeline</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-14" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">14/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">Daily Operations & CRM</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(13)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(15)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_guidance.jpg"
+                        data-pose="guidance"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">guidance</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">Move buyers from 'Sample Evaluation' to 'Per-Tonne Quote Sent'—every update syncs automatically to your Google Sheet.</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">Built-in Mini-CRM & B2B Lead Pipeline</h3>
+                      <p class="text-[11px] text-zinc-500">Track Sample Sent → Quoted → Bulk Order Dispatched</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Stage 1: New Enquiry (3)</div>
+                        <div class="text-xs font-bold text-white leading-snug">Raghavendra Ceramics (25T) • Malabar Coatings (15T)</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Stage 2: Sample Dispatched (5)</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Kolar Sanitaryware (40T Feldspar) • Mysuru Paints (10T Soapstone)</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Stage 3: Bulk Order Confirmed (8)</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Coimbatore Foundry (50T Bentonite) • Ernakulam Glass (35T Quartz)</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: PATCH /agent-callbacks/{id}</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(15)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>View Sample & Dispatch Calendar</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-15" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">15/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">Daily Operations & CRM</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(14)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(16)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_guidance.jpg"
+                        data-pose="guidance"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">guidance</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">All callback slots and factory visit appointments booked by callers appear here and on your Google Calendar.</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">Sample Evaluation & Callback Schedule</h3>
+                      <p class="text-[11px] text-zinc-500">Synced with Google Calendar & Mr. Balaji CL's Phone</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">11:30 AM — Callback with Mr. Balaji CL</div>
+                        <div class="text-xs font-bold text-white leading-snug">Raghavendra Ceramics • Discuss 200-Mesh China Clay Quote</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">02:30 PM — Factory Sample Pickup</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Hirehalli KIADB Unit • 5kg Quartz & Feldspar Evaluation Pack</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">04:00 PM — Kerala Transport Dispatch Call</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Malabar Coatings • Confirm 15T Soapstone Truck Load</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: GET /workflows</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(16)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Open AI Voice Note Trainer</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-16" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">16/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">AI Training & Outbound</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(15)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(17)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_listening.jpg"
+                        data-pose="listening"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">listening</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">Need to update stock availability or festival holidays? Just hold the mic and tell me in Kannada, Malayalam, or Telugu!</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">10-Second Voice Note Knowledge Trainer</h3>
+                      <p class="text-[11px] text-zinc-500">Update stock, mesh grades, or holidays by speaking</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Latest Voice Note Update (10s ago)</div>
+                        <div class="text-xs font-bold text-white leading-snug">'325-mesh China Clay and Bentonite ready for immediate dispatch from Tumakuru'</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Compiled Knowledge Base Status</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">v4 Committed • Synced across Kannada, Malayalam & Telugu</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Document / Spec Sheet Upload</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Tap to upload PDF Technical Data Sheet (TDS) via Sarvam Vision</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: POST /ai/speech-to-text</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(17)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Configure Call Routing & Escalation</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-17" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">17/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">AI Training & Outbound</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(16)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(18)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_guidance.jpg"
+                        data-pose="guidance"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">guidance</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">Set when I should answer directly and when I should live-transfer urgent 50+ tonne bulk buyers to Mr. Balaji CL.</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">Call Routing, Hours & Human Escalation</h3>
+                      <p class="text-[11px] text-zinc-500">24/7 Mode, VIP Transfer & Factory Hours</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Active Schedule</div>
+                        <div class="text-xs font-bold text-white leading-snug">24/7 All Days (00:00 – 23:59 IST • Asia/Kolkata)</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Warm Human Transfer Trigger</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Order > 50 Tonnes or Buyer requests Mr. Balaji CL directly</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Escalation Target Number</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">+91 9739999992 (Founder & CEO Direct Line)</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: POST /workflows</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(18)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Open Outbound Campaign Runner</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-18" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">18/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">AI Training & Outbound</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(17)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(19)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_celebration.jpg"
+                        data-pose="celebration"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">celebration</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">Upload a list of buyers who received mineral samples last week—I will call them in their state language to ask for their test feedback!</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">Outbound Follow-Up & Sample Campaign</h3>
+                      <p class="text-[11px] text-zinc-500">Automated Sample Feedback & Repeat Order Calls</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Campaign Name</div>
+                        <div class="text-xs font-bold text-white leading-snug">South India Sample Evaluation Follow-Up (28 Manufacturers)</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Language Auto-Routing</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Karnataka → Kannada • Kerala → Malayalam • AP/TG → Telugu</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">TRAI DND & Window Guard</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Enforced 09:00 AM – 09:00 PM IST • Opt-out respected</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: POST /autonomous/run</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(19)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Inspect Composio Webhook Logs</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-19" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">19/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">AI Training & Outbound</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(18)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(20)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_thinking.jpg"
+                        data-pose="thinking"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">thinking</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">Every WhatsApp brief and Google Sheet row I create during a call is logged here with full retry protection.</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">Composio Integrations & Tool Execution Log</h3>
+                      <p class="text-[11px] text-zinc-500">OAuth Health + Real-Time Webhook Audit Trail</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">WhatsApp Business Cloud (Connected)</div>
+                        <div class="text-xs font-bold text-white leading-snug">Last triggered 4m ago • Sent 25T China Clay brief to +919739999992</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Google Sheets Live Ledger (Connected)</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Appended Row #142 to 'Abhishek Industries B2B Enquiries'</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Webhook Security Status</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">HMAC X-Webhook-Secret Active • Idempotency Call-ID Guard ON</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: GET /mcp/servers</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(20)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Open Prepaid Wallet & GST Billing</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-20" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">20/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">Wallet, Billing & Growth</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(19)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(21)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_guidance.jpg"
+                        data-pose="guidance"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">guidance</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">Top up call credits anytime via UPI. You can also download GST tax invoices claiming input tax credit for Abhishek Industries.</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">Prepaid Wallet, UPI Top-Up & GST Invoices</h3>
+                      <p class="text-[11px] text-zinc-500">Transparent Per-Minute Ledger + Auto-Recharge</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Current Call Balance</div>
+                        <div class="text-xs font-bold text-white leading-snug">Rs. 140.60 (~18.7 Mins Customer Value • 60% Platform Margin Locked)</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Instant UPI Top-Up Packs</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Rs. 299 (40 Mins) • Rs. 999 (140 Mins) • Rs. 2,499 (360 Mins)</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">GST Tax Invoices</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Download PDF Invoice with GSTIN for Input Tax Credit</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: GET /payments/ledger</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(21)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Preview Rs. 0 Auto-Pause Protection</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-21" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">21/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">Wallet, Billing & Growth</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(20)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(22)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_guidance.jpg"
+                        data-pose="guidance"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">guidance</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">When your wallet reaches Rs. 0, I safely pause the line so there are never surprise bills. Tap once to recharge and resume in 2 seconds!</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">Wallet Rs. 0 Circuit Breaker & 1-Tap Resume</h3>
+                      <p class="text-[11px] text-zinc-500">Zero Unfunded Liability Guarantee for Platform</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Protection State</div>
+                        <div class="text-xs font-bold text-white leading-snug">Line Paused at Rs. 0.00 Balance — Zero Unfunded Sarvam Cost</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Caller Experience While Paused</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Plays polite message or forwards to regular mobile number</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Instant Reactivation</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Pay Rs. 299 via UPI → Webhook unpauses line in < 2 seconds</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: POST /payments/verify</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(22)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Open Team Access & Referral Hub</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-22" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">22/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">Wallet, Billing & Growth</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(21)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(23)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_celebration.jpg"
+                        data-pose="celebration"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">celebration</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">Add your dispatch manager so they see live mineral enquiries too, or invite fellow KIADB factory owners to earn free call credits!</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">Multi-User Team & Viral Referral Hub</h3>
+                      <p class="text-[11px] text-zinc-500">Invite Sales Staff + Earn Rs. 100 Per Referred Business</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Team Members on +91 80 6427 0306</div>
+                        <div class="text-xs font-bold text-white leading-snug">Mr. Balaji CL (Owner) • Tumakuru Dispatch Desk (Viewer)</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">KIADB Industrial Area Referral Link</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">sangamitra.app/r/abhishek-ind • Rs. 100 Credit per activation</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Referral Credits Earned</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Rs. 400.00 Earned (4 Industrial Suppliers Onboarded)</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: POST /actors</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(23)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Open AI Safety & Recording Consent</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-23" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">23/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">Play Store Compliance</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(22)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(24)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_thinking.jpg"
+                        data-pose="thinking"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">thinking</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">I automatically redact any 12-digit Aadhaar-like numbers from transcripts and announce AI call assistance transparently.</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">AI Safety, Recording Disclosure & Guardrails</h3>
+                      <p class="text-[11px] text-zinc-500">PII Redaction, Spam Blocking & Consent Toggle</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Automatic PII & Aadhaar Redaction</div>
+                        <div class="text-xs font-bold text-white leading-snug">Active (_AADHAAR_LIKE regex masks 12-digit sequences)</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">AI Receptionist Disclosure</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Polite opening announces AI assistant on behalf of business</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Blocked Spam / Robo Callers</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">12 Telemarketing numbers auto-blocked from consuming credits</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: GET /agent-callbacks</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(24)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Open Data Safety & Account Deletion</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+                <div id="phone-screen-24" class="phone-screen hidden flex-1 flex flex-col justify-between space-y-3">
+                  <div class="space-y-3">
+                    <!-- Top App Bar Inside Phone -->
+                    <div class="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-950 text-white">24/24</span>
+                        <span class="text-xs font-extrabold text-zinc-950">Play Store Compliance</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <button onclick="showScreen(23)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Previous Screen">
+                          <i class="ph-bold ph-caret-left text-xs"></i>
+                        </button>
+                        <button onclick="showScreen(1)" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-900" title="Next Screen">
+                          <i class="ph-bold ph-caret-right text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Interactive Mascot Guide Bubble (Updates Live with V1 / V2 / V3 + Contextual Expression) -->
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                      <img
+                        src="assets/mascots/v1_guidance.jpg"
+                        data-pose="guidance"
+                        alt="Mascot Guide"
+                        class="mascot-avatar w-14 h-14 rounded-xl object-cover border border-zinc-300 bg-white shrink-0"
+                      />
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-1.5">
+                          <span class="mascot-name-label text-[10px] font-extrabold uppercase tracking-wider text-zinc-950">Mitra (Editorial Ink)</span>
+                          <span class="mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-800 uppercase">guidance</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-700 leading-snug">You own 100% of your business data. You can export all call logs to CSV or permanently delete your account and recordings anytime.</p>
+                      </div>
+                    </div>
+
+                    <!-- Screen Title & Subtitle -->
+                    <div class="space-y-0.5 pt-1">
+                      <h3 class="text-base font-extrabold tracking-tight text-zinc-950">Data Privacy & Mandatory Account Deletion</h3>
+                      <p class="text-[11px] text-zinc-500">Google Play Store 2026 Account & Data Wipe Policy</p>
+                    </div>
+
+                    <!-- Structured Content Cards -->
+                    <div class="space-y-2">
+    
+                      <div class="p-3 rounded-xl border bg-zinc-950 text-white border-zinc-950 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">1-Tap Export All Business Data</div>
+                        <div class="text-xs font-bold text-white leading-snug">Download complete CSV/JSON of calls, transcripts & GST invoices</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Revoke Composio OAuth Tokens</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Disconnect WhatsApp, Google Sheets & Calendar permissions</div>
+                      </div>
+        
+                      <div class="p-3 rounded-xl border bg-white text-zinc-950 border-zinc-200 space-y-1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Permanent Account & Data Deletion</div>
+                        <div class="text-xs font-bold text-zinc-900 leading-snug">Deletes account, wipes call logs & releases virtual number</div>
+                      </div>
+        
+                    </div>
+                  </div>
+
+                  <!-- Bottom Action Bar Inside Phone -->
+                  <div class="pt-3 border-t border-zinc-100 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mono">
+                      <span>API: DELETE /auth/account</span>
+                      <span>60% Margin Guard</span>
+                    </div>
+                    <button onclick="showScreen(1)" class="w-full py-3 rounded-full bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm spring-transition">
+                      <span>Return to Screen 01</span>
+                      <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+    
+              </div>
+
+              <!-- Home Indicator Bar -->
+              <div class="pb-2 pt-1 flex justify-center">
+                <div class="w-32 h-1 bg-zinc-300 rounded-full"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 4: BACKEND ARCHITECTURE & MODULE INVENTORY -->
+    <section id="backend-arch" class="space-y-8 pt-12 border-t border-zinc-200">
+      <div class="max-w-3xl space-y-2">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-zinc-200 text-xs font-semibold text-zinc-800">
+          <i class="ph-bold ph-hard-drives"></i>
+          <span>Backend Repository Inventory • D:\Active\Sangam\backend</span>
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-950">
+          What is on the backend right now.
+        </h2>
+        <p class="text-sm text-zinc-600">
+          Your FastAPI backend (<span class="mono text-zinc-900">app/main.py</span> + <span class="mono text-zinc-900">app/webhook_app.py</span>) is organized into 18 API routers and 21 core domain engines. Every module runs with zero idle cost and enforces strict authentication, Aadhaar PII masking, and the 60/40 profit split.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+        <div class="bezel-outer">
+          <div class="bezel-inner p-5 space-y-3 h-full flex flex-col justify-between">
+            <div class="space-y-2">
+              <div class="mono text-[11px] font-bold px-2.5 py-1 rounded bg-zinc-100 text-zinc-900 border border-zinc-200 break-all">app/core/onboarding_engine.py + app/api/onboarding.py</div>
+              <h3 class="text-sm font-extrabold text-zinc-950">Zero-Prompt Website Scraper, Multilingual Prompt Compiler & 60/40 Economics Engine</h3>
+              <p class="text-xs text-zinc-600 leading-relaxed">Ingests any URL (JSON-LD, OpenGraph, catalog cards, FAQs), infers business category, compiles native greetings & prompts in Kannada (kn-IN), Malayalam (ml-IN), Telugu (te-IN), Hindi, Tamil, and English, and calculates the exact 60% profit / 40% Sarvam COGS split.</p>
+            </div>
+            <div class="pt-3 border-t border-zinc-100 flex items-center justify-between text-[11px] font-semibold text-zinc-900">
+              <span>Status: Production Wired</span>
+              <i class="ph-bold ph-check-circle"></i>
+            </div>
+          </div>
+        </div>
+    
+        <div class="bezel-outer">
+          <div class="bezel-inner p-5 space-y-3 h-full flex flex-col justify-between">
+            <div class="space-y-2">
+              <div class="mono text-[11px] font-bold px-2.5 py-1 rounded bg-zinc-100 text-zinc-900 border border-zinc-200 break-all">app/core/sarvam.py + app/api/sarvam_ai.py</div>
+              <h3 class="text-sm font-extrabold text-zinc-950">Sarvam AI v3 Production Client (STT, Bulbul v3 TTS, Mayura Translate, 105B LLM, Vision OCR)</h3>
+              <p class="text-xs text-zinc-600 leading-relaxed">Integrates Sarvam Saaras v3 speech-to-text, bulbul:v3 text-to-speech, sarvam-105b-conversations LLM, Mayura translation, and Sarvam Vision document/menu OCR with retry and fixture support.</p>
+            </div>
+            <div class="pt-3 border-t border-zinc-100 flex items-center justify-between text-[11px] font-semibold text-zinc-900">
+              <span>Status: Production Wired</span>
+              <i class="ph-bold ph-check-circle"></i>
+            </div>
+          </div>
+        </div>
+    
+        <div class="bezel-outer">
+          <div class="bezel-inner p-5 space-y-3 h-full flex flex-col justify-between">
+            <div class="space-y-2">
+              <div class="mono text-[11px] font-bold px-2.5 py-1 rounded bg-zinc-100 text-zinc-900 border border-zinc-200 break-all">app/api/agent_callbacks.py + app/core/agent_forwarders.py + app/webhook_app.py</div>
+              <h3 class="text-sm font-extrabold text-zinc-950">Hardened Public Voice Webhook Receiver & Background Composio / CRM Forwarder</h3>
+              <p class="text-xs text-zinc-600 leading-relaxed">Authenticates Sarvam tool calls via constant-time HMAC X-Webhook-Secret, normalizes +91 mobile numbers, masks 12-digit Aadhaar patterns, deduplicates by call_id, persists to VoiceCallback, and forwards asynchronously.</p>
+            </div>
+            <div class="pt-3 border-t border-zinc-100 flex items-center justify-between text-[11px] font-semibold text-zinc-900">
+              <span>Status: Production Wired</span>
+              <i class="ph-bold ph-check-circle"></i>
+            </div>
+          </div>
+        </div>
+    
+        <div class="bezel-outer">
+          <div class="bezel-inner p-5 space-y-3 h-full flex flex-col justify-between">
+            <div class="space-y-2">
+              <div class="mono text-[11px] font-bold px-2.5 py-1 rounded bg-zinc-100 text-zinc-900 border border-zinc-200 break-all">app/core/payments.py + app/api/payments.py + app/core/money.py</div>
+              <h3 class="text-sm font-extrabold text-zinc-950">Razorpay UPI Order Creation, HMAC Signature Verification & Wallet Ledger</h3>
+              <p class="text-xs text-zinc-600 leading-relaxed">Handles Rs. 499 starter pack checkout and pay-as-you-go wallet top-ups with integer paise precision and strict access guards.</p>
+            </div>
+            <div class="pt-3 border-t border-zinc-100 flex items-center justify-between text-[11px] font-semibold text-zinc-900">
+              <span>Status: Production Wired</span>
+              <i class="ph-bold ph-check-circle"></i>
+            </div>
+          </div>
+        </div>
+    
+        <div class="bezel-outer">
+          <div class="bezel-inner p-5 space-y-3 h-full flex flex-col justify-between">
+            <div class="space-y-2">
+              <div class="mono text-[11px] font-bold px-2.5 py-1 rounded bg-zinc-100 text-zinc-900 border border-zinc-200 break-all">app/api/voice.py + app/core/voice_intent.py + app/api/autonomous.py</div>
+              <h3 class="text-sm font-extrabold text-zinc-950">Voice Intent Router & Autonomous Outbound Workflow Runner</h3>
+              <p class="text-xs text-zinc-600 leading-relaxed">Parses spoken commands from business owners and executes multi-step autonomous workflows and outbound follow-ups.</p>
+            </div>
+            <div class="pt-3 border-t border-zinc-100 flex items-center justify-between text-[11px] font-semibold text-zinc-900">
+              <span>Status: Production Wired</span>
+              <i class="ph-bold ph-check-circle"></i>
+            </div>
+          </div>
+        </div>
+    
+        <div class="bezel-outer">
+          <div class="bezel-inner p-5 space-y-3 h-full flex flex-col justify-between">
+            <div class="space-y-2">
+              <div class="mono text-[11px] font-bold px-2.5 py-1 rounded bg-zinc-100 text-zinc-900 border border-zinc-200 break-all">app/api/govstack.py + app/core/govstack.py + app/api/vendors.py</div>
+              <h3 class="text-sm font-extrabold text-zinc-950">Indian Compliance, eKYC Verification & Vendor Management</h3>
+              <p class="text-xs text-zinc-600 leading-relaxed">Supports GST/identity verification, compliance checks, and vendor onboarding records.</p>
+            </div>
+            <div class="pt-3 border-t border-zinc-100 flex items-center justify-between text-[11px] font-semibold text-zinc-900">
+              <span>Status: Production Wired</span>
+              <i class="ph-bold ph-check-circle"></i>
+            </div>
+          </div>
+        </div>
+    
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    const screenSpecs = {
+      1: { header: "SCREEN 01 \u2014 LANGUAGE, MASCOT PICKER & 1-TAP GOOGLE AUTH", api: "POST /auth/google \u2022 GET /onboarding/categories", body: "Uses Android Credential Manager (GetGoogleIdOption) for 1-tap Google Sign-In, lets the user pick their preferred AI Guide Mascot (V1 Mitra Ink, V2 Swar 3D Ceramic Pod, or V3 Vani Vector Concierge), and binds their primary Indian language." },
+      2: { header: "SCREEN 02 \u2014 ENTITY MODE, CATEGORY & DIRECTION PICKER", api: "GET /onboarding/categories", body: "Loads pre-built Indian business taxonomies (B2B Manufacturing, MeeSeva/CSC, Clinics, Retail, Real Estate) and Personal Assistant presets with pre-mapped Composio toolkits." },
+      3: { header: "SCREEN 03 \u2014 ZERO-PROMPT MULTIMODAL INGESTION", api: "POST /onboarding/ingest-url \u2022 POST /ai/speech-to-text \u2022 POST /ai/vision/extract", body: "Scrapes JSON-LD, OpenGraph, product catalogs, and FAQs from https://abhishek-industries.pages.dev/ (or transcribes voice/OCR photos) into a structured BusinessProfile." },
+      4: { header: "SCREEN 04 \u2014 AI HARNESS & 1-TAP COMPOSIO TOOLS", api: "POST /onboarding/ingest-url \u2022 POST /mcp/execute", body: "Compiles native greetings in Kannada, Malayalam, and Telugu, enforces per-tonne quotation guardrails, and binds Composio WhatsApp, Google Sheets, and Google Calendar actions." },
+      5: { header: "SCREEN 05 \u2014 FREE IN-APP VOICE SANDBOX & TUNER", api: "POST /onboarding/simulate-turn \u2022 POST /ai/text-to-speech", body: "Runs live conversational turns powered by sarvam-105b-conversations and bulbul:v3 TTS so the business owner verifies Kannada, Malayalam, and Telugu responses at Rs. 0 telephony cost." },
+      6: { header: "SCREEN 06 \u2014 MIC & NOTIFICATION PERMISSION PRIMER", api: "POST /notifications/register-device", body: "Explains why RECORD_AUDIO and POST_NOTIFICATIONS permissions are requested before triggering Android system dialogs, satisfying Google Play UX review rules." },
+      7: { header: "SCREEN 07 \u2014 RS. 499 UPI CHECKOUT & NUMBER PICKER", api: "POST /payments/orders \u2022 POST /payments/verify", body: "Creates a Razorpay order for Rs. 499. On HMAC-verified webhook, books Rs. 299.40 (60% platform profit) and allocates Rs. 199.60 (40% backend pool: Rs. 59 Vobiz DID + Rs. 140.60 call credits)." },
+      8: { header: "SCREEN 08 \u2014 DOT / TRAI LIGHT-TOUCH EKYC & CAF", api: "POST /govstack/verify-identity \u2022 POST /vendors/kyc", body: "Captures business GSTIN (or proprietor Aadhaar OTP) and anti-spam declaration required by DoT/TRAI for commercial Indian virtual numbers." },
+      9: { header: "SCREEN 09 \u2014 1-TAP SIM CALL FORWARDING WIZARD", api: "Android ACTION_CALL USSD Intent", body: "Generates carrier-specific GSM USSD dial codes for Jio, Airtel, Vi, and BSNL so users can forward unanswered (*61*) or busy (*67*) calls from their regular SIM to +91 80 6427 0306." },
+      10: { header: "SCREEN 10 \u2014 NUMBER LIVE & AI VISITING CARD POSTER", api: "GET /analytics/summary", body: "Confirms active Sarvam inbound deployment binding and generates a print-ready QR poster and WhatsApp visiting card for B2B buyers." },
+      11: { header: "SCREEN 11 \u2014 LIVE COMMAND CENTER DASHBOARD", api: "GET /analytics/dashboard \u2022 GET /agent-callbacks", body: "Displays real-time call volume, language breakdown, captured B2B mineral enquiries, and remaining prepaid call balance." },
+      12: { header: "SCREEN 12 \u2014 UNIFIED CALL & WHATSAPP LEAD INBOX", api: "GET /agent-callbacks?status=pending", body: "Lists all structured enquiries captured via POST /agent-callbacks with status filters, urgency badges, and language tags." },
+      13: { header: "SCREEN 13 \u2014 CALL DETAIL, AUDIO & TRANSCRIPT DRAWER", api: "GET /agent-callbacks/{id} \u2022 PATCH /agent-callbacks/{id}", body: "Renders timestamped native + English transcript, audio playback, 1-tap WhatsApp quote dispatch, and the mandatory Google Play GenAI 'Flag/Report AI Response' action." },
+      14: { header: "SCREEN 14 \u2014 BUILT-IN MINI-CRM & B2B LEAD PIPELINE", api: "PATCH /agent-callbacks/{id} \u2022 POST /mcp/execute", body: "Provides a lightweight Kanban/list CRM inside the mobile app for MSMEs without external CRMs, while bi-directionally syncing with Google Sheets and Zoho CRM." },
+      15: { header: "SCREEN 15 \u2014 SAMPLE EVALUATION & CALLBACK SCHEDULE", api: "GET /workflows \u2022 POST /mcp/execute (GOOGLECALENDAR)", body: "Displays scheduled buyer callbacks, factory sample pickups at Hirehalli KIADB, and automated follow-up reminders." },
+      16: { header: "SCREEN 16 \u2014 10-SECOND VOICE NOTE KNOWLEDGE TRAINER", api: "POST /ai/speech-to-text \u2022 POST /onboarding/ingest-url", body: "Transcribes owner voice notes via Sarvam Saaras v3 and patches the active Knowledge Base Markdown without writing a single line of prompt text." },
+      17: { header: "SCREEN 17 \u2014 CALL ROUTING, HOURS & HUMAN ESCALATION", api: "POST /workflows \u2022 PATCH /actors/{id}", body: "Configures time-of-day routing (00:00\u201323:59 Asia/Kolkata), VIP caller allowlists, and warm-transfer rules to +91 9739999992." },
+      18: { header: "SCREEN 18 \u2014 OUTBOUND FOLLOW-UP & SAMPLE CAMPAIGN", api: "POST /autonomous/run \u2022 POST /voice/outbound", body: "Schedules TRAI-compliant (09:00\u201321:00 IST) outbound voice calls in Kannada, Malayalam, and Telugu to follow up on sample evaluations and payment reminders." },
+      19: { header: "SCREEN 19 \u2014 COMPOSIO INTEGRATIONS & TOOL EXECUTION LOG", api: "GET /mcp/servers \u2022 POST /agent-callbacks", body: "Shows connected Composio OAuth accounts and live execution logs from app/core/agent_forwarders.py." },
+      20: { header: "SCREEN 20 \u2014 PREPAID WALLET, UPI TOP-UP & GST INVOICES", api: "GET /payments/ledger \u2022 POST /payments/orders", body: "Displays prepaid wallet balance, per-call minute deductions (Rs. 7.50/min = 2.5x raw Sarvam cost for 60% platform profit), and downloadable GST invoices." },
+      21: { header: "SCREEN 21 \u2014 WALLET RS. 0 CIRCUIT BREAKER & 1-TAP RESUME", api: "POST /payments/verify \u2022 PATCH /workflows/{id}", body: "Hard circuit breaker that pauses the active Sarvam deployment the instant prepaid credits hit Rs. 0.00, guaranteeing the platform owner never pays out of pocket." },
+      22: { header: "SCREEN 22 \u2014 MULTI-USER TEAM & VIRAL REFERRAL HUB", api: "POST /actors \u2022 GET /analytics/referrals", body: "Allows multiple staff phones to receive lead notifications for one virtual number and tracks viral WhatsApp referrals." },
+      23: { header: "SCREEN 23 \u2014 AI SAFETY, RECORDING DISCLOSURE & GUARDRAILS", api: "GET /agent-callbacks \u2022 app/api/agent_callbacks.py (_mask)", body: "Enforces regex PII masking (_AADHAAR_LIKE), configurable call-start recording disclosure, and spam caller blocklists." },
+      24: { header: "SCREEN 24 \u2014 DATA PRIVACY & MANDATORY ACCOUNT DELETION", api: "DELETE /auth/account \u2022 GET /privacy/delete-account", body: "Satisfies Google Play's mandatory in-app and web-link account deletion requirement, purging actors, voice callbacks, OAuth tokens, and releasing the DID." },
+    };
+
+    function showScreen(num) {
+      document.querySelectorAll('.phone-screen').forEach(el => el.classList.add('hidden'));
+      const target = document.getElementById('phone-screen-' + num);
+      if (target) target.classList.remove('hidden');
+
+      document.querySelectorAll('.screen-tab').forEach(el => el.classList.remove('screen-tab-active'));
+      const activeTab = document.getElementById('tab-' + num);
+      if (activeTab) activeTab.classList.add('screen-tab-active');
+
+      if (screenSpecs[num]) {
+        document.getElementById('specHeader').innerText = screenSpecs[num].header;
+        document.getElementById('specApi').innerText = screenSpecs[num].api;
+        document.getElementById('specBody').innerText = screenSpecs[num].body;
+      }
+    }
+
+    function filterModule(mod) {
+      document.querySelectorAll('.module-pill').forEach(btn => btn.classList.remove('module-pill-active'));
+      document.getElementById('mod-' + mod).classList.add('module-pill-active');
+
+      let firstVisible = null;
+      document.querySelectorAll('.screen-tab').forEach(tab => {
+        if (mod === 'ALL' || tab.dataset.module === mod) {
+          tab.classList.remove('hidden');
+          if (!firstVisible) firstVisible = parseInt(tab.id.replace('tab-', ''), 10);
+        } else {
+          tab.classList.add('hidden');
+        }
+      });
+      if (firstVisible) showScreen(firstVisible);
+    }
+
+    function setMascotVersion(ver, label) {
+      document.querySelectorAll('.mascot-avatar').forEach(img => {
+        const pose = img.dataset.pose;
+        img.src = 'assets/mascots/' + ver + '_' + pose + '.jpg';
+      });
+      document.querySelectorAll('.mascot-name-label').forEach(el => {
+        el.innerText = label;
+      });
+      document.querySelectorAll('.mascot-btn').forEach(btn => {
+        if (btn.id === 'mascot-btn-' + ver) {
+          btn.className = 'mascot-btn px-3 py-1 rounded-full text-xs font-semibold bg-zinc-950 text-white spring-transition';
+        } else {
+          btn.className = 'mascot-btn px-3 py-1 rounded-full text-xs font-semibold text-zinc-600 hover:text-zinc-950 spring-transition';
+        }
+      });
+    }
+  </script>
+</body>
+</html>

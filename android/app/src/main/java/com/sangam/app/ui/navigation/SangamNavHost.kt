@@ -11,6 +11,8 @@ import com.sangam.app.ui.screens.*
 object Routes {
     const val LOGIN = "login"
     const val DASHBOARD = "dashboard"
+    const val ONBOARDING_WIZARD = "onboarding_wizard"
+    const val CALL_INBOX = "call_inbox"
     const val WORKFLOWS = "workflows"
     const val WORKFLOW_DETAIL = "workflows/{workflowId}"
     const val APPROVALS = "approvals"
@@ -44,12 +46,25 @@ fun SangamNavHost(
         }
         composable(Routes.DASHBOARD) {
             DashboardScreen(
+                onNavigateToOnboarding = { navController.navigate(Routes.ONBOARDING_WIZARD) },
+                onNavigateToCallInbox = { navController.navigate(Routes.CALL_INBOX) },
                 onNavigateToWorkflows = { navController.navigate(Routes.WORKFLOWS) },
                 onNavigateToApprovals = { navController.navigate(Routes.APPROVALS) },
                 onNavigateToActors = { navController.navigate(Routes.ACTORS) },
                 onNavigateToAIAssistant = { navController.navigate(Routes.AI_ASSISTANT) },
                 onNavigateToVoiceWorkflow = { navController.navigate(Routes.VOICE_WORKFLOW) },
                 onNavigateToVendors = { navController.navigate(Routes.VENDORS) },
+            )
+        }
+        composable(Routes.ONBOARDING_WIZARD) {
+            OnboardingWizardScreen(
+                onBack = { navController.popBackStack() },
+                onOpenCallInbox = { navController.navigate(Routes.CALL_INBOX) },
+            )
+        }
+        composable(Routes.CALL_INBOX) {
+            CallInboxScreen(
+                onBack = { navController.popBackStack() },
             )
         }
         composable(Routes.VENDORS) {

@@ -13,10 +13,20 @@ android {
         applicationId = "com.sangam.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 100
+        versionName = "1.0.0"
 
-        buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000\"")
+        val apiBase = (project.findProperty("API_BASE_URL") as String?) ?: System.getenv("API_BASE_URL") ?: "http://10.0.2.2:8000"
+        buildConfigField("String", "API_BASE_URL", "\"$apiBase\"")
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file("sangamitra-release.jks")
+            storePassword = (project.findProperty("SANGAM_KEYSTORE_PASSWORD") as String?) ?: "sangamitra2026"
+            keyAlias = (project.findProperty("SANGAM_KEY_ALIAS") as String?) ?: "sangamitra"
+            keyPassword = (project.findProperty("SANGAM_KEY_PASSWORD") as String?) ?: "sangamitra2026"
+        }
     }
 
     buildTypes {
@@ -24,7 +34,9 @@ android {
             isDebuggable = true
         }
         release {
+            isDebuggable = false
             isMinifyEnabled = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }

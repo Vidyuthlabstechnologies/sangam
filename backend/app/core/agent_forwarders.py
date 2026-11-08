@@ -94,7 +94,7 @@ async def _to_whatsapp(row: Dict[str, Any]) -> None:
 
 
 async def forward_callback(row: Dict[str, Any]) -> None:
-    """Send `row` to every configured target. Never raises."""
+    """Send `row` to every configured target (Sheet, WhatsApp). Never raises."""
     outcomes = await asyncio.gather(_to_sheet(row), _to_whatsapp(row), return_exceptions=True)
     for name, outcome in zip(("sheet", "whatsapp"), outcomes):
         if isinstance(outcome, BaseException):

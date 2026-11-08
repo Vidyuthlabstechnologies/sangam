@@ -21,6 +21,8 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
+    onNavigateToOnboarding: () -> Unit = {},
+    onNavigateToCallInbox: () -> Unit = {},
     onNavigateToWorkflows: () -> Unit = {},
     onNavigateToApprovals: () -> Unit = {},
     onNavigateToActors: () -> Unit = {},
@@ -53,10 +55,10 @@ fun DashboardScreen(
     LaunchedEffect(Unit) {
         RealtimeClient.state.collect { state ->
             wsState = when (state) {
-                is com.sangam.app.network.RealtimeState.Connected -> "● Live"
-                is com.sangam.app.network.RealtimeState.Connecting -> "⟳ Connecting"
+                is com.sangam.app.network.RealtimeState.Connected -> "LIVE"
+                is com.sangam.app.network.RealtimeState.Connecting -> "CONNECTING"
                 is com.sangam.app.network.RealtimeState.Disconnected -> ""
-                is com.sangam.app.network.RealtimeState.Error -> "⚠ Offline"
+                is com.sangam.app.network.RealtimeState.Error -> "OFFLINE"
             }
         }
     }
@@ -66,13 +68,13 @@ fun DashboardScreen(
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Sangam", style = MaterialTheme.typography.headlineLarge)
+                        Text("SANGAMITRA", style = MaterialTheme.typography.headlineLarge)
                         if (wsState.isNotEmpty()) {
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 wsState,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = if (wsState.contains("Live"))
+                                color = if (wsState.contains("LIVE"))
                                     MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.error,
                             )
@@ -85,12 +87,24 @@ fun DashboardScreen(
             )
         },
         bottomBar = {
-            NavigationBar {
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                 NavigationBarItem(
                     selected = true,
                     onClick = {},
                     icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
                     label = { Text("Home") },
+                )
+                NavigationBarItem(
+                    selected = false,
+                    onClick = onNavigateToOnboarding,
+                    icon = { Icon(Icons.Default.Call, contentDescription = "Voice Agent") },
+                    label = { Text("Voice Agent") },
+                )
+                NavigationBarItem(
+                    selected = false,
+                    onClick = onNavigateToCallInbox,
+                    icon = { Icon(Icons.Default.Inbox, contentDescription = "Call Inbox") },
+                    label = { Text("Call Inbox") },
                 )
                 NavigationBarItem(
                     selected = false,
@@ -100,21 +114,9 @@ fun DashboardScreen(
                 )
                 NavigationBarItem(
                     selected = false,
-                    onClick = onNavigateToApprovals,
-                    icon = { Icon(Icons.Default.CheckCircle, contentDescription = "Approvals") },
-                    label = { Text("Approvals") },
-                )
-                NavigationBarItem(
-                    selected = false,
                     onClick = onNavigateToVendors,
                     icon = { Icon(Icons.Default.Business, contentDescription = "Vendors") },
                     label = { Text("Vendors") },
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = onNavigateToActors,
-                    icon = { Icon(Icons.Default.Person, contentDescription = "Actors") },
-                    label = { Text("Actors") },
                 )
             }
         },
@@ -127,8 +129,45 @@ fun DashboardScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
+                Card(
+                    onClick = onNavigateToOnboarding,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "ZERO-PROMPT CALLING AGENT STUDIO",
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                            Icon(Icons.Default.ArrowForward, contentDescription = "Launch")
+                        }
+                        Text(
+                            "Deploy AI Sales & Receptionist Agent in 60s",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            "Live lines: +91 80 6427 0314 (Abhishek Industries) · +91 80 6427 0306 (Surya Enterprises) · Choose Mitra, Swar, or Vani mascot · Plans from ₹799 (60% Profit Economics)",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            }
+
+            item {
                 Text(
-                    "Dashboard",
+                    "Command Center",
                     style = MaterialTheme.typography.displayLarge,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -207,9 +246,9 @@ fun DashboardScreen(
                         "Recent Workflows",
                         style = MaterialTheme.typography.headlineMedium,
                     )
-                    if (wsState.contains("Live")) {
+                    if (wsState.contains("LIVE")) {
                         Text(
-                            "● LIVE",
+                            "LIVE",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                         )

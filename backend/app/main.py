@@ -26,6 +26,7 @@ from app.api.vendors import router as vendors_router
 from app.api.voice import router as voice_router
 from app.api.agent_callbacks import router as agent_callbacks_router
 from app.api.agent_callbacks import webhook_router as agent_webhook_router
+from app.api.onboarding import router as onboarding_router
 from app.core.middleware import (
     RequestIDMiddleware,
     RequestLoggingMiddleware,
@@ -37,7 +38,26 @@ from app.core.middleware import (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     validate_production_settings(settings)
+    await _ensure_billing_tables_and_seed()
     yield
+
+
+async def _ensure_billing_tables_and_seed() -> None:
+    """Create wallet/ledger tables if missing and seed the two pilot tenants. Never blocks startup."""
+    import logging
+
+    from app.core.billing_service import seed_live_tenants
+    from app.db.base import Base
+    from app.db.session import async_session_factory, engine
+    from app.models import sangamitra_release  # noqa: F401  (registers the tables)
+
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        async with async_session_factory() as session:
+            await seed_live_tenants(session)
+    except Exception:
+        logging.getLogger("sangam.startup").exception("Billing table setup/seed skipped")
 
 
 app = FastAPI(
@@ -81,6 +101,7 @@ app.include_router(vendors_router)
 app.include_router(voice_router)
 app.include_router(agent_callbacks_router)
 app.include_router(agent_webhook_router)
+app.include_router(onboarding_router)
 
 
 @app.get("/health")

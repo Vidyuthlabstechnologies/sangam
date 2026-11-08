@@ -389,6 +389,178 @@ interface SangamAiApi {
     suspend fun listVoices(): VoicesResponse
 }
 
+// ---- Sangamitra Mass-Launch Onboarding & Billing DTOs -----------------
+
+data class UrlIngestRequestDto(
+    val url: String,
+    val languages: List<String> = listOf("kn-IN", "ml-IN", "te-IN"),
+    val mascot_id: String = "v1",
+    val category_id: String? = null,
+)
+
+data class VoiceNarrationRequestDto(
+    val transcript: String,
+    val language_code: String = "kn-IN",
+    val mascot_id: String = "v1",
+)
+
+data class StarterPackActivateRequestDto(
+    val user_id: String,
+    val amount_inr: Double = 499.0,
+    val upi_txn_id: String? = null,
+    val deployment_id: String? = null,
+)
+
+data class WalletTopupRequestDto(
+    val user_id: String,
+    val amount_inr: Double,
+    val upi_txn_id: String? = null,
+)
+
+data class ComposioConnectRequestDto(
+    val user_id: String,
+    val toolkit: String,
+    val target_config: Map<String, Any> = emptyMap(),
+)
+
+data class SimForwardingRequestDto(
+    val virtual_did: String,
+    val carrier: String = "jio",
+)
+
+data class AiReportRequestDto(
+    val user_id: String,
+    val call_id: String,
+    val reason: String,
+    val transcript_snippet: String? = null,
+)
+
+data class PlanDto(
+    val plan_id: String,
+    val name: String,
+    val audience: String,
+    val validity_days: Int,
+    val one_time: Boolean = false,
+    val price_inr: Double,
+    val gst_inr: Double,
+    val total_payable_inr: Double,
+    val included_minutes: Int,
+    val wallet_credit_inr: Double,
+    val overage_rate_per_min_inr: Double = 7.50,
+)
+
+data class PlansResponseDto(
+    val gst_pct: Int = 18,
+    val plans: List<PlanDto> = emptyList(),
+)
+
+data class CreateWalletOrderRequestDto(
+    val plan_id: String? = null,
+    val topup_amount_inr: Double? = null,
+    val tenant_id: String? = null,
+    val business_name: String? = null,
+    val mascot_id: String? = null,
+    val primary_language: String? = null,
+    val gstin: String? = null,
+)
+
+data class CreateWalletOrderResponseDto(
+    val order_id: String,
+    val key_id: String? = null,
+    val currency: String = "INR",
+    val tenant_id: String,
+    val purpose: String,
+    val price_inr: Double,
+    val gst_inr: Double,
+    val amount_payable_inr: Double,
+    val amount_paise: Long,
+    val included_minutes: Int,
+    val wallet_credit_inr: Double,
+)
+
+data class VerifyWalletPaymentRequestDto(
+    val razorpay_order_id: String,
+    val razorpay_payment_id: String,
+    val razorpay_signature: String,
+)
+
+interface SangamOnboardingApi {
+    @GET("/onboarding/categories")
+    suspend fun getCategories(): Map<String, Any>
+
+    @GET("/onboarding/plans")
+    suspend fun getPlans(): PlansResponseDto
+
+    @GET("/onboarding/vertical-packs")
+    suspend fun getVerticalPacks(): Map<String, Any>
+
+    @POST("/onboarding/ingest-url")
+    suspend fun ingestUrl(@Body request: UrlIngestRequestDto): Map<String, Any>
+
+    @POST("/onboarding/ingest-voice")
+    suspend fun ingestVoice(@Body request: VoiceNarrationRequestDto): Map<String, Any>
+
+    @POST("/onboarding/ingest-image")
+    suspend fun ingestImageOcr(@Body request: Map<String, Any>): Map<String, Any>
+
+    @POST("/onboarding/sim-forwarding-codes")
+    suspend fun getSimForwardingCodes(@Body request: SimForwardingRequestDto): Map<String, Any>
+
+    @GET("/onboarding/wallet/me")
+    suspend fun getMyWallet(): Map<String, Any>
+
+    @GET("/onboarding/wallet/{userId}")
+    suspend fun getWallet(@Path("userId") userId: String): Map<String, Any>
+
+    @POST("/onboarding/wallet/create-order")
+    suspend fun createWalletOrder(@Body request: CreateWalletOrderRequestDto): CreateWalletOrderResponseDto
+
+    @POST("/onboarding/wallet/verify-payment")
+    suspend fun verifyWalletPayment(@Body request: VerifyWalletPaymentRequestDto): Map<String, Any>
+
+    @POST("/onboarding/wallet/activate-starter-499")
+    suspend fun activateStarter499(@Body request: StarterPackActivateRequestDto): Map<String, Any>
+
+    @POST("/onboarding/wallet/topup")
+    suspend fun topupWallet(@Body request: WalletTopupRequestDto): Map<String, Any>
+
+    @POST("/onboarding/wallet/autopay")
+    suspend fun configureAutopay(@Body request: Map<String, Any>): Map<String, Any>
+
+    @POST("/onboarding/wallet/referral")
+    suspend fun claimReferralBonus(@Body request: Map<String, String>): Map<String, Any>
+
+    @GET("/onboarding/gst-invoice/{tenantId}")
+    suspend fun getGstInvoice(@Path("tenantId") tenantId: String): Map<String, Any>
+
+    @GET("/onboarding/viral-kit/{tenantId}")
+    suspend fun getViralKit(@Path("tenantId") tenantId: String): Map<String, Any>
+
+    @GET("/onboarding/composio/tools")
+    suspend fun getComposioTools(@Query("user_id") userId: String? = null): Map<String, Any>
+
+    @POST("/onboarding/composio/connect")
+    suspend fun connectComposioTool(@Body request: ComposioConnectRequestDto): Map<String, Any>
+
+    @POST("/onboarding/compliance/report-ai-output")
+    suspend fun reportAiOutput(@Body request: AiReportRequestDto): Map<String, Any>
+
+    @DELETE("/onboarding/compliance/account/{userId}")
+    suspend fun deleteAccount(@Path("userId") userId: String): Map<String, Any>
+
+    @GET("/agent-callbacks")
+    suspend fun listCallbacks(
+        @Query("status") status: String? = null,
+        @Query("tenant_id") tenantId: String? = null,
+    ): List<Map<String, Any>>
+
+    @PATCH("/agent-callbacks/{callbackId}")
+    suspend fun updateCallbackStatus(
+        @Path("callbackId") callbackId: String,
+        @Body body: Map<String, String>,
+    ): Map<String, Any>
+}
+
 object ApiClient {
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
@@ -432,8 +604,23 @@ object ApiClient {
         Retrofit.Builder()
             .baseUrl(BuildConfig.API_BASE_URL)
             .client(httpClient.newBuilder().readTimeout(120, TimeUnit.SECONDS).build())
+            .build()
+            .let {
+                Retrofit.Builder()
+                    .baseUrl(BuildConfig.API_BASE_URL)
+                    .client(httpClient.newBuilder().readTimeout(120, TimeUnit.SECONDS).build())
+                    .addConverterFactory(GsonConverterFactory.create())
+                    .build()
+                    .create(SangamAiApi::class.java)
+            }
+    }
+
+    val onboardingApi: SangamOnboardingApi by lazy {
+        Retrofit.Builder()
+            .baseUrl(BuildConfig.API_BASE_URL)
+            .client(httpClient.newBuilder().readTimeout(60, TimeUnit.SECONDS).build())
             .addConverterFactory(GsonConverterFactory.create())
             .build()
-            .create(SangamAiApi::class.java)
+            .create(SangamOnboardingApi::class.java)
     }
 }

@@ -5,13 +5,13 @@ It is authenticated by a shared secret in X-Webhook-Secret, and that secret
 only ever grants WRITE access. Reading and updating the list needs a normal
 logged-in actor.
 
-Nothing that looks like an Aadhaar number is stored: phone numbers that could
-be one are refused, and 12-digit runs in free text are masked.
+Nothing that looks like an Aadhaar or PAN number is stored: phone numbers that could
+be one are refused, and 12-digit Aadhaar or 10-char PAN runs in free text are masked.
 """
 import hmac
 import logging
 import re
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Response
@@ -22,6 +22,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import get_current_actor
 from app.config import settings
 from app.core.agent_forwarders import forward_callback
+from app.core import composio_router
+from app.core.billing_service import BillingService
 from app.db.session import get_session
 from app.models.actor import Actor
 from app.models.voice_callback import CallbackStatus, VoiceCallback
@@ -35,16 +37,30 @@ router = APIRouter(prefix="/agent-callbacks", tags=["agent-callbacks"])
 logger = logging.getLogger("sangam.agent_callbacks")
 
 SERVICES = {
+    # Citizen Services (Surya Enterprises)
     "aadhaar", "pan", "banking_financial", "utility_bills", "travel_tickets",
     "epfo_pf", "meeseva_govt", "passport_id", "not_offered", "unclear",
+    # B2B Industrial & Minerals (Abhishek Industries)
+    "kaolin", "china_clay", "quartz", "silica", "feldspar", "dolomite",
+    "bentonite", "soapstone", "mineral_inquiry", "bulk_order", "sample_request",
+    # All-India Vertical Packs
+    "clinic_appointment", "lab_test", "site_visit", "property_inquiry",
+    "table_booking", "catering_order", "salon_slot", "auto_service",
+    "course_admission", "tax_gst_filing", "hotel_room", "astrology_slot",
+    "logistics_quote", "hardware_wholesale", "jewellery_inquiry",
+    "order_tracking", "event_booking", "gym_membership", "vet_appointment",
+    "solar_survey", "personal_screen", "rwa_helpdesk", "cab_rental", "appliance_repair",
 }
 _AADHAAR_LIKE = re.compile(r"(?<!\d)\d{4}[\s-]?\d{4}[\s-]?\d{4}(?!\d)")
+_PAN_LIKE = re.compile(r"\b[A-Z]{5}\d{4}[A-Z]\b")
 
 
 def _mask(value: Optional[str], limit: int) -> Optional[str]:
     if value is None:
         return None
-    return _AADHAAR_LIKE.sub("[redacted]", value).strip()[:limit] or None
+    masked = _AADHAAR_LIKE.sub("[redacted]", value)
+    masked = _PAN_LIKE.sub("[redacted-pan]", masked)
+    return masked.strip()[:limit] or None
 
 
 def _normalise_phone(raw: str) -> str:
@@ -70,6 +86,11 @@ class CallbackIn(BaseModel):
     urgency: str = "normal"
     notes: Optional[str] = Field(default=None, max_length=1000)
     call_id: Optional[str] = Field(default=None, max_length=64)
+    tenant_id: Optional[str] = Field(default="abhishek-industries", max_length=100)
+    duration_seconds: Optional[int] = Field(default=0, ge=0)
+    recording_url: Optional[str] = Field(default=None, max_length=500)
+    ai_summary: Optional[str] = Field(default=None, max_length=1000)
+    items_json: Optional[List[Dict[str, Any]]] = None
 
     @field_validator("caller_phone")
     @classmethod
@@ -90,6 +111,16 @@ class CallbackIn(BaseModel):
         return v if v in SERVICES else "unclear"
 
 
+class CallEndedWebhookIn(BaseModel):
+    call_id: str = Field(..., max_length=64)
+    tenant_id: str = Field(default="abhishek-industries", max_length=100)
+    caller_phone: Optional[str] = None
+    duration_seconds: int = Field(..., ge=1)
+    language: str = "kn-IN"
+    recording_url: Optional[str] = None
+    summary: Optional[str] = None
+
+
 class StatusIn(BaseModel):
     status: CallbackStatus
 
@@ -98,6 +129,7 @@ def _view(row: VoiceCallback) -> dict:
     return {
         "id": str(row.id),
         "call_id": row.call_id,
+        "tenant_id": row.tenant_id or "abhishek-industries",
         "caller_name": row.caller_name,
         "caller_phone": row.caller_phone,
         "service": row.service,
@@ -105,6 +137,10 @@ def _view(row: VoiceCallback) -> dict:
         "language": row.language,
         "urgency": row.urgency,
         "notes": row.notes,
+        "duration_seconds": row.duration_seconds or 0,
+        "recording_url": row.recording_url,
+        "ai_summary": row.ai_summary,
+        "items_json": row.items_json,
         "status": row.status.value,
         "created_at": row.created_at.isoformat(),
     }
@@ -140,6 +176,7 @@ async def record_callback(
 
     row = VoiceCallback(
         call_id=body.call_id,
+        tenant_id=body.tenant_id or "abhishek-industries",
         caller_name=_mask(body.caller_name, 100),
         caller_phone=body.caller_phone,
         service=body.service,
@@ -147,19 +184,69 @@ async def record_callback(
         language=_mask(body.language, 16),
         urgency=body.urgency,
         notes=_mask(body.notes, 1000),
+        duration_seconds=body.duration_seconds or 0,
+        recording_url=body.recording_url,
+        ai_summary=_mask(body.ai_summary, 1000),
+        items_json=body.items_json,
     )
     session.add(row)
     await session.commit()
     await session.refresh(row)
+
+    # Snapshot now: a rollback below would expire the ORM row.
+    view = _view(row)
+    row_id = row.id
+    notes = row.notes or ""
+    # Billing and tool logging must never fail the webhook: the callback row is already saved.
+    try:
+        tenant = view["tenant_id"]
+        if body.duration_seconds and body.duration_seconds > 0:
+            await BillingService(session).meter_call(tenant, body.duration_seconds, body.call_id)
+        await composio_router.execute_post_call_chain(
+            session,
+            tenant_id=tenant,
+            caller_name=view["caller_name"] or "Caller",
+            caller_phone=view["caller_phone"] or "",
+            requirement_summary=f"{view['service']} - {notes}".strip(" -"),
+            language=view["language"] or "kn-IN",
+            preferred_time=view["preferred_time"],
+        )
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        logger.exception("Post-callback billing/tool step failed for callback %s", row_id)
+
     # After the response is sent: forwarding must never delay or fail the call.
-    background_tasks.add_task(forward_callback, _view(row))
-    logger.info("Recorded voice callback %s (service=%s, urgency=%s)", row.id, row.service, row.urgency)
-    return {"id": str(row.id), "status": "recorded"}
+    background_tasks.add_task(forward_callback, view)
+    logger.info("Recorded voice callback %s (service=%s, urgency=%s)", row_id, view["service"], view["urgency"])
+    return {"id": str(row_id), "status": "recorded"}
+
+
+@webhook_router.post("/call-ended", status_code=200, response_model=dict)
+async def handle_call_ended_webhook(
+    body: CallEndedWebhookIn,
+    session: AsyncSession = Depends(get_session),
+    _: None = Depends(require_webhook_secret),
+):
+    """Automatically meters call duration against the tenant's 60/40 wallet and triggers Rs. 0 auto-pause."""
+    meter_res = await BillingService(session).meter_call(body.tenant_id, body.duration_seconds, body.call_id)
+    await session.commit()
+    missed_call_followup = body.duration_seconds <= 15 and bool(body.caller_phone)
+    return {
+        "call_id": body.call_id,
+        "tenant_id": body.tenant_id,
+        "duration_seconds": body.duration_seconds,
+        "debited_inr": meter_res.get("last_call_debit_inr", 0.0),
+        "remaining_balance_inr": meter_res.get("call_balance_inr", 0.0),
+        "circuit_breaker_triggered": meter_res.get("circuit_breaker_triggered", False),
+        "missed_call_whatsapp_triggered": missed_call_followup,
+    }
 
 
 @router.get("", response_model=List[dict])
 async def list_callbacks(
     status: Optional[CallbackStatus] = None,
+    tenant_id: Optional[str] = None,
     limit: int = Query(50, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
     current_actor: Actor = Depends(get_current_actor),
@@ -167,6 +254,8 @@ async def list_callbacks(
     query = select(VoiceCallback).order_by(VoiceCallback.created_at.desc()).limit(limit)
     if status is not None:
         query = query.where(VoiceCallback.status == status)
+    if tenant_id is not None:
+        query = query.where(VoiceCallback.tenant_id == tenant_id)
     rows = (await session.execute(query)).scalars().all()
     return [_view(r) for r in rows]
 
