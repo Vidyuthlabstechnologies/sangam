@@ -14,8 +14,10 @@ android {
         applicationId = "com.sangam.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 100
-        versionName = "1.0.0"
+        // CI passes VERSION_CODE (it must rise with every Play upload) and VERSION_NAME.
+        versionCode = ((project.findProperty("VERSION_CODE") as String?) ?: System.getenv("VERSION_CODE"))
+            ?.toIntOrNull() ?: 100
+        versionName = (project.findProperty("VERSION_NAME") as String?) ?: System.getenv("VERSION_NAME") ?: "1.0.0"
 
         fun buildConfigString(value: String): String {
             val escaped = value.replace("\\", "\\\\").replace("\"", "\\\"")
