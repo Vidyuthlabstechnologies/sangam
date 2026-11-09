@@ -14,7 +14,19 @@ from app.core.rate_limit import request_limiter
 
 logger = logging.getLogger("sangam.middleware")
 
-_SKIP_LIMITS = {"/health", "/ready", "/metrics", "/docs", "/redoc", "/openapi.json"}
+_SKIP_LIMITS = {
+    "/health",
+    "/ready",
+    "/metrics",
+    "/docs",
+    "/redoc",
+    "/openapi.json",
+    # Server-to-server webhooks authenticate with a signature or shared secret
+    # and arrive in bursts from a handful of provider IPs. A 429 would delay
+    # crediting a customer's purchase.
+    "/payments/webhook",
+    "/billing/revenuecat/webhook",
+}
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):

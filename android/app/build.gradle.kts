@@ -38,6 +38,20 @@ android {
             ?: System.getenv("GOOGLE_WEB_CLIENT_ID")
             ?: ""
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", buildConfigString(googleWebClientId))
+
+        // RevenueCat public Android SDK key (goog_...). It is a public key, safe
+        // in the app. Empty disables in-app purchases instead of crashing.
+        val revenueCatKey = (project.findProperty("REVENUECAT_ANDROID_KEY") as String?)
+            ?: System.getenv("REVENUECAT_ANDROID_KEY")
+            ?: ""
+        buildConfigField("String", "REVENUECAT_ANDROID_KEY", buildConfigString(revenueCatKey))
+
+        // Public legal pages linked from the login and settings screens. Empty
+        // falls back to the privacy page the backend serves.
+        fun urlSetting(name: String) = (project.findProperty(name) as String?) ?: System.getenv(name) ?: ""
+        buildConfigField("String", "PRIVACY_POLICY_URL", buildConfigString(urlSetting("PRIVACY_POLICY_URL")))
+        buildConfigField("String", "TERMS_URL", buildConfigString(urlSetting("TERMS_URL")))
+        buildConfigField("String", "ACCOUNT_DELETION_URL", buildConfigString(urlSetting("ACCOUNT_DELETION_URL")))
         manifestPlaceholders["appAuthRedirectScheme"] = "com.sangam.app"
     }
 
@@ -164,7 +178,10 @@ dependencies {
     // Sarvam Voice SDK (for speech-to-text)
     // implementation("ai.sarvam:sarvam-android:1.0.0")
 
-    // Razorpay
+    // Google Play Billing through RevenueCat (Billing Library 8)
+    implementation("com.revenuecat.purchases:purchases:9.29.1")
+
+    // Razorpay (web and non-Play builds only; Play builds sell through Google Play Billing)
     implementation("com.razorpay:checkout:1.6.41")
 
     // Room

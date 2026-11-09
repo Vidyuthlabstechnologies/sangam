@@ -37,6 +37,7 @@ import com.google.firebase.firestore.SetOptions
 import com.sangam.app.R
 import com.sangam.app.network.FirebaseSession
 import com.sangam.app.network.RealtimeClient
+import com.sangam.app.ui.components.LegalFooter
 import kotlinx.coroutines.launch
 
 @Composable
@@ -400,6 +401,14 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                 }
             }
 
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "By continuing you agree to the Terms of use and Privacy policy.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            LegalFooter()
         }
     }
 }

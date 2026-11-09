@@ -128,6 +128,19 @@ object FirebaseSession {
         }
     }
 
+    /**
+     * After the backend has deleted the account's data, remove the Firebase
+     * login too, then sign out. Firebase may refuse if the last sign-in was
+     * long ago; the backend account is already deactivated either way.
+     */
+    suspend fun deleteLoginAndSignOut(context: Context) {
+        try {
+            auth()?.currentUser?.delete()?.await()
+        } catch (_: Exception) {
+        }
+        signOut(context)
+    }
+
     fun signOut(context: Context) {
         try {
             auth()?.signOut()
@@ -136,6 +149,10 @@ object FirebaseSession {
         try {
             // Clear the cached Google account so the picker shows next time.
             GoogleSignIn.getClient(context, GoogleSignInOptions.DEFAULT_SIGN_IN).signOut()
+        } catch (_: Exception) {
+        }
+        try {
+            com.sangam.app.billing.Billing.logOut()
         } catch (_: Exception) {
         }
         RealtimeClient.stop()
@@ -166,6 +183,8 @@ object FirebaseSession {
         }
         val email = me.email ?: auth()?.currentUser?.email
         TokenManager.saveProfile(me.actor_id, me.name, email)
+        // Purchases are credited to this actor by the backend webhook.
+        com.sangam.app.billing.Billing.logIn(me.actor_id)
         return Result(me.actor_id, me.name, email, isNewUser)
     }
 

@@ -125,6 +125,15 @@ class Settings(BaseSettings):
     # Reject email/password accounts until the address is verified.
     firebase_require_verified_email: bool = False
 
+    # RevenueCat (Google Play Billing). The webhook is accepted only with this
+    # exact Authorization header value, set in RevenueCat -> Integrations ->
+    # Webhooks. Unset means the webhook rejects everything.
+    revenuecat_webhook_auth: Optional[str] = None
+    # Credit license-tester (sandbox) purchases. Keep true through closed
+    # testing so testers can exercise paid features; set false at launch if
+    # test purchases should not grant real call minutes.
+    revenuecat_accept_sandbox: bool = True
+
     class Config:
         env_file = ".env"
         case_sensitive = False

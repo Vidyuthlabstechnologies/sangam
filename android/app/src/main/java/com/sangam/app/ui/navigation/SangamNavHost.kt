@@ -70,6 +70,11 @@ fun SangamNavHost(
             OnboardingWizardScreen(
                 onBack = { navController.popBackStack() },
                 onOpenCallInbox = { navController.navigate(Routes.CALL_INBOX) },
+                onAccountDeleted = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
             )
         }
         composable(Routes.CALL_INBOX) {

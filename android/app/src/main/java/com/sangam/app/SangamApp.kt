@@ -12,6 +12,9 @@ class SangamApp : Application() {
             com.google.firebase.FirebaseApp.initializeApp(this)
         } catch (_: Exception) { }
         TokenManager.init(this)
+        try {
+            com.sangam.app.billing.Billing.configure(this, TokenManager.getActorId())
+        } catch (_: Exception) { }
         if (TokenManager.isLoggedIn()) {
             RealtimeClient.start()
         }

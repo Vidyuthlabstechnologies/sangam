@@ -76,9 +76,16 @@ jobs:
     env:
       API_BASE_URL: ${{ vars.API_BASE_URL }}
       GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID }}
-      SANGAM_KEYSTORE_PASSWORD: ${{ secrets.SANGAM_KEYSTORE_PASSWORD }}
-      SANGAM_KEY_PASSWORD: ${{ secrets.SANGAM_KEY_PASSWORD }}
-      SANGAM_KEY_ALIAS: ${{ secrets.SANGAM_KEY_ALIAS || 'sangamitra' }}
+      PRIVACY_POLICY_URL: ${{ vars.PRIVACY_POLICY_URL }}
+      TERMS_URL: ${{ vars.TERMS_URL }}
+      ACCOUNT_DELETION_URL: ${{ vars.ACCOUNT_DELETION_URL }}
+      # RevenueCat public Android SDK key (goog_...). Public by design, but kept
+      # as a secret so it is set in one place.
+      REVENUECAT_ANDROID_KEY: ${{ secrets.REVENUECAT_ANDROID_KEY }}
+      # Either naming works: ANDROID_* (playbook) or SANGAM_* (earlier setup).
+      SANGAM_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || secrets.SANGAM_KEYSTORE_PASSWORD }}
+      SANGAM_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || secrets.SANGAM_KEY_PASSWORD }}
+      SANGAM_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || secrets.SANGAM_KEY_ALIAS || 'sangamitra' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -102,6 +109,10 @@ jobs:
           [ -n "$ANDROID_KEYSTORE_BASE64" ] || missing="$missing ANDROID_KEYSTORE_BASE64"
           [ -n "$SANGAM_KEYSTORE_PASSWORD" ] || missing="$missing SANGAM_KEYSTORE_PASSWORD"
           [ -n "$SANGAM_KEY_PASSWORD" ] || missing="$missing SANGAM_KEY_PASSWORD"
+          case "$REVENUECAT_ANDROID_KEY" in
+            goog_*) ;;
+            *) missing="$missing REVENUECAT_ANDROID_KEY(goog_...)";;
+          esac
           case "$API_BASE_URL" in
             https://*) ;;
             *) missing="$missing API_BASE_URL(https)";;
@@ -129,7 +140,41 @@ jobs:
           # stays above the 1.0.x bundles uploaded by hand.
           VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER))
           echo "Building $VERSION_NAME ($VERSION_CODE)"
+          echo "VERSION_NAME_OUT=$VERSION_NAME ($VERSION_CODE)" >> "$GITHUB_ENV"
           ./gradlew --no-daemon bundleRelease -PVERSION_NAME="$VERSION_NAME" -PVERSION_CODE="$VERSION_CODE"
+
+      # Prove the bundle before anyone uploads it: right key, version,
+      # billing permission and config compiled in. Prints prefixes only.
+      - name: Verify the release bundle
+        env:
+          UPLOAD_KEY_SHA1: ${{ vars.UPLOAD_KEY_SHA1 }}
+        run: |
+          set -euo pipefail
+          AAB=$(ls app/build/outputs/bundle/release/*.aab | head -1)
+          echo "Bundle: $AAB"
+          SHA1=$(keytool -printcert -jarfile "$AAB" | grep -m1 'SHA1:' | awk '{print $2}')
+          echo "Signed with SHA-1: $SHA1"
+          if [ -n "${UPLOAD_KEY_SHA1:-}" ] && [ "${UPLOAD_KEY_SHA1^^}" != "${SHA1^^}" ]; then
+            echo "::error::Bundle is signed with $SHA1, expected the upload key $UPLOAD_KEY_SHA1"
+            exit 1
+          fi
+          # Bundle manifests are protobuf (UTF-8 strings); dex strings are UTF-8.
+          MANIFEST=$(unzip -p "$AAB" base/manifest/AndroidManifest.xml | strings -a)
+          DEX=$(unzip -p "$AAB" 'base/dex/*.dex' | strings)
+          grep -q 'com.android.vending.BILLING' <<< "$MANIFEST" \
+            || { echo "::error::BILLING permission missing from the manifest"; exit 1; }
+          grep -q 'goog_' <<< "$DEX" \
+            || { echo "::error::RevenueCat key is not compiled into the app"; exit 1; }
+          echo "RevenueCat key prefix found: $(grep -o -m1 'goog_....' <<< "$DEX")..."
+          grep -qF "$API_BASE_URL" <<< "$DEX" \
+            || { echo "::error::API_BASE_URL is not compiled into the app"; exit 1; }
+          {
+            echo "### Release bundle verified"
+            echo "- Version: $VERSION_NAME_OUT"
+            echo "- Upload key SHA-1: \`$SHA1\`"
+            echo "- Billing permission: present"
+            echo "- RevenueCat key: present"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remove signing key from the runner
         if: always()
