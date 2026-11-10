@@ -12,7 +12,28 @@
           "package_name": "com.sangam.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1056144800596-ca6rac0kas71acaei8huuh8hb5784q5t.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.sangam.app",
+            "certificate_hash": "850049320d9f76f75ced95922afa4db311940726"
+          }
+        },
+        {
+          "client_id": "1056144800596-tjjneimsm591iln6bauodbeelflll5ql.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.sangam.app",
+            "certificate_hash": "8634e6d8340b0c03974c647fbd06e13fee6c4862"
+          }
+        },
+        {
+          "client_id": "1056144800596-4mk8j08099q9bgi41soos86rs8cu4l6v.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDfpHS_UE0Pt_LgNdY65q0ApXWrnHRyeFE"
@@ -20,7 +41,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1056144800596-4mk8j08099q9bgi41soos86rs8cu4l6v.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
