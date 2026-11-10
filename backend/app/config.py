@@ -138,8 +138,12 @@ class Settings(BaseSettings):
     # Google Play shows these to users, so set them to real, monitored values.
     # Defaults are the operating company's details; override per deployment.
     legal_contact_email: str = "info@mldynamic.com"
-    legal_operator_name: str = "ML Dynamic Solutions Private Limited"
-    legal_postal_address: str = ""
+    legal_operator_name: str = "M L Dynamic Solutions Private Limited"
+    # Registered office, as published on mldynamic.com/privacy.html.
+    legal_postal_address: str = (
+        "606, 6th Floor, Gowra Fountainhead, Patrika Nagar, Madhapur, "
+        "Hi-Tech City, Hyderabad, Telangana - 500081, India"
+    )
 
     class Config:
         env_file = ".env"
