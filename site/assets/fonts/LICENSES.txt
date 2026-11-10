@@ -1,0 +1,3 @@
+Bricolage Grotesque (c) The Bricolage Grotesque Project Authors, SIL Open Font License 1.1.
+Source Serif 4 (c) Adobe, SIL Open Font License 1.1.
+Both are redistributed unmodified via the Fontsource npm packages. License text: https://openfontlicense.org
