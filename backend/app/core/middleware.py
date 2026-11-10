@@ -100,6 +100,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 class GlobalExceptionHandler:
     @staticmethod
     def register(app: FastAPI) -> None:
+        from app.core.govstack import LiveSourceUnavailable
+
+        @app.exception_handler(LiveSourceUnavailable)
+        async def handle_live_source_unavailable(request: Request, exc: LiveSourceUnavailable):
+            return JSONResponse(
+                status_code=503,
+                content={"error": "source_unavailable", "detail": str(exc)},
+            )
+
         @app.exception_handler(Exception)
         async def handle_exception(request: Request, exc: Exception):
             request_id = getattr(request.state, "request_id", "unknown")

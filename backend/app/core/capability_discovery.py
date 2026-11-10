@@ -26,7 +26,7 @@ class CapabilityRegistration:
     description: str
     service_type: str  # api, mcp, agent, webhook
     endpoint_url: Optional[str] = None
-    tags: List[str] = None
+    tags: Optional[List[str]] = None
     language: Optional[str] = None
     trust_score: float = 0.5
     avg_latency_ms: Optional[float] = None
@@ -43,7 +43,7 @@ class CapabilitySearchResult:
     score: float
     trust_score: float
     endpoint_url: Optional[str] = None
-    tags: List[str] = None
+    tags: Optional[List[str]] = None
 
 
 class CapabilityDiscovery:
@@ -135,7 +135,7 @@ class CapabilityDiscovery:
     ) -> List[CapabilitySearchResult]:
         vector = self._embed_text(query)
 
-        conditions = [self._tenant_condition(tenant_id)]
+        conditions: list[Any] = [self._tenant_condition(tenant_id)]
         if service_type:
             conditions.append(
                 FieldCondition(

@@ -33,7 +33,7 @@ class Workflow(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(256), nullable=False)
-    description: Mapped[str] = mapped_column(Text, nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     initiator_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("actors.id"), nullable=False)
     # Zitadel organization that owns this workflow. Taken from the caller's token, never from the body.
     organization_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)

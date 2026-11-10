@@ -116,7 +116,7 @@ class SarvamAI:
             )
 
         async with httpx.AsyncClient(timeout=120) as client:
-            files = {
+            files: dict[str, Any] = {
                 "file": (filename, audio_data, self._infer_mime(filename)),
                 "model": (None, "saaras:v3"),
                 "mode": (None, mode),
@@ -504,7 +504,7 @@ class SarvamAI:
         with_diarization: bool = False,
     ) -> Dict[str, Any]:
         async with httpx.AsyncClient(timeout=120) as client:
-            files = {
+            files: dict[str, Any] = {
                 "file": (filename, audio_data, self._infer_mime(filename)),
                 "model": (None, "saaras:v3"),
                 "with_diarization": (None, str(with_diarization).lower()),

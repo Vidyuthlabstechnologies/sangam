@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 import httpx
 
@@ -74,7 +74,7 @@ class SlackNotifier:
         }
         title = titles.get(event, "Sangam Update")
 
-        blocks = [
+        blocks: list[dict[str, Any]] = [
             {
                 "type": "header",
                 "text": {"type": "plain_text", "text": f"{emoji} {title}"},

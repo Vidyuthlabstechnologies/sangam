@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Any, Optional, List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
@@ -267,7 +267,7 @@ async def list_voices(
     current_actor: Actor = Depends(get_current_actor),
 ):
     from app.core.sarvam import TTS_SPEAKERS
-    voices = {s: {} for s in TTS_SPEAKERS}
+    voices: dict[str, dict[str, Any]] = {s: {} for s in TTS_SPEAKERS}
     return {"voices": voices}
 
 

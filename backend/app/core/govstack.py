@@ -54,7 +54,7 @@ class MCACompanyResult:
     authorized_capital: Optional[str] = None
     paid_up_capital: Optional[str] = None
     registered_address: Optional[str] = None
-    directors: List[Dict] = None
+    directors: Optional[List[Dict]] = None
     raw_response: Optional[dict] = None
 
 
@@ -80,7 +80,7 @@ class SchemeDiscoveryResult:
     benefits: List[str]
     application_url: Optional[str] = None
     deadline: Optional[str] = None
-    target_beneficiaries: List[str] = None
+    target_beneficiaries: Optional[List[str]] = None
 
 
 @dataclass
@@ -91,7 +91,7 @@ class EconomicIndicator:
     unit: str
     period: str
     source: str
-    metadata: Dict = None
+    metadata: Optional[Dict] = None
 
 
 @dataclass
@@ -100,9 +100,9 @@ class LaborData:
     period: str
     unemployment_rate: Optional[float] = None
     labor_force_participation: Optional[float] = None
-    employment_by_sector: Dict = None
+    employment_by_sector: Optional[Dict] = None
     wage_growth: Optional[float] = None
-    raw_data: Dict = None
+    raw_data: Optional[Dict] = None
 
 
 @dataclass
@@ -153,8 +153,8 @@ class DINValidationResult:
     is_valid: bool
     director_name: Optional[str] = None
     status: Optional[str] = None  # Active, Disqualified
-    companies: List[Dict] = None
-    appointment_dates: List[Dict] = None
+    companies: Optional[List[Dict]] = None
+    appointment_dates: Optional[List[Dict]] = None
     raw_response: Optional[dict] = None
 
 
@@ -188,7 +188,7 @@ class IECValidationResult:
     is_valid: bool
     company_name: Optional[str] = None
     address: Optional[str] = None
-    branches: List[Dict] = None
+    branches: Optional[List[Dict]] = None
     status: Optional[str] = None
     raw_response: Optional[dict] = None
 
@@ -223,7 +223,7 @@ class FSSAIValidationResult:
     is_valid: bool
     business_name: Optional[str] = None
     license_type: Optional[str] = None  # Central, State, Registration
-    food_categories: List[str] = None
+    food_categories: Optional[List[str]] = None
     address: Optional[str] = None
     validity_period: Optional[str] = None
     raw_response: Optional[dict] = None
@@ -240,6 +240,10 @@ class GeMValidationResult:
     raw_response: Optional[dict] = None
 
 
+class LiveSourceUnavailable(RuntimeError):
+    """A live government registry lookup is not wired up on this server."""
+
+
 class BrightDataMCPClient:
     """Client for Bright Data MCP - web scraping at scale"""
     
@@ -247,7 +251,7 @@ class BrightDataMCPClient:
         self.api_token = api_token
         self.base_url = "https://api.brightdata.com"
     
-    async def _request(self, method: str, path: str, data: dict = None) -> dict:
+    async def _request(self, method: str, path: str, data: Optional[dict] = None) -> dict:
         import httpx
         headers = {
             "Authorization": f"Bearer {self.api_token}",
@@ -311,7 +315,42 @@ class BrightDataMCPClient:
         })
         return self._parse_power_result(region, result)
     
-    async def custom_scrape(self, url: str, selectors: dict = None) -> dict:
+    # No live Bright Data dataset is wired for these registries yet. With a
+    # token set, say so plainly instead of failing with AttributeError.
+    def _no_live_source(self, registry: str) -> "LiveSourceUnavailable":
+        return LiveSourceUnavailable(f"Live {registry} lookup is not available yet.")
+
+    async def scrape_pan(self, pan: str) -> PANValidationResult:
+        raise self._no_live_source("PAN")
+
+    async def scrape_din(self, din: str) -> DINValidationResult:
+        raise self._no_live_source("DIN")
+
+    async def scrape_epfo(self, establishment_id: str) -> EPFOValidationResult:
+        raise self._no_live_source("EPFO")
+
+    async def scrape_digilocker(self, document_id: str, document_type: str) -> DigiLockerResult:
+        raise self._no_live_source("DigiLocker")
+
+    async def scrape_iec(self, iec: str) -> IECValidationResult:
+        raise self._no_live_source("IEC")
+
+    async def scrape_icegate(self, reference: str) -> ICEGATEValidationResult:
+        raise self._no_live_source("ICEGATE")
+
+    async def scrape_rera(self, registration_number: str) -> RERAValidationResult:
+        raise self._no_live_source("RERA")
+
+    async def scrape_fssai(self, license_number: str) -> FSSAIValidationResult:
+        raise self._no_live_source("FSSAI")
+
+    async def scrape_gem(self, seller_id: str) -> GeMValidationResult:
+        raise self._no_live_source("GeM")
+
+    async def scrape_gst_returns(self, gstin: str, return_period: str) -> GSTReturnsResult:
+        raise self._no_live_source("GST returns")
+
+    async def custom_scrape(self, url: str, selectors: Optional[dict] = None) -> dict:
         result = await self._request("POST", "/web_unlocker", {
             "url": url,
             "selectors": selectors or {}
@@ -383,9 +422,9 @@ class BrightDataMCPClient:
 class GovStackService:
     """Unified service for all government data integrations"""
     
-    def __init__(self, brightdata_token: str = None):
+    def __init__(self, brightdata_token: Optional[str] = None):
         self.brightdata = BrightDataMCPClient(brightdata_token) if brightdata_token else None
-        self.cache = {}
+        self.cache: Dict[str, Dict[str, Any]] = {}
         self.cache_ttl = 3600
     
     async def validate_gstin(self, gstin: str) -> GSTNValidationResult:

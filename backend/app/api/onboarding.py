@@ -384,6 +384,8 @@ async def create_payment_order(
         split = pricing.split_plan(plan)
         purpose = f"PLAN:{plan.plan_id}"
     else:
+        if req.topup_amount_inr is None:
+            raise HTTPException(status_code=422, detail="Send exactly one of plan_id or topup_amount_inr")
         base = int(round(req.topup_amount_inr * 100))
         if not (pricing.MIN_TOPUP_PAISE <= base <= pricing.MAX_TOPUP_PAISE):
             raise HTTPException(

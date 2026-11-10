@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from temporalio import workflow, activity
-from temporalio.workflow import WorkflowContext
 
 with workflow.unsafe.imports_passed_through():
     from app.models.workflow import WorkflowPhase, WorkflowState
