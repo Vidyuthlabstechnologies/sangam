@@ -11,10 +11,10 @@ If a data flow changes, change it here, in
 - Package name: `com.sangam.app`
 - Target SDK: 35 (`android/app/build.gradle.kts`)
 - Firebase project: `sangamitra-ai`
-- Legal pages (host not decided yet, replace `<LEGAL_BASE_URL>`):
-  - Privacy policy: `<LEGAL_BASE_URL>/legal/privacy`
-  - Terms of use: `<LEGAL_BASE_URL>/legal/terms`
-  - Account deletion: `<LEGAL_BASE_URL>/legal/delete-account`
+- Legal pages (live on Cloudflare Workers; move to a custom domain later and update the three GitHub variables):
+  - Privacy policy: `https://sangamitra-site.cbvarshini1.workers.dev/legal/privacy`
+  - Terms of use: `https://sangamitra-site.cbvarshini1.workers.dev/legal/terms`
+  - Account deletion: `https://sangamitra-site.cbvarshini1.workers.dev/legal/delete-account`
 
 ## 1. Store listing
 
@@ -26,10 +26,10 @@ If a data flow changes, change it here, in
 | Free or paid | Free (plans and top-ups are in-app purchases) |
 | Category | Business |
 | Tags (pick up to 5 that Play offers) | Business, Productivity, Communication, Finance, Artificial intelligence (use the nearest tags Play lists) |
-| Contact email | `<LEGAL_CONTACT_EMAIL>` (**TO CONFIRM:** the repo default `dpo@sangamitra.in` is a placeholder and the mailbox must exist and be monitored) |
+| Contact email | `info@mldynamic.com` (**TO CONFIRM:** the mailbox must exist and be monitored) |
 | Contact phone | `<PHONE>` (optional) |
 | Website | `<WEBSITE_URL>` (optional) |
-| Privacy policy URL | `<LEGAL_BASE_URL>/legal/privacy` |
+| Privacy policy URL | `https://sangamitra-site.cbvarshini1.workers.dev/legal/privacy` |
 
 ### Short description (max 80, this one is 72)
 
@@ -83,7 +83,7 @@ uploading. The screenshots must come from the installed release candidate.
 
 | Form | Answer |
 |---|---|
-| Privacy policy | `<LEGAL_BASE_URL>/legal/privacy` |
+| Privacy policy | `https://sangamitra-site.cbvarshini1.workers.dev/legal/privacy` |
 | Ads | **No**, the app contains no ads |
 | App access | Some functionality is restricted (sign-in needed). See section 3. |
 | Target audience and content | **18 and over** only. Not designed for children. |
@@ -160,7 +160,7 @@ Answer the top-level questions:
 |---|---|
 | Does the app collect or share any of the required user data types? | Yes |
 | Is all of the user data collected by the app encrypted in transit? | Yes (HTTPS only: `usesCleartextTraffic="false"` and a system-trust network security config) |
-| Do you provide a way for users to request that their data is deleted? | Yes (in-app, and `<LEGAL_BASE_URL>/legal/delete-account`) |
+| Do you provide a way for users to request that their data is deleted? | Yes (in-app, and `https://sangamitra-site.cbvarshini1.workers.dev/legal/delete-account`) |
 | Data sold | **No data is sold** |
 | Ads | No ads, no advertising ID |
 
@@ -258,7 +258,7 @@ Play requires Google Play Billing for in-app digital goods.
 
 | Field | Value |
 |---|---|
-| Account deletion URL | `<LEGAL_BASE_URL>/legal/delete-account` |
+| Account deletion URL | `https://sangamitra-site.cbvarshini1.workers.dev/legal/delete-account` |
 | Delete data without deleting the account | Not offered |
 
 Steps a user takes inside the app (read from the code):
@@ -354,7 +354,7 @@ Set these where the API runs. Do not commit values.
 `validate_production_settings` also refuses to start in production when
 `USE_FIXTURES` or `DEBUG` is true, or when neither `FIREBASE_PROJECT_ID` nor
 `ZITADEL_ISSUER` is set. It only logs a warning (it does not refuse) when
-`LEGAL_CONTACT_EMAIL` is still the placeholder `dpo@sangamitra.in` or
+`LEGAL_CONTACT_EMAIL` is still the old placeholder `dpo@sangamitra.in` or
 `LEGAL_POSTAL_ADDRESS` is empty, so check the logs on first boot.
 
 The same `LEGAL_*` values are baked into the static site. Before every deploy to
@@ -365,7 +365,7 @@ secret. The pages under `site/legal/` must not still show `dpo@sangamitra.in`.
 GitHub variables used by the CI release job: `API_BASE_URL` (https, required),
 and optional `GOOGLE_WEB_CLIENT_ID`, `PRIVACY_POLICY_URL`, `TERMS_URL`,
 `ACCOUNT_DELETION_URL`, `UPLOAD_KEY_SHA1`. Set the three URL variables to the
-`<LEGAL_BASE_URL>` pages once they are deployed.
+`https://sangamitra-site.cbvarshini1.workers.dev` pages once they are deployed.
 
 ## 11. Signing, Play App Signing and Firebase
 
@@ -414,7 +414,7 @@ which account type you have.
 Checklist, in order:
 
 - [ ] Developer account created and identity verified; app created with package `com.sangam.app`
-- [ ] Legal pages deployed at `<LEGAL_BASE_URL>`; `LEGAL_*` values set to real ones, `site/` rebuilt with them, and the delete page URL entered in the Console's data-deletion field (section 7)
+- [ ] Legal pages deployed at `https://sangamitra-site.cbvarshini1.workers.dev`; `LEGAL_*` values set to real ones, `site/` rebuilt with them, and the delete page URL entered in the Console's data-deletion field (section 7)
 - [ ] Mailbox for `LEGAL_CONTACT_EMAIL` exists and is monitored
 - [ ] Backend deployed over https; `API_BASE_URL` set in GitHub
 - [ ] `play-store` GitHub environment exists; `scripts/create-upload-key.ps1` run

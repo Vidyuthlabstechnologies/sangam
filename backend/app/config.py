@@ -136,9 +136,9 @@ class Settings(BaseSettings):
 
     # Public legal pages (/legal/privacy, /legal/terms, /legal/delete-account).
     # Google Play shows these to users, so set them to real, monitored values.
-    # The default mailbox is a placeholder until the domain's mail exists.
-    legal_contact_email: str = "dpo@sangamitra.in"
-    legal_operator_name: str = "Sangamitra AI"
+    # Defaults are the operating company's details; override per deployment.
+    legal_contact_email: str = "info@mldynamic.com"
+    legal_operator_name: str = "ML Dynamic Solutions Private Limited"
     legal_postal_address: str = ""
 
     class Config:
