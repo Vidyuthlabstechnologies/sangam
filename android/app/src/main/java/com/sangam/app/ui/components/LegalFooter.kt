@@ -21,9 +21,11 @@ import com.sangam.app.network.TokenManager
 object LegalLinks {
     private fun fallback(path: String) = TokenManager.getServerUrl().trimEnd('/') + path
 
-    fun privacyPolicy(): String = BuildConfig.PRIVACY_POLICY_URL.ifBlank { fallback("/onboarding/privacy-policy") }
-    fun terms(): String = BuildConfig.TERMS_URL.ifBlank { privacyPolicy() }
-    fun accountDeletion(): String = BuildConfig.ACCOUNT_DELETION_URL.ifBlank { privacyPolicy() }
+    // Fallbacks are the backend's own public pages (backend/app/api/legal.py). Release builds
+    // set the *_URL values from CI variables so Play sees the Cloudflare-hosted copies.
+    fun privacyPolicy(): String = BuildConfig.PRIVACY_POLICY_URL.ifBlank { fallback("/legal/privacy") }
+    fun terms(): String = BuildConfig.TERMS_URL.ifBlank { fallback("/legal/terms") }
+    fun accountDeletion(): String = BuildConfig.ACCOUNT_DELETION_URL.ifBlank { fallback("/legal/delete-account") }
 
     fun open(context: Context, url: String) {
         try {

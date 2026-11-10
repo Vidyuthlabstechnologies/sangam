@@ -15,6 +15,7 @@ import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import retrofit2.HttpException
@@ -134,9 +135,18 @@ object FirebaseSession {
      * long ago; the backend account is already deactivated either way.
      */
     suspend fun deleteLoginAndSignOut(context: Context) {
-        try {
-            auth()?.currentUser?.delete()?.await()
-        } catch (_: Exception) {
+        val user = auth()?.currentUser
+        if (user != null) {
+            // The sign-in sync writes users/{uid}; remove it while the user is still
+            // authenticated, because the Firestore rules only allow the owner.
+            try {
+                FirebaseFirestore.getInstance().collection("users").document(user.uid).delete().await()
+            } catch (_: Exception) {
+            }
+            try {
+                user.delete().await()
+            } catch (_: Exception) {
+            }
         }
         signOut(context)
     }

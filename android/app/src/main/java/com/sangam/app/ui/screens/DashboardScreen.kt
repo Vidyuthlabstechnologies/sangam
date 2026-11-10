@@ -184,14 +184,14 @@ fun DashboardScreen(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Voice Co-Pilot Online",
+                                "Voice Co-Pilot",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                "Your Sarvam AI calling agents handled 142 calls today across Hindi & Tamil with 99.8% pickup!",
+                                "Your voice agent answers calls when you can't. Set it up or change it from the Voice Agent tab.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
