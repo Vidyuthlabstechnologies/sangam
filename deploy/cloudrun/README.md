@@ -4,9 +4,8 @@ Runs the FastAPI backend in `backend/` on Google Cloud Run (Mumbai, `asia-south1
 
 ## Before you run the script (two browser steps)
 
-1. **Link billing to `sangamitra-ai`.** Cloud Run, Cloud Build and Secret Manager need a billing account on the project. Do it at
-   https://console.cloud.google.com/billing/linkedaccount?project=sangamitra-ai
-   With `--min-instances 0` and low traffic the usage normally stays inside the free tier, but billing must still be linked.
+1. **Billing** is already linked to `vidyuthlabs-514315`, the hosting project (the Firebase project `sangamitra-ai` stays as it is: it holds sign-in, and the backend only uses its id to verify tokens). Run `gcloud auth list` first and make sure the active account is the one that owns `vidyuthlabs-514315`.
+   With `--min-instances 0` and low traffic the usage normally stays inside the free tier or the trial credit.
 2. **Create a Neon project** at https://console.neon.tech. Pick the closest region (Singapore is nearest to Mumbai). On the project dashboard open **Connect**, turn **Connection pooling off**, and copy the connection string. It is a secret: you will paste it into a hidden prompt, never into chat or a file.
 
 ## Run it
@@ -27,10 +26,11 @@ The Neon string is rewritten for the app: `postgresql+asyncpg://` scheme, `sslmo
 - **RevenueCat webhook:** URL `<API_BASE_URL>/billing/revenuecat/webhook`, Authorization header value is the secret the script put on your clipboard (new secrets only). Clear the clipboard afterwards. To read it again later, use the Secret Manager page in the Cloud console.
 - **Optional keys** (the API returns canned responses without them): `SARVAM_API_KEY`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`. Add each as a Secret Manager secret and attach it with `gcloud run services update sangam-backend --update-secrets NAME=secret:latest`. Re-running `deploy.ps1` uses `--update-env-vars` and `--update-secrets`, which change only the variables the script names and keep anything you added by hand. The service runs as its own account, `sangam-backend-run`, which can read only the three secrets the script creates, so grant it `roles/secretmanager.secretAccessor` on any secret you add.
 - **Legal postal address:** set `LEGAL_POSTAL_ADDRESS` once you have it (it is also baked into `site/`, see `docs/PLAY_CONSOLE.md`).
-- **Logs:** `gcloud run services logs read sangam-backend --region asia-south1 --project sangamitra-ai`.
+- **Logs:** `gcloud run services logs read sangam-backend --region asia-south1 --project vidyuthlabs-514315`.
 
 ## Notes
 
+- The org policy `iam.disableServiceAccountKeyCreation` is enforced on `vidyuthlabs-514315`, so no service-account keys can be made there. The deploy does not need any.
 - `--allow-unauthenticated` is intentional: the API verifies Firebase ID tokens itself, and the webhook checks its own Authorization secret.
 - `backend/.dockerignore` and `backend/.gcloudignore` keep `.env`, local databases and keys out of the upload.
 - IAM: `sangam-backend-run` gets `secretAccessor` on the three secrets only. The default compute account gets `roles/run.builder` so Cloud Build can build from source. If the build fails on a permission error, the error names the missing role (not verified until the first real run).

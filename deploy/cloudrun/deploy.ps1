@@ -32,7 +32,9 @@
 #requires -Version 7
 [CmdletBinding()]
 param(
-    [string]$ProjectId = 'sangamitra-ai',
+    # Hosting project (has the billing account). Firebase Auth stays in sangamitra-ai;
+    # the backend only needs that id to verify tokens (FIREBASE_PROJECT_ID below).
+    [string]$ProjectId = 'vidyuthlabs-514315',
     [string]$Region = 'asia-south1',
     [string]$Service = 'sangam-backend',
     [string]$RuntimeAccountName = 'sangam-backend-run',
