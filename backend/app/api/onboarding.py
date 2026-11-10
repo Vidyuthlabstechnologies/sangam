@@ -27,6 +27,7 @@ from app.api.dependencies import get_current_actor
 from app.config import settings
 from app.core import composio_router, pricing
 from app.core.account_deletion import purge_actor_personal_data
+from app.core import legal_content
 from app.core.billing_service import BillingError, BillingService
 from app.core.onboarding_engine import (
     BUSINESS_TAXONOMY,
@@ -255,15 +256,8 @@ async def post_sim_forwarding_codes(req: SimForwardingBodyRequest) -> Dict[str, 
 
 @router.get("/privacy-policy", response_class=HTMLResponse)
 async def privacy_policy_page() -> str:
-    """Privacy policy and data-safety page for Google Play and the DPDP Act 2023."""
-    return """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Sangamitra AI - Privacy Policy</title>
-    <style>body{font-family:system-ui,sans-serif;background:#FFFFFF;color:#09090B;max-width:720px;margin:40px auto;padding:0 20px;line-height:1.6}</style></head>
-    <body><h1>Sangamitra AI - Privacy Policy and Data Safety</h1>
-    <p>Sangamitra AI follows the Digital Personal Data Protection (DPDP) Act 2023 (India) and the Google Play User Data and Generative AI policies.</p>
-    <ul><li><strong>Aadhaar and PAN</strong>: 12-digit Aadhaar and 10-character PAN numbers are redacted before storage.</li>
-    <li><strong>Account deletion</strong>: you can delete your account from the app. Your business profile, phone-number binding and tool connections are erased. Payment ledger entries are kept, without your business name or GSTIN, because Indian GST rules require invoice records to be retained.</li>
-    <li><strong>Call data</strong>: callers are told that an AI assistant is answering. Call summaries are stored for the business owner.</li>
-    <li><strong>Data Protection Officer</strong>: dpo@sangamitra.in</li></ul></body></html>"""
+    """Old URL kept for builds that still link to it; same page as /legal/privacy."""
+    return legal_content.privacy_policy_html()
 
 
 # ----------------------------------------------------- authenticated ingestion

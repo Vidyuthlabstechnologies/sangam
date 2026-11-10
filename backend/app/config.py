@@ -134,6 +134,13 @@ class Settings(BaseSettings):
     # test purchases should not grant real call minutes.
     revenuecat_accept_sandbox: bool = True
 
+    # Public legal pages (/legal/privacy, /legal/terms, /legal/delete-account).
+    # Google Play shows these to users, so set them to real, monitored values.
+    # The default mailbox is a placeholder until the domain's mail exists.
+    legal_contact_email: str = "dpo@sangamitra.in"
+    legal_operator_name: str = "Sangamitra AI"
+    legal_postal_address: str = ""
+
     class Config:
         env_file = ".env"
         case_sensitive = False
@@ -187,3 +194,26 @@ def validate_production_settings(s: Settings) -> None:
         problems.append("DATABASE_URL must not use the default Postgres password")
     if problems:
         raise RuntimeError("Unsafe production configuration: " + "; ".join(problems))
+    _warn_on_placeholder_legal_details(s)
+
+
+_PLACEHOLDER_LEGAL_EMAIL = "dpo@sangamitra.in"
+
+
+def _warn_on_placeholder_legal_details(s: Settings) -> None:
+    """Warn, but do not refuse to boot, when the public legal pages carry placeholders.
+
+    Play and the DPDP Act expect a monitored grievance contact. A missing
+    mailbox should not take the API down, so this is a loud log line only.
+    """
+    import logging
+
+    log = logging.getLogger(__name__)
+    if s.legal_contact_email.strip().lower() == _PLACEHOLDER_LEGAL_EMAIL:
+        log.warning(
+            "LEGAL_CONTACT_EMAIL is still the placeholder %s; set a monitored mailbox "
+            "before the privacy policy is shown on Google Play",
+            _PLACEHOLDER_LEGAL_EMAIL,
+        )
+    if not s.legal_postal_address.strip():
+        log.warning("LEGAL_POSTAL_ADDRESS is empty; the public legal pages show no postal address")
