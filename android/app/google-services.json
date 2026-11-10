@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "1056144800596-5lag2u4jsik4dmfm6nutrr069g847e7b.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.sangam.app",
+            "certificate_hash": "79411050df4ef785a9317fed968eb45b763b844a"
+          }
+        },
+        {
           "client_id": "1056144800596-ca6rac0kas71acaei8huuh8hb5784q5t.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
