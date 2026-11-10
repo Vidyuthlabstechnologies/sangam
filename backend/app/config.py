@@ -138,6 +138,8 @@ class Settings(BaseSettings):
     # Google Play shows these to users, so set them to real, monitored values.
     # Defaults are the operating company's details; override per deployment.
     legal_contact_email: str = "info@mldynamic.com"
+    # Grievance Officer mailbox shown on the privacy policy (DPDP Act). Empty hides the line.
+    legal_grievance_email: str = "rishi@mldynamic.com"
     legal_operator_name: str = "M L Dynamic Solutions Private Limited"
     # Registered office, as published on mldynamic.com/privacy.html.
     legal_postal_address: str = (

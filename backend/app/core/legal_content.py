@@ -73,11 +73,14 @@ def _email() -> str:
     return escape(settings.legal_contact_email)
 
 
-def _contact_block() -> str:
+def _contact_block(*, grievance: bool = False) -> str:
     address = "<br>".join(
         escape(line.strip()) for line in settings.legal_postal_address.splitlines() if line.strip()
     )
     lines = [f'<p><strong>{_operator()}</strong><br>Email: <a href="mailto:{_email()}">{_email()}</a>']
+    grievance_email = escape(settings.legal_grievance_email.strip())
+    if grievance and grievance_email:
+        lines.append(f'<br>Grievance Officer: <a href="mailto:{grievance_email}">{grievance_email}</a>')
     if address:
         lines.append(f"<br>{address}")
     lines.append("</p>")
@@ -174,7 +177,7 @@ account yourself, as described at <a href="/legal/delete-account">/legal/delete-
 <p>The app is for people aged 18 and over and is not directed at children.</p>
 
 <h2>Contact and grievance officer</h2>
-{_contact_block()}
+{_contact_block(grievance=True)}
 <p>Changes to this policy are published on this page.</p>
 """
     return _page("Privacy policy", body, static_site=static_site)

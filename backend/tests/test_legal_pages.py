@@ -70,6 +70,30 @@ async def test_configured_values_are_html_escaped(client: AsyncClient, monkeypat
     assert "1 &lt;b&gt;Road&lt;/b&gt; &amp; Co" in (await client.get("/legal/privacy")).text
 
 
+@pytest.mark.asyncio
+async def test_privacy_policy_names_the_grievance_officer_mailbox(client: AsyncClient, monkeypatch):
+    monkeypatch.setattr(settings, "legal_grievance_email", "grievance@example.com")
+    text = (await client.get("/legal/privacy")).text
+    assert "Grievance Officer" in text
+    assert 'href="mailto:grievance@example.com"' in text
+
+
+@pytest.mark.asyncio
+async def test_grievance_email_is_html_escaped(client: AsyncClient, monkeypatch):
+    monkeypatch.setattr(settings, "legal_grievance_email", 'a"><script>x</script>@e.com')
+    text = (await client.get("/legal/privacy")).text
+    assert "<script>x" not in text
+    assert "&quot;&gt;&lt;script&gt;x" in text
+
+
+@pytest.mark.asyncio
+async def test_empty_grievance_email_omits_the_line(client: AsyncClient, monkeypatch):
+    monkeypatch.setattr(settings, "legal_grievance_email", "")
+    text = (await client.get("/legal/privacy")).text
+    assert "Grievance Officer:" not in text
+    assert "mailto:" in text  # the general contact is still there
+
+
 PAGES = ("/legal/privacy", "/legal/terms", "/legal/delete-account")
 
 
