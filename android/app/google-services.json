@@ -7,6 +7,59 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:1056144800596:android:ff69644a1c3a3acfb0e6c1",
+        "android_client_info": {
+          "package_name": "com.mldynamic.sangamitra"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1056144800596-1c9qe5nf66l88bsc7o13dfmvclul60ge.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mldynamic.sangamitra",
+            "certificate_hash": "850049320d9f76f75ced95922afa4db311940726"
+          }
+        },
+        {
+          "client_id": "1056144800596-1jb8mfkfj3amm6fpl1rivd0blo51e33d.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mldynamic.sangamitra",
+            "certificate_hash": "8634e6d8340b0c03974c647fbd06e13fee6c4862"
+          }
+        },
+        {
+          "client_id": "1056144800596-37bub2prikoogdejfcjsiii9bulufq8s.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mldynamic.sangamitra",
+            "certificate_hash": "79411050df4ef785a9317fed968eb45b763b844a"
+          }
+        },
+        {
+          "client_id": "1056144800596-4mk8j08099q9bgi41soos86rs8cu4l6v.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDfpHS_UE0Pt_LgNdY65q0ApXWrnHRyeFE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1056144800596-4mk8j08099q9bgi41soos86rs8cu4l6v.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:1056144800596:android:f259b348ae2a97edb0e6c1",
         "android_client_info": {
           "package_name": "com.sangam.app"

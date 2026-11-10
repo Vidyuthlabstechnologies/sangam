@@ -8,7 +8,7 @@ keystore passwords or API keys in this file.
 If a data flow changes, change it here, in
 `backend/app/core/legal_content.py` and in the Play Data safety form together.
 
-- Package name: `com.sangam.app`
+- Package name (applicationId): `com.mldynamic.sangamitra` (`com.sangam.app` is taken on Google Play; the Kotlin namespace stays `com.sangam.app`)
 - Target SDK: 35 (`android/app/build.gradle.kts`)
 - Firebase project: `sangamitra-ai`
 - Legal pages (live on Cloudflare Workers; move to a custom domain later and update the three GitHub variables):
@@ -315,7 +315,7 @@ Notes:
 
 ## 9. RevenueCat setup
 
-1. Create a RevenueCat project and add the Android app `com.sangam.app`.
+1. Create a RevenueCat project and add the Android app `com.mldynamic.sangamitra`.
 2. Upload a Play service account JSON in RevenueCat (this is a RevenueCat
    credential, not a repo secret). Grant it the Play permissions RevenueCat
    lists for subscriptions.
@@ -413,7 +413,7 @@ which account type you have.
 
 Checklist, in order:
 
-- [ ] Developer account created and identity verified; app created with package `com.sangam.app`
+- [ ] Developer account created and identity verified; app created with package `com.mldynamic.sangamitra`
 - [ ] Legal pages deployed at `https://sangamitra-site.cbvarshini1.workers.dev`; `LEGAL_*` values set to real ones, `site/` rebuilt with them, and the delete page URL entered in the Console's data-deletion field (section 7)
 - [ ] Mailbox for `LEGAL_CONTACT_EMAIL` exists and is monitored
 - [ ] Backend deployed over https; `API_BASE_URL` set in GitHub

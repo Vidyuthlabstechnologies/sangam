@@ -11,7 +11,9 @@ android {
     ndkVersion = "27.1.12297006"
 
     defaultConfig {
-        applicationId = "com.sangam.app"
+        // Play listing id. com.sangam.app is taken on Google Play, so the id differs
+        // from `namespace` (the Kotlin package, which stays com.sangam.app).
+        applicationId = "com.mldynamic.sangamitra"
         minSdk = 26
         targetSdk = 35
         // CI passes VERSION_CODE (it must rise with every Play upload) and VERSION_NAME.
