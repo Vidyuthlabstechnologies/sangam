@@ -6,7 +6,7 @@ Runs the FastAPI backend in `backend/` on Google Cloud Run (Mumbai, `asia-south1
 
 1. **Billing** is already linked to `vidyuthlabs-514315`, the hosting project (the Firebase project `sangamitra-ai` stays as it is: it holds sign-in, and the backend only uses its id to verify tokens). Run `gcloud auth list` first and make sure the active account is the one that owns `vidyuthlabs-514315`.
    With `--min-instances 0` and low traffic the usage normally stays inside the free tier or the trial credit.
-2. **Create a Neon project** at https://console.neon.tech. Pick the closest region (Singapore is nearest to Mumbai). On the project dashboard open **Connect**, turn **Connection pooling off**, and copy the connection string. It is a secret: you will paste it into a hidden prompt, never into chat or a file.
+2. **Create a Neon project.** `neon init --org-id <org> --region-id aws-ap-southeast-1 --project-name sangam --no-config` (Singapore is nearest to Mumbai) writes `DATABASE_URL_UNPOOLED` to the git-ignored `.env.local`, and the script offers to use it. Otherwise open the project at https://console.neon.tech, go to **Connect**, turn **Connection pooling off**, copy the string, and paste it into the script's hidden prompt, never into chat or a file.
 
 ## Run it
 

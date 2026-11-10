@@ -57,3 +57,5 @@ desktop.ini
 # Scratch
 .remember/tmp/
 .remember/logs/
+.neon
+.env.local

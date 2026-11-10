@@ -25,6 +25,9 @@
 .PARAMETER DryRun
   Print every step without creating anything or asking for secrets.
 
+.PARAMETER UseLocalNeon
+  Take the direct Neon string from .env.local (written by `neon init`) without asking.
+
 .EXAMPLE
   pwsh -File .\deploy\cloudrun\deploy.ps1 -DryRun
   pwsh -File .\deploy\cloudrun\deploy.ps1
@@ -39,7 +42,9 @@ param(
     [string]$Service = 'sangam-backend',
     [string]$RuntimeAccountName = 'sangam-backend-run',
     [string]$Repo = 'Vidyuthlabstechnologies/sangam',
-    [switch]$DryRun
+    [switch]$DryRun,
+    # Use DATABASE_URL_UNPOOLED from .env.local without asking (for unattended runs).
+    [switch]$UseLocalNeon
 )
 
 Set-StrictMode -Version Latest
@@ -92,6 +97,14 @@ function ConvertTo-AsyncpgUrl([string]$Raw) {
     return 'postgresql+asyncpg://' + $base + '?' + ($kept -join '&')
 }
 
+function Get-LocalNeonUrl {
+    $file = Join-Path $RepoRoot '.env.local'
+    if (-not (Test-Path -LiteralPath $file)) { return $null }
+    $line = Get-Content -LiteralPath $file | Where-Object { $_ -match '^DATABASE_URL_UNPOOLED=' } | Select-Object -First 1
+    if (-not $line) { return $null }
+    return ($line -replace '^DATABASE_URL_UNPOOLED=', '').Trim().Trim('"').Trim("'")
+}
+
 function Set-SecretValue([string]$Name, [string]$Value) {
     $dir = Join-Path ([IO.Path]::GetTempPath()) ('sangam-' + [Guid]::NewGuid().ToString('N'))
     $file = Join-Path $dir 'value'
@@ -132,7 +145,12 @@ if (Test-Secret $DbSecret) {
     $replaceDb = (Read-Host "$DbSecret already exists. Replace it? (y/N)") -match '^[yY]'
 }
 if ($replaceDb -and -not $DryRun) {
-    $neon = ConvertFrom-Secure (Read-Host -AsSecureString 'Paste the DIRECT Neon connection string (hidden)')
+    # `neon init` writes DATABASE_URL_UNPOOLED (the direct string) to .env.local, which git ignores.
+    $neon = Get-LocalNeonUrl
+    if ($neon -and -not $UseLocalNeon -and (Read-Host 'Use the direct Neon URL from .env.local? (Y/n)') -match '^[nN]') { $neon = $null }
+    if (-not $neon) {
+        $neon = ConvertFrom-Secure (Read-Host -AsSecureString 'Paste the DIRECT Neon connection string (hidden)')
+    }
     Set-SecretValue $DbSecret (ConvertTo-AsyncpgUrl $neon)
     $neon = $null
     Write-Host "  stored $DbSecret"
