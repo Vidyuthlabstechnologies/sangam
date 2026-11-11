@@ -18,14 +18,14 @@ pwsh -File .\deploy\cloudrun\deploy.ps1
 pwsh -File .\deploy\cloudrun\deploy.ps1 -Launch   # at the public launch: sandbox purchases stop crediting
 ```
 
-The script enables the APIs, stores three secrets in Secret Manager (`sangam-database-url`, `sangam-jwt-secret`, `sangam-revenuecat-webhook-auth`), asks once for each provider key it does not have yet (`SARVAM_API_KEY`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`; Enter skips one), builds `backend/Dockerfile` with Cloud Build, deploys `sangam-backend`, checks `/health`, and sets the GitHub variable `API_BASE_URL`.
+The script enables the APIs, stores three secrets in Secret Manager (`sangam-database-url`, `sangam-jwt-secret`, `sangam-revenuecat-webhook-auth`), asks for `SARVAM_API_KEY` if it is not stored yet (Razorpay is not used; the app sells through Google Play Billing), builds `backend/Dockerfile` with Cloud Build, deploys `sangam-backend`, checks `/health`, and sets the GitHub variable `API_BASE_URL`.
 
 The Neon string is rewritten for the app: `postgresql+asyncpg://` scheme, `sslmode` and `channel_binding` removed, `ssl=require` added. The pooled host (`-pooler`) is refused because asyncpg prepared statements break behind PgBouncer.
 
 ## After the first deploy
 
 - **RevenueCat webhook:** URL `<API_BASE_URL>/billing/revenuecat/webhook`, Authorization header value is the secret the script put on your clipboard (new secrets only). Clear the clipboard afterwards. To read it again later, use the Secret Manager page in the Cloud console.
-- **Provider keys:** without `SARVAM_API_KEY` voice agents answer with canned fixture replies, and the startup log says so. Skipped one? Run the script again; it asks only for keys that are still missing and attaches each stored key to the service. Re-running uses `--update-env-vars` and `--update-secrets`, which change only the variables the script names. The service account `sangam-backend-run` can read only the secrets the script stores.
+- **Provider keys:** without `SARVAM_API_KEY` voice agents answer with canned fixture replies, and the startup log says so. Skipped it? Run the script again; it asks only while the key is missing. Re-running uses `--update-env-vars` and `--update-secrets`, which change only the variables the script names. The service account `sangam-backend-run` can read only the secrets the script stores.
 - **Legal postal address:** set `LEGAL_POSTAL_ADDRESS` once you have it (it is also baked into `site/`, see `docs/PLAY_CONSOLE.md`).
 - **Logs:** `gcloud run services logs read sangam-backend --region asia-south1 --project vidyuthlabs-514315`.
 

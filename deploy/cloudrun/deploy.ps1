@@ -60,13 +60,11 @@ $RepoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $DbSecret = 'sangam-database-url'
 $JwtSecret = 'sangam-jwt-secret'
 $WebhookSecret = 'sangam-revenuecat-webhook-auth'
-# Provider keys: env var name -> secret name. Optional; without them the API
-# answers with canned fixture responses (voice agents included).
+# Provider keys: env var name -> secret name. Without SARVAM_API_KEY the voice
+# agents answer with canned fixture replies. Razorpay is not used: the app sells
+# through Google Play Billing.
 $ProviderSecrets = [ordered]@{
-    'SARVAM_API_KEY'          = 'sangam-sarvam-api-key'
-    'RAZORPAY_KEY_ID'         = 'sangam-razorpay-key-id'
-    'RAZORPAY_KEY_SECRET'     = 'sangam-razorpay-key-secret'
-    'RAZORPAY_WEBHOOK_SECRET' = 'sangam-razorpay-webhook-secret'
+    'SARVAM_API_KEY' = 'sangam-sarvam-api-key'
 }
 $ApiServices = 'run.googleapis.com', 'cloudbuild.googleapis.com', 'artifactregistry.googleapis.com', 'secretmanager.googleapis.com'
 
@@ -186,7 +184,7 @@ if (-not (Test-Secret $WebhookSecret)) {
     }
 }
 
-Step 'Storing provider keys (Enter skips one)'
+Step 'Storing the Sarvam API key'
 $providerRefs = @()
 foreach ($envName in $ProviderSecrets.Keys) {
     $secretName = $ProviderSecrets[$envName]
@@ -262,7 +260,4 @@ if (-not $DryRun) {
 if ($missingProviders -contains 'SARVAM_API_KEY') {
     Write-Host "`nSARVAM_API_KEY is not set: voice agents answer with canned replies. Run this again and paste it." -ForegroundColor Yellow
 }
-$missingRazorpay = @($missingProviders | Where-Object { $_ -like 'RAZORPAY_*' })
-if ($missingRazorpay) {
-    Write-Host "Not set (web payments use canned responses without them): $($missingRazorpay -join ', ')." -ForegroundColor Yellow
-}
+
