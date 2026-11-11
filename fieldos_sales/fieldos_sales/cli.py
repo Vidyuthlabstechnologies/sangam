@@ -247,6 +247,35 @@ def cmd_status(args, settings, store):
     print(f"Opted out: {q('SELECT COUNT(*) FROM suppressions')}   AI spend today: ${store.llm_spend_today():.4f}")
 
 
+def cmd_insights(args, settings, store):
+    from .insights import compute, learn, summarise_pending, text_report
+    if args.summarise or args.learn:
+        llm = make_llm(settings, store)
+        if args.summarise:
+            print(f"Summarised {summarise_pending(store, llm, args.limit)} conversations")
+        if args.learn:
+            learn(store, llm)
+    data = compute(store)
+    print(json.dumps(data, ensure_ascii=False, indent=1) if args.json else text_report(data))
+    if args.summarise or args.learn:
+        print(f"AI spend today: ${store.llm_spend_today():.4f}")
+
+
+def cmd_dashboard(args, settings, store):
+    from .dashboard import render
+    from .insights import compute
+    if args.sample:
+        from .sample import build
+        store = Store(":memory:")
+        build(store)
+    out = Path(args.out or settings.data_dir / ("insights-sample.html" if args.sample else "insights.html"))
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(render(compute(store)), encoding="utf-8")
+    print(f"Wrote {out}  (open it in a browser; it holds transcripts, so keep it private)")
+    if not args.sample:
+        print(f"Live version: run `serve` and open {settings.public_base_url or 'http://localhost:8090'}/dashboard?token=DASHBOARD_TOKEN")
+
+
 def cmd_serve(args, settings, store):
     import uvicorn
 
@@ -300,6 +329,14 @@ def main(argv: list[str] | None = None) -> None:
     sp.add_argument("--after-days", type=int, default=3)
     add("wa-preview", cmd_wa_preview, "show the next message the sender would send, and whether it may")
     add("status", cmd_status, "counts, outcomes and AI spend")
+    sp = add("insights", cmd_insights, "call and chat insights in the terminal; --summarise / --learn use the AI")
+    sp.add_argument("--summarise", action="store_true", help="AI-summarise conversations that have no summary yet")
+    sp.add_argument("--learn", action="store_true", help="AI review of all summaries: what to change")
+    sp.add_argument("--limit", type=int, default=50)
+    sp.add_argument("--json", action="store_true")
+    sp = add("dashboard", cmd_dashboard, "write the insights dashboard as one HTML file")
+    sp.add_argument("--out")
+    sp.add_argument("--sample", action="store_true", help="use made-up data to see what it looks like")
     sp = add("serve", cmd_serve, "run the WhatsApp webhooks, the slow sender and the call audio stream")
     sp.add_argument("--host", default="0.0.0.0")
     sp.add_argument("--port", type=int, default=8090)

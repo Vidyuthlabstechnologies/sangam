@@ -101,6 +101,21 @@ def _offline_answer(purpose: str, messages: list[dict[str, Any]]) -> dict[str, A
             "call_brief": "Offline draft. Ask how they track attendance, spending and deliveries across sites today, then offer a 30-minute walkthrough.",
             "whatsapp_opener": "Namaste sir, this is the FieldOS team from ML Dynamic Solutions, Hyderabad. How does your team track site attendance and deliveries today: register, Excel or WhatsApp? We built an app for exactly this and would be glad to show you in 30 minutes.",
         }
+    if purpose == "insight_summary":
+        text = messages[-1]["content"].lower()
+        opted = "removed your number" in text or "won't get any more" in text
+        booked = "confirm that slot" in text or "walkthrough booked" in text
+        return {
+            "summary": "Offline summary (no AI key set): read the transcript for details.",
+            "interest": "hot" if booked else "none" if opted else "warm",
+            "sentiment": "negative" if opted else "neutral", "decision_maker": "unknown",
+            "current_method": "unknown", "competitors": [], "pains": [],
+            "objections": [], "why_ended": "opted_out" if opted else "booked_demo" if booked else "other",
+            "next_step": "", "agent_mistakes": [], "coaching_tip": "",
+        }
+    if purpose == "insight_learn":
+        return {"headline": "Offline review (no AI key set): set ANTHROPIC_API_KEY for real recommendations.",
+                "what_works": [], "what_hurts": [], "changes": []}
     turns = sum(1 for m in messages if m["role"] == "user" and not m["content"].startswith("["))
     script = [
         ("Thank you. How many sites are you running right now, and how do your supervisors report attendance and spending from them?", "continue"),

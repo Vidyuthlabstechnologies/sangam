@@ -93,6 +93,8 @@ class Settings:
     contact_hours: tuple[int, int] = (10, 19)
     contact_days: tuple[str, ...] = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
     dnd_max_age_days: int = 7
+    dashboard_token: str = ""
+    auto_summarise: bool = True
 
     @property
     def db_path(self) -> Path:
@@ -141,4 +143,6 @@ class Settings:
             contact_hours=_hours(env("CONTACT_HOURS_IST", "") or "10-19"),
             contact_days=days or ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat"),
             dnd_max_age_days=_int("DND_MAX_AGE_DAYS", 7),
+            dashboard_token=env("DASHBOARD_TOKEN", ""),
+            auto_summarise=env("AUTO_SUMMARISE", "1").strip() != "0",
         )

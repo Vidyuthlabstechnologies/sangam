@@ -79,6 +79,24 @@ CREATE TABLE IF NOT EXISTS wa_chats (
     ai_disclosed INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS call_insights (
+    key TEXT PRIMARY KEY,               -- "call:<touch id>" or "wa:<prospect id>"
+    prospect_id INTEGER REFERENCES prospects(id),
+    channel TEXT NOT NULL,
+    touch_id INTEGER,
+    source_count INTEGER NOT NULL DEFAULT 0,
+    data TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS insight_reports (
+    id INTEGER PRIMARY KEY,
+    data TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS meta (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS llm_usage (
     id INTEGER PRIMARY KEY,
     day TEXT NOT NULL, purpose TEXT,
@@ -222,12 +240,14 @@ class Store:
     # ---- log ---------------------------------------------------------------
     def log(self, channel: str, direction: str, *, prospect_id: int | None = None,
             phone: str | None = None, text: str | None = None,
-            outcome: str | None = None, meta: dict[str, Any] | None = None) -> None:
-        self.execute(
+            outcome: str | None = None, meta: dict[str, Any] | None = None,
+            at: datetime | None = None) -> int:
+        cur = self.execute(
             "INSERT INTO touches (prospect_id, channel, direction, phone, text, outcome, meta, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (prospect_id, channel, direction, phone, text, outcome,
-             json.dumps(meta or {}, ensure_ascii=False), iso()),
+             json.dumps(meta or {}, ensure_ascii=False), iso(at)),
         )
+        return int(cur.lastrowid or 0)
 
     def touches(self, prospect_id: int, channel: str | None = None) -> list[sqlite3.Row]:
         if channel:

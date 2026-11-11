@@ -81,6 +81,29 @@ Twilio instead: `WHATSAPP_GATEWAY=twilio`, the `TWILIO_*` values, `PUBLIC_BASE_U
 
 Only calls placed by `call` get the agent; any other stream is refused.
 
+## Insights dashboard
+
+Every finished call gets a short AI summary (about $0.001): why it ended, the problems and objections the prospect mentioned, how they track site work today, other apps they named, interest, the next step, and one coaching tip for the agent. WhatsApp chats get the same with `insights --summarise`.
+
+```bash
+python -m fieldos_sales dashboard --sample          # see it with made-up data first: data/insights-sample.html
+python -m fieldos_sales insights --summarise         # summarise anything not yet summarised, print the numbers
+python -m fieldos_sales insights --learn             # one AI review of all conversations: what to change
+python -m fieldos_sales dashboard                    # snapshot of your real data: data/insights.html
+```
+
+Live: set `DASHBOARD_TOKEN` in `.env`, run `serve`, open `http://localhost:8090/dashboard?token=...` (refreshes every minute). It shows:
+
+- **What to do next**: walkthroughs to confirm, callbacks, details to send, chats handed to you, hot leads.
+- **Funnel** from imported to walkthrough booked, and which segments and priorities convert.
+- **Calls**: answer rate, length, reply delay (target under 1.5 s), price-question rate, interruptions, the turn where people hang up, outcomes, language, and a best-time-to-call grid (IST).
+- **WhatsApp**: reply rate, follow-ups due, chats with you, blocked sends.
+- **What prospects say**: objections, problems, current tools, competitors, why conversations ended, agent mistakes.
+- **What to change**: the AI review and the latest coaching tips. It never suggests revealing pricing or hiding that the agent is an AI.
+- **Every conversation** with its transcript and summary, searchable; and **AI spend** by task and day.
+
+The page holds phone numbers and transcripts: keep the token secret and don't share snapshot files.
+
 ## Making calls feel natural
 
 See [CALL_PLAYBOOK.md](CALL_PLAYBOOK.md): what makes people hang up, what the agent does about it, and what to tune in the first week.

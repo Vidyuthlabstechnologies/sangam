@@ -6,6 +6,8 @@ Run:  python -m fieldos_sales serve      (listens on 0.0.0.0:8090)
   POST /wa/twilio               Twilio WhatsApp webhook (signature checked)
   WS   /exotel/stream?token=... Exotel Voicebot applet audio stream
   POST /exotel/status?token=... Exotel call status callback
+  GET  /dashboard?token=...     call and chat insights (DASHBOARD_TOKEN)
+  GET  /api/insights?token=...  the same as JSON
   GET  /health
 """
 from __future__ import annotations
@@ -20,6 +22,7 @@ import re
 import time
 from contextlib import asynccontextmanager
 from typing import Any
+from urllib.parse import quote
 
 from fastapi import (
     BackgroundTasks,
@@ -29,10 +32,13 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
 )
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from .audio import UtteranceDetector, chunks
 from .config import Settings
 from .conversation import Conversation
+from .dashboard import render as render_dashboard
+from .insights import compute
 from .llm import LLM, make_llm
 from .prospects import normalise_indian_phone
 from .store import Store
@@ -104,6 +110,26 @@ def create_app(settings: Settings | None = None, store: Store | None = None, llm
             background.add_task(handle_inbound, store, llm, settings, gateway, phone, text)
         return {"ok": True}
 
+    # ---- insights dashboard ------------------------------------------------
+    def _dashboard_auth(token: str) -> None:
+        if not settings.dashboard_token:
+            raise HTTPException(status_code=403, detail="Set DASHBOARD_TOKEN in .env to open the dashboard.")
+        if not _token_ok(settings.dashboard_token, token):
+            raise HTTPException(status_code=403)
+
+    @app.get("/dashboard", response_class=HTMLResponse)
+    async def dashboard(token: str = "") -> HTMLResponse:
+        _dashboard_auth(token)
+        data = await asyncio.to_thread(compute, store)
+        return HTMLResponse(render_dashboard(data, live_url=f"api/insights?token={quote(token)}"),
+                            headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer",
+                                     "X-Frame-Options": "DENY"})
+
+    @app.get("/api/insights")
+    async def insights_json(token: str = "") -> JSONResponse:
+        _dashboard_auth(token)
+        return JSONResponse(await asyncio.to_thread(compute, store), headers={"Cache-Control": "no-store"})
+
     # ---- phone calls -------------------------------------------------------
     @app.post("/exotel/status")
     async def exotel_status(request: Request, token: str = "") -> dict[str, bool]:
@@ -115,7 +141,8 @@ def create_app(settings: Settings | None = None, store: Store | None = None, llm
         if row:
             store.execute("UPDATE calls SET status = ? WHERE call_sid = ?", (form.get("Status", "unknown"), sid))
             store.log("call", "event", prospect_id=row["prospect_id"], phone=row["phone"],
-                      outcome=f"status:{form.get('Status', 'unknown')}", meta={"duration": form.get("ConversationDuration")})
+                      outcome=f"status:{form.get('Status', 'unknown')}",
+                      meta={"call_sid": sid, "duration": form.get("ConversationDuration")})
         return {"ok": True}
 
     @app.websocket("/exotel/stream")
@@ -165,6 +192,13 @@ class VoiceSession:
         self.last_activity = time.monotonic()
         self.prompted_silence = False
         self.done = asyncio.Event()
+        # Call metrics for the insights dashboard.
+        self.started_at = time.monotonic()
+        self.latencies_ms: list[int] = []
+        self.barge_ins = 0
+        self.silence_prompts = 0
+        self.languages: list[str] = []
+        self.ended_by = "caller"
 
     # ---- audio out ---------------------------------------------------------
     def playing(self) -> bool:
@@ -182,15 +216,23 @@ class VoiceSession:
         await self.send({"event": "mark", "stream_sid": self.stream_sid, "mark": {"name": f"g{generation}"}})
         self.play_until = max(self.play_until, time.monotonic()) + len(pcm) / 16000
 
-    async def say(self, text: str, language: str) -> None:
-        """Speak text sentence by sentence; all sentences render in parallel, play in order."""
+    async def say(self, text: str, language: str) -> float | None:
+        """Speak text sentence by sentence; all sentences render in parallel, play in order.
+
+        Returns when (monotonic) the first audio went out, for latency stats.
+        """
         generation = self.generation
+        first: float | None = None
         renders = [asyncio.create_task(self.speech.speak(sentence, language)) for sentence in split_sentences(text)]
         for render in renders:
             pcm = await render
             await self._send_audio(pcm, generation)
+            if first is None and pcm and generation == self.generation:
+                first = time.monotonic()
+        return first
 
     async def barge_in(self) -> None:
+        self.barge_ins += 1
         self.generation += 1
         self.play_until = 0.0
         await self.send({"event": "clear", "stream_sid": self.stream_sid})
@@ -237,16 +279,22 @@ class VoiceSession:
         convo = self.convo
         if len(pcm) / 16000 >= BACKCHANNEL_MIN_S and random.random() < 0.8:
             asyncio.create_task(self.say(convo.backchannel(), convo.language))
+        heard_at = time.monotonic()
         heard = await self.speech.transcribe(pcm)
         if not heard.text.strip():
             return
         if heard.language in ("en", "hi", "te"):
             convo.language = heard.language
+            self.languages.append(heard.language)
         turn = await asyncio.to_thread(convo.respond, heard.text)
-        await self.say(turn.say, turn.language)
+        first_audio = await self.say(turn.say, turn.language)
+        if first_audio is not None:
+            # What the caller feels: our end-of-turn wait plus STT, thinking and the first sentence's TTS.
+            self.latencies_ms.append(int((first_audio - heard_at) * 1000) + self.settings.end_of_turn_ms)
         self.prompted_silence = False
         self.last_activity = time.monotonic()
         if turn.end:
+            self.ended_by = "agent"
             await asyncio.sleep(max(0.0, self.play_until - time.monotonic()) + 0.6)
             self.done.set()
 
@@ -273,6 +321,7 @@ class VoiceSession:
         if (idle > SILENCE_PROMPT_S and not self.prompted_silence and not self.playing()
                 and not (self.task and not self.task.done()) and self.convo):
             self.prompted_silence = True
+            self.silence_prompts += 1
             self.last_activity = time.monotonic()
             asyncio.create_task(self.say(STILL_THERE[self.convo.language], self.convo.language))
 
@@ -295,14 +344,41 @@ class VoiceSession:
         except WebSocketDisconnect:
             pass
         except Exception:
+            self.ended_by = "error"
             log.exception("voice session failed")
         finally:
             if self.task and not self.task.done():
                 self.task.cancel()
+            touch_id = None
             if self.convo and self.call_row:
-                self.store.log("call", "transcript", prospect_id=self.call_row["prospect_id"], phone=self.call_row["phone"],
-                               text=self.convo.transcript(), outcome=self.convo.outcome or "ended")
+                touch_id = self.store.log("call", "transcript", prospect_id=self.call_row["prospect_id"],
+                                          phone=self.call_row["phone"], text=self.convo.transcript(),
+                                          outcome=self.convo.outcome or "ended", meta=self.metrics())
             try:
                 await self.ws.close()
-            except Exception:  # noqa: BLE001 - the socket may already be gone
+            except Exception:
                 log.debug("socket already closed")
+            if touch_id and self.settings.auto_summarise:
+                from .insights import summarise_call
+                try:
+                    await asyncio.to_thread(summarise_call, self.store, self.llm, touch_id)
+                except Exception:
+                    log.exception("call summary failed (run `insights --summarise` later)")
+
+    def metrics(self) -> dict[str, Any]:
+        convo = self.convo
+        lat = sorted(self.latencies_ms)
+        prospect_turns = sum(1 for m in convo.history if m["role"] == "user") if convo else 0
+        return {
+            "call_sid": self.call_row["call_sid"] if self.call_row else None,
+            "duration_s": round(time.monotonic() - self.started_at, 1),
+            "prospect_turns": prospect_turns,
+            "price_asks": convo.price_asks if convo else 0,
+            "language": convo.language if convo else "en",
+            "languages": sorted(set(self.languages)),
+            "latency_ms_avg": int(sum(lat) / len(lat)) if lat else None,
+            "latency_ms_p90": lat[min(len(lat) - 1, int(len(lat) * 0.9))] if lat else None,
+            "barge_ins": self.barge_ins,
+            "silence_prompts": self.silence_prompts,
+            "ended_by": self.ended_by if not (convo and convo.outcome) else "agent",
+        }
