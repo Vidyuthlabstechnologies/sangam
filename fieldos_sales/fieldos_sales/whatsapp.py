@@ -169,7 +169,7 @@ def queue_openers(store: Store, prospect_ids: list[int]) -> list[str]:
             report.append(f"{pid} {p['firm']}: no mobile number")
         elif guardrails.check_outbound(text):
             report.append(f"{pid} {p['firm']}: draft fails the pricing check; rewrite it")
-        elif store.one("SELECT 1 FROM wa_outbox WHERE prospect_id = ? AND kind = 'opener'", (pid,)):
+        elif store.one("SELECT 1 FROM wa_outbox WHERE prospect_id = ? AND kind = 'opener'", (pid,)) and p.get("source") != "self-test":
             report.append(f"{pid} {p['firm']}: opener already queued or sent")
         else:
             store.execute("INSERT INTO wa_outbox (prospect_id, phone, text, kind, created_at) VALUES (?, ?, ?, 'opener', ?)",

@@ -78,6 +78,11 @@ def can_contact(store: Store, settings: Settings, prospect: dict, phone: str, ch
     if store.is_suppressed(phone):
         reasons.append("number opted out")
 
+    if _self_test(settings, prospect, phone):
+        # Your own phone (TEST_NUMBERS): skip hours, DND scrub, frequency and caps. Live mode,
+        # approval and opt-out above still apply.
+        return Decision(ok=not reasons, reasons=reasons)
+
     dnd = store.dnd(phone)
     if dnd is not None and dnd["registered"]:
         reasons.append("number is on the DND / NCPR register")
@@ -127,6 +132,11 @@ def can_contact(store: Store, settings: Settings, prospect: dict, phone: str, ch
             reasons.append(f"daily new-chat cap reached ({settings.wa_new_chats_per_day})")
 
     return Decision(ok=not reasons, reasons=reasons)
+
+
+def _self_test(settings: Settings, prospect: dict, phone: str) -> bool:
+    from .selftest import is_test
+    return is_test(settings, prospect, phone)
 
 
 def import_dnd_csv(store: Store, path: Path, checked_at: datetime | None = None) -> tuple[int, int]:

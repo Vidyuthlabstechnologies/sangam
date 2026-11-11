@@ -183,15 +183,16 @@ def _pct(a: float, b: float) -> float | None:
 
 def compute(store: Store, now: datetime | None = None, transcripts: int = 150) -> dict[str, Any]:
     now = now or utcnow()
-    firms = {p["id"]: p for p in store.prospects()}
+    tests = {r["id"] for r in store.all("SELECT id FROM prospects WHERE source = 'self-test'")}  # your own phone
+    firms = {p["id"]: p for p in store.prospects() if p["id"] not in tests}
     summaries = {r["key"]: {**json.loads(r["data"]), "_prospect_id": r["prospect_id"], "_channel": r["channel"]}
-                 for r in store.all("SELECT * FROM call_insights")}
-    touches = store.all("SELECT * FROM touches ORDER BY id")
+                 for r in store.all("SELECT * FROM call_insights") if r["prospect_id"] not in tests}
+    touches = [t for t in store.all("SELECT * FROM touches ORDER BY id") if t["prospect_id"] not in tests]
     events = [t for t in touches if t["direction"] == "event" and t["outcome"] and not t["outcome"].startswith("status:")]
     call_transcripts = [t for t in touches if t["channel"] == "call" and t["direction"] == "transcript"]
     dials = [t for t in touches if t["channel"] == "call" and t["direction"] == "out" and t["outcome"] == "dialled"]
     wa_in = [t for t in touches if t["channel"] == "whatsapp" and t["direction"] == "in"]
-    wa_sent = store.all("SELECT * FROM wa_outbox WHERE status = 'sent'")
+    wa_sent = [r for r in store.all("SELECT * FROM wa_outbox WHERE status = 'sent'") if r["prospect_id"] not in tests]
     call_status = {r["call_sid"]: r["status"] for r in store.all("SELECT call_sid, status FROM calls")}
     q = lambda sql, p=(): store.one(sql, p)[0]
 
@@ -206,7 +207,7 @@ def compute(store: Store, now: datetime | None = None, transcripts: int = 150) -
     demo_p = {e["prospect_id"] for e in events if e["outcome"] == "demo_booked"}
 
     funnel = [
-        {"stage": "Imported", "n": len(firms)},
+        {"stage": "Imported", "n": len(firms)},  # self-test firms excluded
         {"stage": "Researched", "n": q("SELECT COUNT(*) FROM profiles")},
         {"stage": "Drafts written", "n": q("SELECT COUNT(DISTINCT prospect_id) FROM drafts")},
         {"stage": "Approved by you", "n": q("SELECT COUNT(DISTINCT prospect_id) FROM approvals")},

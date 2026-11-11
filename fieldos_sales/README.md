@@ -60,6 +60,16 @@ python -m fieldos_sales status
 
 Nothing above contacts anyone.
 
+## Test on your own phone first
+
+```bash
+# .env: TEST_NUMBERS=<your number>, plus ANTHROPIC_API_KEY (and SARVAM_API_KEY for calls)
+python -m fieldos_sales selftest add --phone <your number> --name <your first name>   # pretend firm on your number
+python -m fieldos_sales simulate 9001                       # talk to it in the terminal
+```
+
+A self-test firm skips contact hours, the DND scrub and the call limits, so you can test at any time and repeat it. Live mode, the pricing filter, the AI disclosure and STOP still work exactly as for prospects. It is left out of the dashboard. `selftest reset` clears its history (including a STOP you sent) so you can go again. For the real WhatsApp and call tests, follow the two sections below with `--ids 9001`.
+
 ## Going live with WhatsApp (WAHA)
 
 1. In `.env`: `WHATSAPP_GATEWAY=waha`, a long random `WAHA_API_KEY` and `WA_WEBHOOK_TOKEN`, your own number in `OWNER_NOTIFY_NUMBER`.

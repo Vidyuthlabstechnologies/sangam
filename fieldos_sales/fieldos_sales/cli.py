@@ -262,6 +262,31 @@ def cmd_prepare(args, settings, store):
     print("Nothing was sent. Read the review file, then approve the firms you like.")
 
 
+def cmd_selftest(args, settings, store):
+    from . import selftest
+    if args.action == "reset":
+        print(f"Cleared the history of {selftest.reset(store)} test firm(s). You can test again.")
+        return
+    if not args.phone:
+        sys.exit("selftest add needs --phone (your own number, also listed in TEST_NUMBERS)")
+    try:
+        pid = selftest.add(store, settings, make_llm(settings, store), args.phone, firm=args.firm,
+                           contact_name=args.name or "", language=args.lang)
+    except ValueError as e:
+        sys.exit(str(e))
+    print(f"Test firm {pid} ready on {store.prospect(pid)['phones'][0]} (drafted and approved).\n")
+    print("WhatsApp opener:\n  " + (store.draft(pid, "wa_opener") or ""))
+    print(f"""
+Next:
+  python -m fieldos_sales simulate {pid}                     # rehearse in the terminal, no phone
+  python -m fieldos_sales simulate {pid} --channel whatsapp
+  # real test (FIELDOS_SALES_LIVE=1 and `serve` running in another window):
+  python -m fieldos_sales wa-queue --ids {pid}               # opener to your WhatsApp within a minute or so
+  python -m fieldos_sales call {pid}                         # the AI calls your phone (Exotel set up)
+  python -m fieldos_sales show {pid}                         # what happened
+  python -m fieldos_sales selftest reset                     # clear it and test again""")
+
+
 def cmd_insights(args, settings, store):
     from .insights import compute, learn, summarise_pending, text_report
     if args.summarise or args.learn:
@@ -345,6 +370,12 @@ def main(argv: list[str] | None = None) -> None:
     add("wa-preview", cmd_wa_preview, "show the next message the sender would send, and whether it may")
     add("status", cmd_status, "counts, outcomes and AI spend")
     add("prepare", cmd_prepare, "research + pitch + review file for all selected firms (contacts nobody)", select=True).add_argument("--out")
+    sp = add("selftest", cmd_selftest, "make a test firm on your own number (TEST_NUMBERS) to try calls and WhatsApp")
+    sp.add_argument("action", choices=["add", "reset"])
+    sp.add_argument("--phone")
+    sp.add_argument("--firm", default="Test Builders (you)")
+    sp.add_argument("--name", help="your first name, used in the greeting")
+    sp.add_argument("--lang", choices=["en", "hi", "te"], default="en")
     sp = add("insights", cmd_insights, "call and chat insights in the terminal; --summarise / --learn use the AI")
     sp.add_argument("--summarise", action="store_true", help="AI-summarise conversations that have no summary yet")
     sp.add_argument("--learn", action="store_true", help="AI review of all summaries: what to change")

@@ -200,7 +200,7 @@ class Conversation:
     def opening(self, now: datetime | None = None) -> str:
         lang = self.language
         hour = (now or datetime.now(UTC)).astimezone(IST).hour
-        greet = "Good morning" if hour < 12 else "Good afternoon" if hour < 17 else "Good evening"
+        greet = "Good morning" if 5 <= hour < 12 else "Good afternoon" if 12 <= hour < 17 else "Good evening"
         contact = (self.prospect.get("contact_name") or "").strip().split(" ")[0]
         honorific = {"en": " ji", "hi": " जी", "te": " గారు"}[lang]
         name = f" {contact}{honorific}" if contact else {"en": "", "hi": " जी", "te": " అండి"}[lang]

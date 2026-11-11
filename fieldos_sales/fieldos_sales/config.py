@@ -39,6 +39,11 @@ def _float(name: str, default: float) -> float:
         return default
 
 
+def _test_numbers(value: str) -> tuple[str, ...]:
+    from .prospects import normalise_indian_phone
+    return tuple(n for n in (normalise_indian_phone(v) for v in value.split(",") if v.strip()) if n)
+
+
 def _hours(value: str) -> tuple[int, int]:
     try:
         start, end = value.split("-", 1)
@@ -98,6 +103,8 @@ class Settings:
     voice_variants: tuple[str, ...] = ()
     # Experimental: stream TTS audio (Sarvam /text-to-speech/stream) so the first words play sooner.
     tts_stream: bool = False
+    # Your own numbers, for `selftest`. Test firms skip hours/DND/frequency checks; nothing else.
+    test_numbers: tuple[str, ...] = ()
     dnd_max_age_days: int = 7
     dashboard_token: str = ""
     auto_summarise: bool = True
@@ -156,6 +163,7 @@ class Settings:
             call_days=call_days or ("Mon", "Tue", "Wed", "Thu", "Fri"),
             voice_variants=tuple(v.strip() for v in env("VOICE_VARIANTS", "").split(",") if "/" in v),
             tts_stream=env("SARVAM_TTS_STREAM", "0").strip() == "1",
+            test_numbers=_test_numbers(env("TEST_NUMBERS", "")),
             dnd_max_age_days=_int("DND_MAX_AGE_DAYS", 7),
             dashboard_token=env("DASHBOARD_TOKEN", ""),
             auto_summarise=env("AUTO_SUMMARISE", "1").strip() != "0",
