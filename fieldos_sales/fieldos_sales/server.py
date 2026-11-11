@@ -41,6 +41,7 @@ from .dashboard import render as render_dashboard
 from .insights import compute
 from .llm import LLM, make_llm
 from .prospects import normalise_indian_phone
+from .scheduler import scheduler_loop
 from .store import Store
 from .telephony import Speech
 from .whatsapp import (
@@ -70,10 +71,11 @@ def create_app(settings: Settings | None = None, store: Store | None = None, llm
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        task = asyncio.create_task(sender_loop(store, settings, gateway, stop)) if run_sender else None
+        tasks = [asyncio.create_task(sender_loop(store, settings, gateway, stop)),
+                 asyncio.create_task(scheduler_loop(store, settings, stop))] if run_sender else []
         yield
         stop.set()
-        if task:
+        for task in tasks:
             await task
 
     app = FastAPI(title="FieldOS sales agents", lifespan=lifespan)

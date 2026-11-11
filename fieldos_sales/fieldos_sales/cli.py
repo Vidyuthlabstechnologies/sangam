@@ -287,6 +287,20 @@ Next:
   python -m fieldos_sales selftest reset                     # clear it and test again""")
 
 
+def cmd_schedule_calls(args, settings, store):
+    from .scheduler import cancel_all, plan_calls
+    if args.cancel:
+        print(f"Cancelled {cancel_all(store)} scheduled calls.")
+        return
+    from datetime import date
+    start = date.fromisoformat(args.start) if args.start else None
+    planned = plan_calls(store, settings, _select(store, args), start=start, per_day=args.per_day)
+    for p in planned:
+        print(f"{p['slot']:%a %d %b %H:%M}  {p['prospect_id']:>5}  {p['firm'][:40]:40} {p['phone']}")
+    print(f"\nScheduled {len(planned)} calls. Each one is checked again at its slot (live mode, your approval, "
+          "DND scrub, opt-out, hours, limits) and dialled only if every check passes. `serve` must be running.")
+
+
 def cmd_insights(args, settings, store):
     from .insights import compute, learn, summarise_pending, text_report
     if args.summarise or args.learn:
@@ -376,6 +390,10 @@ def main(argv: list[str] | None = None) -> None:
     sp.add_argument("--firm", default="Test Builders (you)")
     sp.add_argument("--name", help="your first name, used in the greeting")
     sp.add_argument("--lang", choices=["en", "hi", "te"], default="en")
+    sp = add("schedule-calls", cmd_schedule_calls, "plan AI calls over the coming weekdays (best hours, best-fit firms first)", select=True)
+    sp.add_argument("--start", help="first day, YYYY-MM-DD (default tomorrow)")
+    sp.add_argument("--per-day", type=int)
+    sp.add_argument("--cancel", action="store_true", help="cancel every call not yet dialled")
     sp = add("insights", cmd_insights, "call and chat insights in the terminal; --summarise / --learn use the AI")
     sp.add_argument("--summarise", action="store_true", help="AI-summarise conversations that have no summary yet")
     sp.add_argument("--learn", action="store_true", help="AI review of all summaries: what to change")

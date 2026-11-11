@@ -93,6 +93,8 @@ Twilio instead: `WHATSAPP_GATEWAY=twilio`, the `TWILIO_*` values, `PUBLIC_BASE_U
 
 Only calls placed by `call` get the agent; any other stream is refused.
 
+**Scheduling calls**: `python -m fieldos_sales schedule-calls --priority A` (or `--ids`, `--limit`) spreads the chosen firms over the coming weekdays in the best answer hours (11:00 to 13:00 and 15:30 to 18:00 IST), best-fit firms and mobiles first, at most `CALLS_PER_DAY` a day. Firms with no phone or only opted-out numbers are left out. While `serve` runs live with Exotel set up, it dials the calls that are due one at a time and checks every rule again at that moment: a call outside hours, or over a daily cap moves to the next slot, and a call to an opted-out, DND, unscrubbed or unapproved number is skipped. Nothing dials in dry-run mode. `schedule-calls --cancel` drops every call not yet dialled. Load both city lists first with `import` (Bangalore firms use ids from 1001).
+
 **Testing voices**: set `VOICE_VARIANTS=bulbul:v3/priya,bulbul:v4-flash/simran_hi_sales` and each new call gets the voice with fewer calls so far. The dashboard's "Voice test" table compares length, first-turn hang-ups, positive outcomes and walkthroughs per voice; keep the winner after about 30 calls each.
 
 **Faster replies**: speech is streamed from Sarvam as it is made (`SARVAM_TTS_STREAM=1`, the default). Measured against the live API on 2026-11-12: the first audio arrives in about 0.5 s instead of 1.1 to 3.4 s for a whole sentence, in English, Hindi and Telugu. Any streaming error falls back to the normal request; set `SARVAM_TTS_STREAM=0` to turn it off.
