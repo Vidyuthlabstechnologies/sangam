@@ -85,7 +85,7 @@ def build(store: Store, seed: int = 7, now: datetime | None = None) -> None:
                     "latency_ms_avg": int(sum(lat) / len(lat)), "latency_ms_p90": max(lat),
                     "barge_ins": rng.choice([0, 0, 1, 2]), "silence_prompts": int(rng.random() < 0.15),
                     "ended_by": "caller" if outcome == "ended" else "agent",
-                    "voice": "bulbul:v3/anushka" if sid % 2 else "bulbul:v4-flash/simran_en_sales"}
+                    "voice": "bulbul:v3/priya" if sid % 2 else "bulbul:v4-flash/simran_hi_sales"}
             end_at = at + timedelta(seconds=meta["duration_s"])
             tid = store.log("call", "transcript", prospect_id=pid, phone=phone, text="\n".join(lines), outcome=outcome,
                             meta=meta, at=end_at)

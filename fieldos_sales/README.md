@@ -29,7 +29,7 @@ It lives in the sangam repo because it reuses sangam's Sarvam integration patter
 - **Unofficial WhatsApp (WAHA) can get the number banned.** WhatsApp bans numbers that message many strangers. Use a separate SIM, not your main business number, warm it up with normal chats for a week or two, keep the daily cap low (start with 5 to 10), and only message firms you approved. Twilio (official) avoids bans but cold first messages need a Meta-approved template.
 - **AI cold calls in India must follow TRAI's commercial communication rules.** Promotional calls are meant to come from a registered telemarketer on DLT using the 140-series, after scrubbing against the NCPR (DND) register. TRAI has been disconnecting and blacklisting unregistered 10-digit numbers used for promotional calls. Ask Exotel (or your provider) to set up a compliant number and DND scrubbing before the first real call. This guide is not legal advice.
 - **Personal data (DPDP Act 2023):** the phone numbers came from firms' public websites. Keep the opt-out list, delete a person's data when asked, and don't buy or scrape personal mobile lists.
-- **Not yet tested against the live services from here**: no API keys were available while building, so the Claude answers, the Exotel call stream and the WAHA endpoints are covered by offline tests only. Do the first-run checks below on your own numbers before any prospect.
+- **Partly tested against the live services**: Sarvam speech (text-to-speech, streaming, speech-to-text in English, Hindi and Telugu) was checked against the live API. The Claude answers, the Exotel call stream and the WAHA endpoints are covered by offline tests only. Do the first-run checks below on your own numbers before any prospect.
 
 ## Setup
 
@@ -93,9 +93,9 @@ Twilio instead: `WHATSAPP_GATEWAY=twilio`, the `TWILIO_*` values, `PUBLIC_BASE_U
 
 Only calls placed by `call` get the agent; any other stream is refused.
 
-**Testing voices**: set `VOICE_VARIANTS=bulbul:v3/anushka,bulbul:v4-flash/simran_en_sales` and each new call gets the voice with fewer calls so far. The dashboard's "Voice test" table compares length, first-turn hang-ups, positive outcomes and walkthroughs per voice; keep the winner after about 30 calls each.
+**Testing voices**: set `VOICE_VARIANTS=bulbul:v3/priya,bulbul:v4-flash/simran_hi_sales` and each new call gets the voice with fewer calls so far. The dashboard's "Voice test" table compares length, first-turn hang-ups, positive outcomes and walkthroughs per voice; keep the winner after about 30 calls each.
 
-**Faster replies (experimental)**: `SARVAM_TTS_STREAM=1` streams each sentence's audio from Sarvam as it is made, so the caller hears the first words sooner. Any streaming error falls back to the normal request. Check the reply delay on the dashboard on your own test calls before and after turning it on.
+**Faster replies**: speech is streamed from Sarvam as it is made (`SARVAM_TTS_STREAM=1`, the default). Measured against the live API on 2026-11-12: the first audio arrives in about 0.5 s instead of 1.1 to 3.4 s for a whole sentence, in English, Hindi and Telugu. Any streaming error falls back to the normal request; set `SARVAM_TTS_STREAM=0` to turn it off.
 
 ## Insights dashboard
 

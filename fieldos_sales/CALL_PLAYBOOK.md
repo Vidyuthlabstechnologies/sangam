@@ -29,7 +29,7 @@ Making it indistinguishable from a person is not the goal. It must disclose that
 
 ## Worth testing in the first week (on your own phones first)
 
-- **Voice**: try two Sarvam voices with `VOICE_VARIANTS` and keep the one with more booked walkthroughs (dashboard "Voice test" table). Sarvam suggests `bulbul:v4-flash` with `simran_en_sales` (English) or `aparna_hi_customer` (Hindi) for sales calls: set `SARVAM_TTS_MODEL` and `SARVAM_SPEAKER` and check it on a test call. The current default (`bulbul:v3`, `anushka`) is what sangam already uses live.
+- **Voice**: try two Sarvam voices with `VOICE_VARIANTS` and keep the one with more booked walkthroughs (dashboard "Voice test" table). The default is `bulbul:v3` with `priya` (multilingual, and it matches the agent's name). A good second voice is `bulbul:v4-flash/simran_hi_sales`, a Hindi sales style that also reads English and Telugu cleanly (checked 2026-11-12). `anushka` no longer works with bulbul:v3, and bulbul:v2 is retired.
 - **Pace**: `VOICE_PACE=1.05` (brisk but clear). Try 1.0 to 1.1.
 - **When to call**: owners are usually reachable late morning (11 to 1) and late afternoon (3:30 to 6). Avoid Monday mornings and lunch. Calls already skip Saturdays (wage day on most sites) through `CALL_DAYS=Mon,Tue,Wed,Thu,Fri`; the dashboard's best-time grid shows which hours actually get answered.
 - **End-of-turn wait**: if it cuts people off mid-sentence, raise `END_OF_TURN_MS` to 800; if it feels slow, try 550.

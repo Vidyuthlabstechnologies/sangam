@@ -65,7 +65,7 @@ class Settings:
     llm_daily_budget_usd: float = 1.0
 
     sarvam_api_key: str = ""
-    sarvam_speaker: str = "anushka"
+    sarvam_speaker: str = "priya"
     sarvam_tts_model: str = "bulbul:v3"
     agent_name: str = "Priya"
     agent_gender: str = "f"
@@ -101,8 +101,8 @@ class Settings:
     call_days: tuple[str, ...] = ("Mon", "Tue", "Wed", "Thu", "Fri")
     # Voice A/B test: "model/speaker" entries, comma separated. Empty = one voice (sarvam_tts_model/sarvam_speaker).
     voice_variants: tuple[str, ...] = ()
-    # Experimental: stream TTS audio (Sarvam /text-to-speech/stream) so the first words play sooner.
-    tts_stream: bool = False
+    # Stream TTS audio (Sarvam /text-to-speech/stream): first words in ~0.5 s instead of 1-3 s.
+    tts_stream: bool = True
     # Your own numbers, for `selftest`. Test firms skip hours/DND/frequency checks; nothing else.
     test_numbers: tuple[str, ...] = ()
     dnd_max_age_days: int = 7
@@ -127,11 +127,11 @@ class Settings:
         return cls(
             data_dir=data_dir,
             live=env("FIELDOS_SALES_LIVE", "0").strip() == "1",
-            anthropic_api_key=env("ANTHROPIC_API_KEY", ""),
+            anthropic_api_key=env("ANTHROPIC_API_KEY", "") or env("ANTHROPIC_KEY", ""),
             model=env("SALES_MODEL", "") or "claude-haiku-5-5",
             llm_daily_budget_usd=_float("LLM_DAILY_BUDGET_USD", 1.0),
             sarvam_api_key=env("SARVAM_API_KEY", ""),
-            sarvam_speaker=env("SARVAM_SPEAKER", "") or "anushka",
+            sarvam_speaker=env("SARVAM_SPEAKER", "") or "priya",
             sarvam_tts_model=env("SARVAM_TTS_MODEL", "") or "bulbul:v3",
             agent_name=env("AGENT_NAME", "") or "Priya",
             agent_gender=(env("AGENT_GENDER", "") or "f").lower()[:1],
@@ -162,7 +162,7 @@ class Settings:
             contact_days=days or ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat"),
             call_days=call_days or ("Mon", "Tue", "Wed", "Thu", "Fri"),
             voice_variants=tuple(v.strip() for v in env("VOICE_VARIANTS", "").split(",") if "/" in v),
-            tts_stream=env("SARVAM_TTS_STREAM", "0").strip() == "1",
+            tts_stream=env("SARVAM_TTS_STREAM", "1").strip() != "0",
             test_numbers=_test_numbers(env("TEST_NUMBERS", "")),
             dnd_max_age_days=_int("DND_MAX_AGE_DAYS", 7),
             dashboard_token=env("DASHBOARD_TOKEN", ""),

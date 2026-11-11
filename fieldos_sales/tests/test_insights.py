@@ -145,15 +145,15 @@ def test_finished_call_records_metrics_and_gets_summarised():
 
 def test_voice_ab_test_alternates_and_is_compared():
     from fieldos_sales.server import pick_voice
-    s, st = make(voice_variants=("bulbul:v3/anushka", "bulbul:v4-flash/simran_en_sales"))
-    assert pick_voice(st, s) == "bulbul:v3/anushka"
+    s, st = make(voice_variants=("bulbul:v3/priya", "bulbul:v4-flash/simran_hi_sales"))
+    assert pick_voice(st, s) == "bulbul:v3/priya"
     st.log("call", "transcript", prospect_id=1, phone=MOBILE, text="AI: hi", outcome="ended",
-           meta={"voice": "bulbul:v3/anushka", "prospect_turns": 0})
-    assert pick_voice(st, s) == "bulbul:v4-flash/simran_en_sales"
+           meta={"voice": "bulbul:v3/priya", "prospect_turns": 0})
+    assert pick_voice(st, s) == "bulbul:v4-flash/simran_hi_sales"
     voices = compute(st)["voices"]
-    assert voices[0]["name"] == "bulbul:v3/anushka" and voices[0]["early_hangup_rate"] == 100.0
+    assert voices[0]["name"] == "bulbul:v3/priya" and voices[0]["early_hangup_rate"] == 100.0
     single, _ = make()
-    assert pick_voice(st, single) == "bulbul:v3/anushka"
+    assert pick_voice(st, single) == "bulbul:v3/priya"
 
 
 def test_no_calls_on_saturday_but_whatsapp_ok():
@@ -214,7 +214,7 @@ def test_tts_streaming_yields_whole_samples_and_falls_back():
     from fieldos_sales.telephony import Speech
 
     async def collect(speech):
-        return [c async for c in speech.speak_stream("Namaste ji.", "hi", "bulbul:v3/anushka")]
+        return [c async for c in speech.speak_stream("Namaste ji.", "hi", "bulbul:v3/priya")]
 
     s, _ = make(tts_stream=True, sarvam_api_key="k")
     client = StreamClient()
