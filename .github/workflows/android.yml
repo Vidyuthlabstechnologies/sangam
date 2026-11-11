@@ -192,8 +192,12 @@ jobs:
         id: play
         env:
           PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          TRACK: ${{ github.event.inputs.play_track || 'internal' }}
+          EVENT: ${{ github.event_name }}
+          INPUT_TRACK: ${{ github.event.inputs.play_track }}
         run: |
+          # A manual run uses the track as typed, so an empty track builds only.
+          # A tag push uploads to internal.
+          if [ "$EVENT" = "workflow_dispatch" ]; then TRACK="$INPUT_TRACK"; else TRACK="internal"; fi
           if [ -n "$PLAY_SERVICE_ACCOUNT_JSON" ] && [ -n "$TRACK" ]; then
             echo "upload=true" >> "$GITHUB_OUTPUT"
             echo "track=$TRACK" >> "$GITHUB_OUTPUT"
