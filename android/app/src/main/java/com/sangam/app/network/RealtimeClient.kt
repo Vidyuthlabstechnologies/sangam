@@ -133,7 +133,7 @@ object RealtimeClient {
         }
     }
 
-    private suspend fun currentToken(): String? = FirebaseSession.idToken() ?: TokenManager.getToken()
+    private suspend fun currentToken(): String? = FirebaseSession.idToken()
 
     fun stop() {
         disconnect()

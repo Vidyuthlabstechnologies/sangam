@@ -331,6 +331,11 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                                         FirebaseSession.signUpWithEmail(cleanName, cleanEmail, password)
                                     }
                                     finishSignIn(result, "password")
+                                } catch (e: FirebaseSession.VerificationPending) {
+                                    // Show the sign-in form so the user can sign in after tapping the link.
+                                    isLogin = true
+                                    password = ""
+                                    error = e.message
                                 } catch (e: Exception) {
                                     error = e.message ?: "Sign-in failed. Please try again."
                                 } finally {

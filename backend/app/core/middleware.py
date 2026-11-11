@@ -72,19 +72,35 @@ class MetricsMiddleware(BaseHTTPMiddleware):
             HTTP_LATENCY.labels(request.method, path).observe(time.perf_counter() - start)
 
 
+def client_ip(request: Request) -> str:
+    """The client address for rate limiting, read so a client cannot choose it.
+
+    With ``client_ip_forwarded_hop`` set, take that entry counted from the
+    right of X-Forwarded-For, which the trusted proxy wrote. Never the left
+    end: a client can put any address there.
+    """
+    hop = settings.client_ip_forwarded_hop
+    if hop > 0:
+        raw = ",".join(request.headers.getlist("x-forwarded-for"))
+        hops = [h.strip() for h in raw.split(",") if h.strip()]
+        if len(hops) >= hop:
+            return hops[-hop]
+    return request.client.host if request.client else "unknown"
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable):
         if not settings.rate_limit_enabled:
             return await call_next(request)
         if request.url.path in _SKIP_LIMITS:
             return await call_next(request)
-        client_ip = request.client.host if request.client else "unknown"
+        ip = client_ip(request)
         path = request.url.path
         is_ai = any(path.startswith(p) for p in AI_PATHS)
         limit = settings.rate_limit_per_minute_ai if is_ai else settings.rate_limit_per_minute
         limiter = await request_limiter()
         # The key is not logged. Redis shares it across replicas when configured.
-        allowed = await limiter.allow(f"{client_ip}:{path}", limit, 60)
+        allowed = await limiter.allow(f"{ip}:{path}", limit, 60)
         if not allowed:
             return JSONResponse(
                 status_code=429,

@@ -25,14 +25,6 @@ android {
             val escaped = value.replace("\\", "\\\\").replace("\"", "\\\"")
             return "\"$escaped\""
         }
-        val zitadelIssuer = (project.findProperty("ZITADEL_ISSUER") as String?)
-            ?: System.getenv("ZITADEL_ISSUER")
-            ?: ""
-        val zitadelClientId = (project.findProperty("ZITADEL_CLIENT_ID") as String?)
-            ?: System.getenv("ZITADEL_CLIENT_ID")
-            ?: ""
-        buildConfigField("String", "ZITADEL_ISSUER", buildConfigString(zitadelIssuer))
-        buildConfigField("String", "ZITADEL_CLIENT_ID", buildConfigString(zitadelClientId))
         // Optional fallback for Google Sign-In. Normally read from
         // default_web_client_id, which google-services.json provides once
         // Google is enabled as a Firebase Authentication provider.
@@ -54,7 +46,6 @@ android {
         buildConfigField("String", "PRIVACY_POLICY_URL", buildConfigString(urlSetting("PRIVACY_POLICY_URL")))
         buildConfigField("String", "TERMS_URL", buildConfigString(urlSetting("TERMS_URL")))
         buildConfigField("String", "ACCOUNT_DELETION_URL", buildConfigString(urlSetting("ACCOUNT_DELETION_URL")))
-        manifestPlaceholders["appAuthRedirectScheme"] = "com.sangam.app"
     }
 
     val releaseStorePassword = (project.findProperty("SANGAM_KEYSTORE_PASSWORD") as String?)
@@ -199,9 +190,6 @@ dependencies {
     // Core
     implementation("androidx.core:core-ktx:1.15.0")
 
-    // Zitadel authorization code + PKCE in Custom Tabs. No client secret.
-    implementation("net.openid:appauth:0.11.1")
-    implementation("androidx.browser:browser:1.8.0")
 
     // Encrypted token store. EncryptedSharedPreferences is deprecated; the call sites
     // read the JWT synchronously from an OkHttp interceptor, so DataStore would need

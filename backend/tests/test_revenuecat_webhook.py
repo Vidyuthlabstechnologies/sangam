@@ -150,3 +150,56 @@ async def test_sandbox_purchases_can_be_switched_off(client, monkeypatch):
     actor_id, headers = await _signed_in_actor(client)
     resp = await _post(client, _event(actor_id, "vyapar:monthly", environment="SANDBOX"))
     assert resp.json()["status"] == "ignored"
+
+
+def _refund(app_user_id: str, product_id: str, txn: str, *, reason: str = "CUSTOMER_SUPPORT") -> dict:
+    payload = _event(app_user_id, product_id, type_="CANCELLATION", txn=txn)
+    payload["event"]["cancel_reason"] = reason
+    return payload
+
+
+@pytest.mark.asyncio
+async def test_refunded_topup_takes_the_credit_back_once(client):
+    actor_id, headers = await _signed_in_actor(client)
+    await _post(client, _event(actor_id, "pilot", type_="NON_RENEWING_PURCHASE"))
+    before = (await _wallet(client, headers))["call_balance_inr"]
+    txn = f"GPA.{uuid.uuid4().hex[:20]}"
+    await _post(client, _event(actor_id, "topup_500", type_="NON_RENEWING_PURCHASE", txn=txn))
+    assert (await _wallet(client, headers))["call_balance_inr"] > before
+
+    first = await _post(client, _refund(actor_id, "topup_500", txn))
+    assert first.status_code == 200, first.text
+    assert first.json()["status"] == "reversed"
+    assert (await _wallet(client, headers))["call_balance_inr"] == before
+
+    again = await _post(client, _refund(actor_id, "topup_500", txn))
+    assert again.json()["status"] == "already_reversed"
+    assert (await _wallet(client, headers))["call_balance_inr"] == before
+
+
+@pytest.mark.asyncio
+async def test_refunded_plan_expires_and_empties_the_wallet(client):
+    actor_id, headers = await _signed_in_actor(client)
+    txn = f"GPA.{uuid.uuid4().hex[:20]}"
+    await _post(client, _event(actor_id, "vyapar:monthly", txn=txn))
+    assert (await _wallet(client, headers))["deployment_status"] == "ACTIVE"
+
+    resp = await _post(client, _refund(actor_id, "vyapar:monthly", txn))
+    assert resp.json()["status"] == "reversed"
+    wallet = await _wallet(client, headers)
+    assert wallet["call_balance_inr"] == 0
+    assert wallet["deployment_status"] == "PLAN_EXPIRED"
+
+
+@pytest.mark.asyncio
+async def test_plain_cancellation_and_unknown_refunds_change_nothing(client):
+    actor_id, headers = await _signed_in_actor(client)
+    txn = f"GPA.{uuid.uuid4().hex[:20]}"
+    await _post(client, _event(actor_id, "vyapar:monthly", txn=txn))
+    balance = (await _wallet(client, headers))["call_balance_inr"]
+
+    unsubscribed = await _post(client, _refund(actor_id, "vyapar:monthly", txn, reason="UNSUBSCRIBE"))
+    assert unsubscribed.json()["status"] == "ignored"
+    unknown = await _post(client, _refund(actor_id, "vyapar:monthly", "GPA.never-credited"))
+    assert unknown.json()["status"] == "not_found"
+    assert (await _wallet(client, headers))["call_balance_inr"] == balance

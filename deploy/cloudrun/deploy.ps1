@@ -25,6 +25,10 @@
 .PARAMETER DryRun
   Print every step without creating anything or asking for secrets.
 
+.PARAMETER Launch
+  Public launch settings: sandbox (license-tester) purchases stop crediting wallets.
+  Leave it off during closed testing so testers can buy.
+
 .PARAMETER UseLocalNeon
   Take the direct Neon string from .env.local (written by `neon init`) without asking.
 
@@ -44,7 +48,9 @@ param(
     [string]$Repo = 'Vidyuthlabstechnologies/sangam',
     [switch]$DryRun,
     # Use DATABASE_URL_UNPOOLED from .env.local without asking (for unattended runs).
-    [switch]$UseLocalNeon
+    [switch]$UseLocalNeon,
+    # Public launch: stop crediting Play license-tester (sandbox) purchases.
+    [switch]$Launch
 )
 
 Set-StrictMode -Version Latest
@@ -54,6 +60,14 @@ $RepoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $DbSecret = 'sangam-database-url'
 $JwtSecret = 'sangam-jwt-secret'
 $WebhookSecret = 'sangam-revenuecat-webhook-auth'
+# Provider keys: env var name -> secret name. Optional; without them the API
+# answers with canned fixture responses (voice agents included).
+$ProviderSecrets = [ordered]@{
+    'SARVAM_API_KEY'          = 'sangam-sarvam-api-key'
+    'RAZORPAY_KEY_ID'         = 'sangam-razorpay-key-id'
+    'RAZORPAY_KEY_SECRET'     = 'sangam-razorpay-key-secret'
+    'RAZORPAY_WEBHOOK_SECRET' = 'sangam-razorpay-webhook-secret'
+}
 $ApiServices = 'run.googleapis.com', 'cloudbuild.googleapis.com', 'artifactregistry.googleapis.com', 'secretmanager.googleapis.com'
 
 function Step([string]$Title) { Write-Host "==> $Title" -ForegroundColor Cyan }
@@ -172,6 +186,23 @@ if (-not (Test-Secret $WebhookSecret)) {
     }
 }
 
+Step 'Storing provider keys (Enter skips one)'
+$providerRefs = @()
+foreach ($envName in $ProviderSecrets.Keys) {
+    $secretName = $ProviderSecrets[$envName]
+    if ($DryRun) { Write-Host "  ${secretName}: would prompt for $envName if missing"; continue }
+    if (-not (Test-Secret $secretName)) {
+        $value = ConvertFrom-Secure (Read-Host -AsSecureString "Paste $envName (hidden, Enter to skip)")
+        if ($value.Trim()) {
+            Set-SecretValue $secretName $value.Trim()
+            Write-Host "  stored $secretName"
+        }
+        $value = $null
+    }
+    if (Test-Secret $secretName) { $providerRefs += $envName }
+}
+$missingProviders = @($ProviderSecrets.Keys | Where-Object { $_ -notin $providerRefs })
+
 Step 'Creating the runtime identity and granting access'
 # The service runs as its own account that can read only these three secrets.
 # The default compute account is used for the build only (source deploys need it).
@@ -188,7 +219,7 @@ if (-not $accountExists) {
     }
     if (-not $DryRun) { Start-Sleep -Seconds 15 }  # let IAM see the new account before binding it
 }
-foreach ($name in $DbSecret, $JwtSecret, $WebhookSecret) {
+foreach ($name in @($DbSecret, $JwtSecret, $WebhookSecret) + @($providerRefs | ForEach-Object { $ProviderSecrets[$_] })) {
     Invoke-Cloud "secretAccessor on $name" {
         gcloud secrets add-iam-policy-binding $name --member $runtimeAccount --role roles/secretmanager.secretAccessor --project $ProjectId *> $null
     }
@@ -200,13 +231,17 @@ Invoke-Cloud 'roles/run.builder for the build account (needed to build from sour
 }
 
 Step "Building and deploying $Service to $Region (takes a few minutes)"
-# Deliberate choices, revisit at launch:
-#  REVENUECAT_ACCEPT_SANDBOX=true   credits license-tester purchases during closed testing (set false at launch)
-#  FIREBASE_REQUIRE_VERIFIED_EMAIL=false   email sign-up works before the address is verified
-#  FORWARDED_ALLOW_IPS=*   Cloud Run's proxy addresses are not fixed; the client IP comes from X-Forwarded-For,
-#                          so a client that forges that header can dodge per-IP rate limits
-$envVars = 'ENVIRONMENT=production,FIREBASE_PROJECT_ID=sangamitra-ai,FIREBASE_REQUIRE_VERIFIED_EMAIL=false,REVENUECAT_ACCEPT_SANDBOX=true,FORWARDED_ALLOW_IPS=*'
+# Choices:
+#  REVENUECAT_ACCEPT_SANDBOX   true credits license-tester purchases (closed testing); -Launch sets false
+#  FIREBASE_REQUIRE_VERIFIED_EMAIL=true   email accounts verify the address first (the app sends the link)
+#  FORWARDED_ALLOW_IPS=*   Cloud Run's proxy addresses are not fixed, so uvicorn trusts them for logging
+#  CLIENT_IP_FORWARDED_HOP=1   rate limits use the address Cloud Run appended (rightmost
+#                              X-Forwarded-For entry), not one the client can forge
+$acceptSandbox = if ($Launch) { 'false' } else { 'true' }
+$envVars = "ENVIRONMENT=production,FIREBASE_PROJECT_ID=sangamitra-ai,FIREBASE_REQUIRE_VERIFIED_EMAIL=true,REVENUECAT_ACCEPT_SANDBOX=$acceptSandbox,FORWARDED_ALLOW_IPS=*,CLIENT_IP_FORWARDED_HOP=1"
 $secretRefs = "DATABASE_URL=${DbSecret}:latest,JWT_SECRET=${JwtSecret}:latest,REVENUECAT_WEBHOOK_AUTH=${WebhookSecret}:latest"
+foreach ($envName in $providerRefs) { $secretRefs += ",$envName=$($ProviderSecrets[$envName]):latest" }
+Write-Host "  sandbox purchases credited: $acceptSandbox$(if (-not $Launch) { ' (run with -Launch at the public launch)' })"
 Invoke-Cloud "gcloud run deploy $Service --source backend --port 8000 --min-instances 0 --max-instances 3" {
     gcloud run deploy $Service --source (Join-Path $RepoRoot 'backend') --project $ProjectId --region $Region `
         --port 8000 --allow-unauthenticated --min-instances 0 --max-instances 3 --memory 512Mi `
@@ -224,4 +259,10 @@ if (-not $DryRun) {
     if ($LASTEXITCODE -ne 0) { throw 'Could not set API_BASE_URL.' }
     Write-Host "`nBackend URL: $url" -ForegroundColor Green
 }
-Write-Host "`nNot set yet (the API uses canned responses without them): SARVAM_API_KEY, RAZORPAY_KEY_ID/SECRET." -ForegroundColor Yellow
+if ($missingProviders -contains 'SARVAM_API_KEY') {
+    Write-Host "`nSARVAM_API_KEY is not set: voice agents answer with canned replies. Run this again and paste it." -ForegroundColor Yellow
+}
+$missingRazorpay = @($missingProviders | Where-Object { $_ -like 'RAZORPAY_*' })
+if ($missingRazorpay) {
+    Write-Host "Not set (web payments use canned responses without them): $($missingRazorpay -join ', ')." -ForegroundColor Yellow
+}

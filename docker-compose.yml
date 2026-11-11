@@ -78,7 +78,7 @@ services:
       JWT_SECRET: dev-secret-change-in-production
       # Empty by default so `docker compose up` does not point at Zitadel Cloud.
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-sangamitra-ai}
-      FIREBASE_REQUIRE_VERIFIED_EMAIL: ${FIREBASE_REQUIRE_VERIFIED_EMAIL:-false}
+      FIREBASE_REQUIRE_VERIFIED_EMAIL: ${FIREBASE_REQUIRE_VERIFIED_EMAIL:-true}
       REVENUECAT_WEBHOOK_AUTH: ${REVENUECAT_WEBHOOK_AUTH:-}
       REVENUECAT_ACCEPT_SANDBOX: ${REVENUECAT_ACCEPT_SANDBOX:-true}
       ZITADEL_ISSUER: ${ZITADEL_ISSUER:-}

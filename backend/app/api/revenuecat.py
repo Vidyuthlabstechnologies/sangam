@@ -19,6 +19,11 @@ Play product ids map to Sangam pricing:
 
 Credits are idempotent on the store transaction id, so RevenueCat's retries
 and duplicate deliveries never credit twice.
+
+Refunds: RevenueCat reports a Play refund as ``CANCELLATION`` with
+``cancel_reason`` ``CUSTOMER_SUPPORT`` (or a ``REFUND`` event). The credit that
+purchase added is taken back, never below zero, so a refund cannot leave the
+buyer with free calls. ``REFUND_REVERSED`` is logged for a person to review.
 """
 from __future__ import annotations
 
@@ -45,9 +50,10 @@ router = APIRouter(prefix="/billing/revenuecat", tags=["billing"])
 _CREDIT_EVENTS = {"INITIAL_PURCHASE", "RENEWAL", "NON_RENEWING_PURCHASE"}
 # Events that change nothing in the wallet: the paid-through date already
 # stands, and Play handles cancellation, billing retry and refunds.
+# CANCELLATION with these reasons means the money went back to the buyer.
+_REFUND_CANCEL_REASONS = {"CUSTOMER_SUPPORT", "REFUND"}
 _NOOP_EVENTS = {
     "TEST",
-    "CANCELLATION",
     "UNCANCELLATION",
     "EXPIRATION",
     "BILLING_ISSUE",
@@ -57,7 +63,6 @@ _NOOP_EVENTS = {
     "TRANSFER",
     "TEMPORARY_ENTITLEMENT_GRANT",
     "INVOICE_ISSUANCE",
-    "REFUND_REVERSED",
     "SUBSCRIBER_ALIAS",
     "VIRTUAL_CURRENCY_TRANSACTION",
 }
@@ -112,10 +117,20 @@ async def revenuecat_webhook(
 
     event_type = str(event.get("type") or "")
     event_id = str(event.get("id") or "")
+    cancel_reason = str(event.get("cancel_reason") or "").upper()
+    is_refund = event_type == "REFUND" or (
+        event_type == "CANCELLATION" and cancel_reason in _REFUND_CANCEL_REASONS
+    )
+    if event_type == "CANCELLATION" and not is_refund:
+        # A plain cancellation stops renewal; the paid-through period stands.
+        return {"status": "ignored", "type": event_type}
+    if event_type == "REFUND_REVERSED":
+        logger.error("revenuecat refund reversed; review the wallet by hand", extra={"event_id": event_id})
+        return {"status": "ignored", "type": event_type, "reason": "refund reversals are reviewed by hand"}
     if event_type in _NOOP_EVENTS:
         logger.info("revenuecat event ignored", extra={"type": event_type, "event_id": event_id})
         return {"status": "ignored", "type": event_type}
-    if event_type not in _CREDIT_EVENTS:
+    if event_type not in _CREDIT_EVENTS and not is_refund:
         logger.warning("revenuecat event type not handled", extra={"type": event_type, "event_id": event_id})
         return {"status": "ignored", "type": event_type}
 
@@ -147,6 +162,22 @@ async def revenuecat_webhook(
     tenant_id = str(actor.id)
     payment_id = f"play:{transaction_id}"
     svc = BillingService(session)
+    if is_refund:
+        try:
+            reversal = await svc.reverse_payment(tenant_id, payment_id, f"play-refund:{transaction_id}")
+            await session.commit()
+        except BillingError as exc:
+            await session.rollback()
+            raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+        if reversal.get("status") == "not_found":
+            logger.error("revenuecat refund for a purchase never credited", extra={"event_id": event_id})
+        return {
+            "status": reversal.get("status"),
+            "tenant_id": tenant_id,
+            "product_id": product_id,
+            "reversed_inr": reversal.get("reversed_paise", 0) / 100,
+            "environment": environment,
+        }
     try:
         plan = pricing.get_plan(product_id)
         topup = _TOPUP_RE.match(product_id)

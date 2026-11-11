@@ -96,7 +96,7 @@ spec:
             - name: FIREBASE_PROJECT_ID
               value: "sangamitra-ai"
             - name: FIREBASE_REQUIRE_VERIFIED_EMAIL
-              value: "false"
+              value: "true"
             - name: REVENUECAT_WEBHOOK_AUTH
               valueFrom:
                 secretKeyRef:
