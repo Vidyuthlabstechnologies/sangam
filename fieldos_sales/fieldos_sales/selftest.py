@@ -3,7 +3,7 @@
 `selftest add` creates a pretend firm whose number is yours (it must be listed in TEST_NUMBERS),
 writes its drafts and approves it. For these test firms only, the contact-hours, DND-scrub,
 call-frequency and daily-cap checks are skipped, so you can test at any time and as often as
-you like. Live mode, the pricing filter, AI disclosure and opt-out handling all still apply.
+you like. Live mode, the pricing filter, the honest answer to "are you a bot?" and opt-out handling all still apply.
 Test firms are left out of the insights dashboard. `selftest reset` clears their history
 (including a STOP you sent while testing) so you can run the test again.
 """

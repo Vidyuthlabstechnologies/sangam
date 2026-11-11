@@ -70,8 +70,7 @@ def build(store: Store, seed: int = 7, now: datetime | None = None) -> None:
                 outcome = "not_now"
             else:
                 outcome = "ended"
-            lines = ["AI: Good morning ji! This is Priya, an AI assistant from FieldOS, ML Dynamic Solutions here in Hyderabad. "
-                     "This call is recorded. Do you have two minutes?"]
+            lines = ["AI: Good morning ji! Priya here, from FieldOS in Hyderabad. Do you have two minutes?"]
             for t in range(turns):
                 lines.append("Prospect: " + rng.choice(["Haan, boliye.", "We have four sites running.", "We use a register for attendance.",
                                                        "Is this a robot?", "How much does it cost?", "Send me details on WhatsApp.",
@@ -126,7 +125,7 @@ def build(store: Store, seed: int = 7, now: datetime | None = None) -> None:
             reply_at = at + timedelta(minutes=rng.randint(10, 300))
             store.log("whatsapp", "in", prospect_id=pid, phone=phone, text="Tell me more, we have 3 sites.", at=reply_at)
             store.log("whatsapp", "out", prospect_id=pid, phone=phone, outcome="reply", at=reply_at + timedelta(minutes=1),
-                      text="I'm FieldOS's AI assistant. How do your supervisors send attendance today, sir?")
+                      text="Thank you sir! How do your supervisors send attendance today?")
             if rng.random() < 0.5:
                 store.log("whatsapp", "in", prospect_id=pid, phone=phone, text="Register. Come on Friday.", at=reply_at + timedelta(minutes=9))
                 store.log("whatsapp", "event", prospect_id=pid, phone=phone, outcome="demo_booked", at=reply_at + timedelta(minutes=10),

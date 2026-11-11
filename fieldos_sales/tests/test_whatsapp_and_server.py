@@ -74,15 +74,15 @@ def test_outbox_rejects_draft_with_pricing():
     assert "pricing" in queue_openers(st, [1])[0]
 
 
-def test_inbound_reply_discloses_ai_once_and_ignores_strangers():
+def test_inbound_reply_is_natural_and_ignores_strangers():
     s, st = make()
     gw = RecordingGateway()
     llm = OfflineLLM(lambda *a: TURN)
     assert run(handle_inbound(st, llm, s, gw, "+919876543210", "hello", reply_delay=(0, 0))) is None
     first = run(handle_inbound(st, llm, s, gw, MOBILE, "Tell me more", reply_delay=(0, 0)))
-    assert "AI assistant" in first
-    second = run(handle_inbound(st, llm, s, gw, MOBILE, "We have 5 sites", reply_delay=(0, 0)))
-    assert "AI assistant" not in second
+    assert first == TURN["say"]  # no "I'm an AI" footer
+    honest = run(handle_inbound(st, llm, s, gw, MOBILE, "Are you a bot?", reply_delay=(0, 0)))
+    assert "virtual assistant, not a person" in honest
 
 
 def test_inbound_opt_out_confirms_once_then_silence():
@@ -196,8 +196,8 @@ def test_voice_stream_full_call():
         except Exception:
             pass
     spoken = " ".join(speech.spoken)
-    assert "AI assistant" in spoken
-    assert spoken.index("AI assistant") < spoken.index("How do your supervisors") < spoken.index("removed your number")
+    assert "from FieldOS" in spoken and "AI" not in spoken.split("How do")[0]
+    assert spoken.index("from FieldOS") < spoken.index("How do your supervisors") < spoken.index("removed your number")
     assert st.is_suppressed(MOBILE)
     assert st.one("SELECT 1 FROM touches WHERE direction = 'transcript'")
 

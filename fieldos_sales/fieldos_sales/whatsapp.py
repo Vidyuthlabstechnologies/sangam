@@ -270,8 +270,9 @@ async def handle_inbound(store: Store, llm: LLM, settings: Settings, gateway: Ga
 
     turn = convo.respond(text)
     reply = turn.say
-    if turn.outcome != "opted_out" and not chat["ai_disclosed"]:
-        reply = reply + "\n\n" + DISCLOSURE["whatsapp"][turn.language]
+    note = DISCLOSURE["whatsapp"].get(turn.language, "")
+    if note and turn.outcome != "opted_out" and not chat["ai_disclosed"]:
+        reply = reply + "\n\n" + note
         store.execute("UPDATE wa_chats SET ai_disclosed = 1 WHERE phone = ?", (phone,))
 
     if turn.outcome in ("demo_booked", "handover", "callback_later"):

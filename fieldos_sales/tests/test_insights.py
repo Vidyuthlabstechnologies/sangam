@@ -153,7 +153,7 @@ def test_voice_ab_test_alternates_and_is_compared():
     voices = compute(st)["voices"]
     assert voices[0]["name"] == "bulbul:v3/priya" and voices[0]["early_hangup_rate"] == 100.0
     single, _ = make()
-    assert pick_voice(st, single) == "bulbul:v3/priya"
+    assert pick_voice(st, single) == "bulbul:v4-flash/simran_{lang}_sales"
 
 
 def test_no_calls_on_saturday_but_whatsapp_ok():
@@ -223,3 +223,12 @@ def test_tts_streaming_yields_whole_samples_and_falls_back():
     assert client.posts[0]["output_audio_codec"] == "linear16" and client.posts[0]["speech_sample_rate"] == 8000
     fallback = asyncio.run(collect(Speech(s, StreamClient(fail=True))))
     assert fallback == [b"\x09\x00" * 4]
+
+
+def test_lang_placeholder_picks_the_same_voice_per_language():
+    from fieldos_sales.telephony import Speech
+    s, _ = make()
+    sp = Speech(s, client=object())
+    assert sp._voice(None, "en") == ("bulbul:v4-flash", "simran_en_sales")
+    assert sp._voice(None, "te") == ("bulbul:v4-flash", "simran_hi_sales")
+    assert sp._voice("bulbul:v3/priya", "hi") == ("bulbul:v3", "priya")

@@ -14,7 +14,7 @@ It lives in the sangam repo because it reuses sangam's Sarvam integration patter
 | Rule | Where |
 |---|---|
 | **Never reveal pricing in any form.** Every line the AI is about to say or send is checked for amounts, ₹/Rs/lakh/crore, "per user/site/month", "free", "trial", "discount", "cheaper than", in English, Hindi and Telugu. A failing line is rewritten once, then replaced with a safe line. Price questions get a fixed answer: our team shares a written proposal after a short site walkthrough. Asked twice, the agent hands over to a person. | `guardrails.py`, `conversation.py` |
-| **Says it is an AI** at the start of every call, and in the first WhatsApp reply. Never claims to be human; "are you a robot?" always gets "yes". | `conversation.py` |
+| **Sounds like a person, never lies about it**: the greeting is natural ("Priya here, from FieldOS in Hyderabad") with no "AI assistant" or recording notice. If someone sincerely asks "are you a robot?", it says it is FieldOS's virtual assistant and offers a person. It never claims to be human. | `conversation.py`, `guardrails.py` |
 | **Opt-out is instant and permanent**: "stop", "don't call", "not interested", "band karo", "vaddu" and similar end the call or chat, add the number to the do-not-contact list and cancel anything queued. | `guardrails.py`, `store.py` |
 | **Nothing goes out without you**: live mode is off by default, and each firm must be approved by you, per channel, after you read its drafts. Editing a draft removes the approval. | `compliance.py` |
 | **DND / NCPR**: calls need a fresh scrub result ("not registered", under 7 days old) for the number. A number on DND is never called or messaged. | `compliance.py` |
@@ -68,7 +68,7 @@ python -m fieldos_sales selftest add --phone <your number> --name <your first na
 python -m fieldos_sales simulate 9001                       # talk to it in the terminal
 ```
 
-A self-test firm skips contact hours, the DND scrub and the call limits, so you can test at any time and repeat it. Live mode, the pricing filter, the AI disclosure and STOP still work exactly as for prospects. It is left out of the dashboard. `selftest reset` clears its history (including a STOP you sent) so you can go again. For the real WhatsApp and call tests, follow the two sections below with `--ids 9001`.
+A self-test firm skips contact hours, the DND scrub and the call limits, so you can test at any time and repeat it. Live mode, the pricing filter, the honest answer to "are you a bot?" and STOP still work exactly as for prospects. It is left out of the dashboard. `selftest reset` clears its history (including a STOP you sent) so you can go again. For the real WhatsApp and call tests, follow the two sections below with `--ids 9001`.
 
 ## Going live with WhatsApp (WAHA)
 

@@ -65,8 +65,8 @@ class Settings:
     llm_daily_budget_usd: float = 1.0
 
     sarvam_api_key: str = ""
-    sarvam_speaker: str = "priya"
-    sarvam_tts_model: str = "bulbul:v3"
+    sarvam_speaker: str = "simran_{lang}_sales"
+    sarvam_tts_model: str = "bulbul:v4-flash"
     agent_name: str = "Priya"
     agent_gender: str = "f"
     voice_pace: float = 1.05
@@ -131,8 +131,8 @@ class Settings:
             model=env("SALES_MODEL", "") or "claude-haiku-5-5",
             llm_daily_budget_usd=_float("LLM_DAILY_BUDGET_USD", 1.0),
             sarvam_api_key=env("SARVAM_API_KEY", ""),
-            sarvam_speaker=env("SARVAM_SPEAKER", "") or "priya",
-            sarvam_tts_model=env("SARVAM_TTS_MODEL", "") or "bulbul:v3",
+            sarvam_speaker=env("SARVAM_SPEAKER", "") or "simran_{lang}_sales",
+            sarvam_tts_model=env("SARVAM_TTS_MODEL", "") or "bulbul:v4-flash",
             agent_name=env("AGENT_NAME", "") or "Priya",
             agent_gender=(env("AGENT_GENDER", "") or "f").lower()[:1],
             voice_pace=_float("VOICE_PACE", 1.05),

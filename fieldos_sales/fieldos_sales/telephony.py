@@ -56,12 +56,15 @@ class Speech:
         data = r.json()
         return Heard(text=data.get("transcript", ""), language=SARVAM_TO_LANG.get(data.get("language_code", "")))
 
-    def _voice(self, voice: str | None) -> tuple[str, str]:
+    def _voice(self, voice: str | None, language: str = "en") -> tuple[str, str]:
+        """(model, speaker). A "{lang}" in the speaker picks the per-language style of the same
+        voice, e.g. simran_{lang}_sales -> simran_en_sales / simran_hi_sales (Telugu uses hi)."""
         model, _, speaker = (voice or "").partition("/")
-        return (model or self.settings.sarvam_tts_model), (speaker or self.settings.sarvam_speaker)
+        speaker = (speaker or self.settings.sarvam_speaker).replace("{lang}", language if language in ("en", "hi") else "hi")
+        return (model or self.settings.sarvam_tts_model), speaker
 
     async def speak(self, text: str, language: str = "en", voice: str | None = None) -> bytes:
-        model, speaker = self._voice(voice)
+        model, speaker = self._voice(voice, language)
         key = (language, text, model, speaker)
         if key in self.cache:
             return self.cache[key]
@@ -88,7 +91,7 @@ class Speech:
         Experimental (SARVAM_TTS_STREAM=1): not yet checked against the live API. Cached lines and
         any streaming error fall back to the normal request, so a call never goes silent because of it.
         """
-        model, speaker = self._voice(voice)
+        model, speaker = self._voice(voice, language)
         key = (language, text, model, speaker)
         if key in self.cache or not self.settings.tts_stream:
             yield await self.speak(text, language, voice)

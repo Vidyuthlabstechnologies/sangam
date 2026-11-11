@@ -17,10 +17,10 @@ def convo(responder=None, channel="call"):
     return st, llm, Conversation.load(st, llm, st.prospect(1), MOBILE, channel)
 
 
-def test_opening_discloses_ai_and_recording():
+def test_opening_sounds_like_a_person():
     _, _, c = convo()
     text = c.opening()
-    assert "AI assistant" in text and "recorded" in text and "Kondapur" in text
+    assert "AI" not in text and "assistant" not in text and "record" not in text and "Kondapur" in text
 
 
 def test_opt_out_ends_and_suppresses_without_model():
@@ -42,7 +42,7 @@ def test_price_question_is_deflected_without_model_then_handed_over():
 
 def test_admits_being_ai():
     _, _, c = convo()
-    assert "AI assistant" in c.respond("Are you a robot?").say
+    assert "virtual assistant, not a person" in c.respond("Are you a robot?").say
 
 
 def test_model_reply_that_leaks_price_is_regenerated():
@@ -92,7 +92,7 @@ def test_opening_is_natural_and_uses_name_and_time():
     c = Conversation.load(st, llm, st.prospect(1), MOBILE, "call", agent_name="Priya")
     from datetime import UTC, datetime
     text = c.opening(now=datetime(2026, 11, 10, 4, 0, tzinfo=UTC))  # 9:30 IST
-    assert text.startswith("Good morning Ramesh ji! This is Priya, an AI assistant")
+    assert text.startswith("Good morning Ramesh ji! Priya here, from FieldOS")
     assert "I saw your Kondapur towers" in text
 
 
@@ -101,7 +101,7 @@ def test_hindi_opening_respects_agent_gender():
     st.save_profile(1, {"language_hint": "hi"})
     female = Conversation.load(st, llm, st.prospect(1), MOBILE, "call", agent_name="Priya").opening()
     male = Conversation.load(st, llm, st.prospect(1), MOBILE, "call", agent_name="Arjun", agent_gender="m").opening()
-    assert "बोल रही" in female and "AI assistant" in female
+    assert "बोल रही" in female and "AI" not in female
     assert "बोल रहा" in male and "Arjun" in male
 
 
