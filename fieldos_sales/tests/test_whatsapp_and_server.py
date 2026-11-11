@@ -169,7 +169,7 @@ class FakeSpeech:
     async def transcribe(self, pcm):
         return Heard(self.heard.pop(0), "en")
 
-    async def speak(self, text, language="en"):
+    async def speak(self, text, language="en", voice=None):
         self.spoken.append(text)
         return tone(40)
 
@@ -221,7 +221,7 @@ def test_voice_stream_rejects_unknown_calls_and_bad_token():
 
 
 class LongSpeech(FakeSpeech):
-    async def speak(self, text, language="en"):
+    async def speak(self, text, language="en", voice=None):
         self.spoken.append(text)
         return tone(3000)  # 3 s of audio per sentence: still playing when the caller cuts in
 

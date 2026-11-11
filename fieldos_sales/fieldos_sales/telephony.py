@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import logging
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
 import httpx
@@ -55,15 +56,20 @@ class Speech:
         data = r.json()
         return Heard(text=data.get("transcript", ""), language=SARVAM_TO_LANG.get(data.get("language_code", "")))
 
-    async def speak(self, text: str, language: str = "en") -> bytes:
-        key = (language, text)
+    def _voice(self, voice: str | None) -> tuple[str, str]:
+        model, _, speaker = (voice or "").partition("/")
+        return (model or self.settings.sarvam_tts_model), (speaker or self.settings.sarvam_speaker)
+
+    async def speak(self, text: str, language: str = "en", voice: str | None = None) -> bytes:
+        model, speaker = self._voice(voice)
+        key = (language, text, model, speaker)
         if key in self.cache:
             return self.cache[key]
         payload = {
             "text": text,
             "target_language_code": LANG_TO_SARVAM.get(language, "en-IN"),
-            "speaker": self.settings.sarvam_speaker,
-            "model": self.settings.sarvam_tts_model,
+            "speaker": speaker,
+            "model": model,
             "pace": self.settings.voice_pace,
             "speech_sample_rate": RATE,
         }
@@ -76,11 +82,54 @@ class Speech:
             self.cache[key] = pcm
         return pcm
 
-    async def warm_up(self, lines: list[tuple[str, str]]) -> None:
+    async def speak_stream(self, text: str, language: str = "en", voice: str | None = None) -> AsyncIterator[bytes]:
+        """Yield 8 kHz 16-bit PCM as Sarvam produces it (HTTP streaming, linear16).
+
+        Experimental (SARVAM_TTS_STREAM=1): not yet checked against the live API. Cached lines and
+        any streaming error fall back to the normal request, so a call never goes silent because of it.
+        """
+        model, speaker = self._voice(voice)
+        key = (language, text, model, speaker)
+        if key in self.cache or not self.settings.tts_stream:
+            yield await self.speak(text, language, voice)
+            return
+        payload = {"text": text, "language_code": LANG_TO_SARVAM.get(language, "en-IN"), "speaker": speaker,
+                   "model": model, "pace": self.settings.voice_pace, "output_audio_codec": "linear16",
+                   "speech_sample_rate": RATE}
+        got, carry = bytearray(), b""
+        try:
+            async with self.client.stream("POST", f"{SARVAM_BASE}/text-to-speech/stream", json=payload,
+                                          headers={**self.headers, "Content-Type": "application/json"}) as r:
+                r.raise_for_status()
+                if "json" in r.headers.get("content-type", ""):
+                    raise httpx.HTTPError("stream returned JSON, not audio")
+                async for part in r.aiter_bytes():
+                    data = carry + part
+                    if not got and data[:4] == b"RIFF":  # a WAV header slipped in: drop it
+                        if len(data) < 44:
+                            carry = data
+                            continue
+                        data = data[44:]
+                    cut = len(data) - len(data) % 2
+                    carry = data[cut:]
+                    if cut:
+                        got += data[:cut]
+                        yield data[:cut]
+        except httpx.HTTPError as e:
+            if got:
+                log.warning("TTS stream broke mid-sentence: %s", e)
+                return
+            log.warning("TTS stream failed, using the normal request: %s", e)
+            yield await self.speak(text, language, voice)
+            return
+        if len(text) <= 300 and len(self.cache) < 500:
+            self.cache[key] = bytes(got)
+
+    async def warm_up(self, lines: list[tuple[str, str]], voice: str | None = None) -> None:
         """Pre-render fixed lines (language, text) so they play instantly."""
         for language, text in lines:
             try:
-                await self.speak(text, language)
+                await self.speak(text, language, voice)
             except httpx.HTTPError:
                 log.warning("could not pre-render %r", text[:40])
 

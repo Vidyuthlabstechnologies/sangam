@@ -29,9 +29,9 @@ Making it indistinguishable from a person is not the goal. It must disclose that
 
 ## Worth testing in the first week (on your own phones first)
 
-- **Voice**: try two Sarvam voices and keep the one with more booked walkthroughs. Sarvam suggests `bulbul:v4-flash` with `simran_en_sales` (English) or `aparna_hi_customer` (Hindi) for sales calls: set `SARVAM_TTS_MODEL` and `SARVAM_SPEAKER` and check it on a test call. The current default (`bulbul:v3`, `anushka`) is what sangam already uses live.
+- **Voice**: try two Sarvam voices with `VOICE_VARIANTS` and keep the one with more booked walkthroughs (dashboard "Voice test" table). Sarvam suggests `bulbul:v4-flash` with `simran_en_sales` (English) or `aparna_hi_customer` (Hindi) for sales calls: set `SARVAM_TTS_MODEL` and `SARVAM_SPEAKER` and check it on a test call. The current default (`bulbul:v3`, `anushka`) is what sangam already uses live.
 - **Pace**: `VOICE_PACE=1.05` (brisk but clear). Try 1.0 to 1.1.
-- **When to call**: owners are usually reachable late morning (11 to 1) and late afternoon (3:30 to 6). Avoid Monday mornings, lunch, and Saturdays, which are wage day on most sites. Set `CONTACT_DAYS=Tue,Wed,Thu,Fri` if Saturday calls go badly.
+- **When to call**: owners are usually reachable late morning (11 to 1) and late afternoon (3:30 to 6). Avoid Monday mornings and lunch. Calls already skip Saturdays (wage day on most sites) through `CALL_DAYS=Mon,Tue,Wed,Thu,Fri`; the dashboard's best-time grid shows which hours actually get answered.
 - **End-of-turn wait**: if it cuts people off mid-sentence, raise `END_OF_TURN_MS` to 800; if it feels slow, try 550.
 - Read 10 transcripts a day (`python -m fieldos_sales show <id>`) and note where people hung up. That is the best tuning data there is.
 

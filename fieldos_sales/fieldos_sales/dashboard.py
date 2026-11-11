@@ -150,6 +150,9 @@ footer{color:var(--muted);font-size:12px;padding:24px 0 40px}
       <div class="card"><h3>How calls ended</h3><div class="rows" id="callOut"></div></div>
       <div class="card"><h3>Language spoken</h3><div class="scroll"><table id="langs"></table></div></div>
     </div>
+    <div class="card" style="margin-top:12px"><h3>Voice test: which voice keeps people on the line</h3>
+      <div class="scroll"><table id="voices"></table></div>
+      <p class="sub" style="margin:8px 0 0">Set VOICE_VARIANTS in .env to test two voices; each new call gets the voice with fewer calls. Judge after about 30 calls per voice.</p></div>
     <div class="card" style="margin-top:12px"><h3>Best time to call: share of dialled calls answered (IST)</h3><div class="scroll"><div class="heat" id="heat"></div></div>
       <div class="legend" id="heatLegend"></div></div>
   </section>
@@ -370,6 +373,9 @@ function draw() {
   bars("hangup", c.hangup_after_turns, {label: x => x.turns === "0" ? "0 (said nothing)" : `${x.turns} turn${x.turns === "1" ? "" : "s"}`, detail: x => `${x.n} callers hung up after ${x.turns} of their turns`});
   bars("callOut", Object.entries(c.outcomes).map(([name, n]) => ({name, n})).sort((a, b) => b.n - a.n));
   table("langs", [{h: "", v: r => r.name}, {h: "Calls", n: 1, v: r => r.calls}, {h: "Positive", n: 1, v: r => r.positive}, {h: "Rate", n: 1, v: r => fmt(r.positive_rate, "%")}], D.languages);
+  table("voices", [{h: "Voice", v: r => r.name}, {h: "Calls", n: 1, v: r => r.calls}, {h: "Avg length", n: 1, v: r => fmt(r.avg_seconds, " s")},
+    {h: "Hung up in first turn", n: 1, v: r => fmt(r.early_hangup_rate, "%")}, {h: "Positive", n: 1, v: r => fmt(r.positive_rate, "%")},
+    {h: "Walkthroughs", n: 1, v: r => r.demos}, {h: "Reply delay", n: 1, v: r => fmt(r.avg_latency_ms, " ms")}], D.voices || []);
   heat();
   tiles("waTiles", [[w.openers_sent, "Openers sent"], [fmt(w.reply_rate, "%"), "Replied"], [w.followups_sent, "Follow-ups sent"],
     [w.with_a_person, "Chats handed to you"], [w.followups_due, "Follow-ups due", "run wa-followups"], [w.queued, "Waiting to send"], [w.blocked, "Blocked by the checks"]]);

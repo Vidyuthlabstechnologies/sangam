@@ -46,10 +46,11 @@ def _parse(ts: str) -> datetime:
     return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
 
 
-def within_contact_hours(settings: Settings, now: datetime | None = None) -> bool:
+def within_contact_hours(settings: Settings, now: datetime | None = None, channel: str = "whatsapp") -> bool:
     local = (now or utcnow()).astimezone(IST)
     start, end = settings.contact_hours
-    return local.strftime("%a") in settings.contact_days and start <= local.hour < end
+    days = settings.call_days if channel == "call" else settings.contact_days
+    return local.strftime("%a") in days and local.strftime("%a") in settings.contact_days and start <= local.hour < end
 
 
 def _count_today(store: Store, sql: str, now: datetime) -> int:
@@ -86,9 +87,10 @@ def can_contact(store: Store, settings: Settings, prospect: dict, phone: str, ch
         elif now - _parse(dnd["checked_at"]) > timedelta(days=settings.dnd_max_age_days):
             reasons.append(f"DND scrub older than {settings.dnd_max_age_days} days; scrub again")
 
-    if not within_contact_hours(settings, now):
+    if not within_contact_hours(settings, now, channel):
         s, e = settings.contact_hours
-        reasons.append(f"outside contact hours ({','.join(settings.contact_days)} {s}:00-{e}:00 IST)")
+        days = [d for d in (settings.call_days if channel == "call" else settings.contact_days) if d in settings.contact_days]
+        reasons.append(f"outside contact hours ({','.join(days)} {s}:00-{e}:00 IST)")
 
     if channel == "call":
         calls = store.all(

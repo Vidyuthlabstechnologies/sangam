@@ -247,6 +247,21 @@ def cmd_status(args, settings, store):
     print(f"Opted out: {q('SELECT COUNT(*) FROM suppressions')}   AI spend today: ${store.llm_spend_today():.4f}")
 
 
+def cmd_prepare(args, settings, store):
+    """Research + pitch + review file for every selected firm, in one go. Contacts nobody."""
+    if not settings.anthropic_api_key:
+        sys.exit("Set ANTHROPIC_API_KEY in .env first (about $0.003 per firm with Haiku; the daily cap still applies).")
+    args.force = False
+    cmd_research(args, settings, store)
+    pending = [p for p in _select(store, args) if store.profile(p["id"]) and not store.draft(p["id"], "wa_opener")]
+    if pending:
+        args.ids = ",".join(str(p["id"]) for p in pending)
+        cmd_pitch(args, settings, store)
+        args.ids = None
+    cmd_review(args, settings, store)
+    print("Nothing was sent. Read the review file, then approve the firms you like.")
+
+
 def cmd_insights(args, settings, store):
     from .insights import compute, learn, summarise_pending, text_report
     if args.summarise or args.learn:
@@ -329,6 +344,7 @@ def main(argv: list[str] | None = None) -> None:
     sp.add_argument("--after-days", type=int, default=3)
     add("wa-preview", cmd_wa_preview, "show the next message the sender would send, and whether it may")
     add("status", cmd_status, "counts, outcomes and AI spend")
+    add("prepare", cmd_prepare, "research + pitch + review file for all selected firms (contacts nobody)", select=True).add_argument("--out")
     sp = add("insights", cmd_insights, "call and chat insights in the terminal; --summarise / --learn use the AI")
     sp.add_argument("--summarise", action="store_true", help="AI-summarise conversations that have no summary yet")
     sp.add_argument("--learn", action="store_true", help="AI review of all summaries: what to change")

@@ -18,7 +18,7 @@ It lives in the sangam repo because it reuses sangam's Sarvam integration patter
 | **Opt-out is instant and permanent**: "stop", "don't call", "not interested", "band karo", "vaddu" and similar end the call or chat, add the number to the do-not-contact list and cancel anything queued. | `guardrails.py`, `store.py` |
 | **Nothing goes out without you**: live mode is off by default, and each firm must be approved by you, per channel, after you read its drafts. Editing a draft removes the approval. | `compliance.py` |
 | **DND / NCPR**: calls need a fresh scrub result ("not registered", under 7 days old) for the number. A number on DND is never called or messaged. | `compliance.py` |
-| **Contact hours**: Mon to Sat, 10:00 to 19:00 IST (configurable). | `compliance.py` |
+| **Contact hours**: 10:00 to 19:00 IST; calls Mon to Fri (Saturday is wage day), WhatsApp Mon to Sat (configurable). | `compliance.py` |
 | **Low volume**: max 20 calls and 15 new WhatsApp chats a day, 4 to 9 minutes between WhatsApp sends, no call to the same firm within 7 days or more than twice, WhatsApp stops after 2 unanswered messages. | `compliance.py`, `whatsapp.py` |
 | **Only prospects**: the bot ignores every chat on the number that isn't an imported prospect (friends, family, groups). | `whatsapp.py` |
 | **Honest claims only**: the AI may only mention features listed in `knowledge.py`, must not invent customers or results, and website text is treated as data, not instructions. | `knowledge.py`, `research.py` |
@@ -46,6 +46,8 @@ Data stays in `fieldos_sales/data/sales.db` (gitignored). Never commit it.
 ## Daily workflow
 
 ```bash
+python -m fieldos_sales prepare                            # all firms in one go: research, pitch, data/review.md (~$0.50 for 154)
+# or step by step:
 python -m fieldos_sales research --priority A --limit 20   # reads each firm's website
 python -m fieldos_sales pitch --priority A --limit 20      # call brief + WhatsApp opener per firm
 python -m fieldos_sales review --priority A                # writes data/review.md: read every draft
@@ -80,6 +82,10 @@ Twilio instead: `WHATSAPP_GATEWAY=twilio`, the `TWILIO_*` values, `PUBLIC_BASE_U
 6. `approve --channel call --ids ...`, `FIELDOS_SALES_LIVE=1`, `serve` running, then `python -m fieldos_sales call <id>`. **Call your own phone first** (a test prospect row) and check the greeting, the turn-taking delay (about 2 to 3 seconds), the Hindi/Telugu switch and "stop calling me".
 
 Only calls placed by `call` get the agent; any other stream is refused.
+
+**Testing voices**: set `VOICE_VARIANTS=bulbul:v3/anushka,bulbul:v4-flash/simran_en_sales` and each new call gets the voice with fewer calls so far. The dashboard's "Voice test" table compares length, first-turn hang-ups, positive outcomes and walkthroughs per voice; keep the winner after about 30 calls each.
+
+**Faster replies (experimental)**: `SARVAM_TTS_STREAM=1` streams each sentence's audio from Sarvam as it is made, so the caller hears the first words sooner. Any streaming error falls back to the normal request. Check the reply delay on the dashboard on your own test calls before and after turning it on.
 
 ## Insights dashboard
 

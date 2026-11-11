@@ -117,7 +117,7 @@ class FakeSpeech:
         from fieldos_sales.telephony import Heard
         return Heard(self.heard.pop(0), "en")
 
-    async def speak(self, text, language="en"):
+    async def speak(self, text, language="en", voice=None):
         return b"\x10\x00" * 320
 
 
@@ -141,3 +141,85 @@ def test_finished_call_records_metrics_and_gets_summarised():
     assert meta["call_sid"] == "CA9" and meta["prospect_turns"] == 2 and meta["ended_by"] == "agent"
     assert meta["latency_ms_avg"] >= s.end_of_turn_ms
     assert st.one("SELECT 1 FROM call_insights WHERE key = ?", (f"call:{row['id']}",))
+
+
+def test_voice_ab_test_alternates_and_is_compared():
+    from fieldos_sales.server import pick_voice
+    s, st = make(voice_variants=("bulbul:v3/anushka", "bulbul:v4-flash/simran_en_sales"))
+    assert pick_voice(st, s) == "bulbul:v3/anushka"
+    st.log("call", "transcript", prospect_id=1, phone=MOBILE, text="AI: hi", outcome="ended",
+           meta={"voice": "bulbul:v3/anushka", "prospect_turns": 0})
+    assert pick_voice(st, s) == "bulbul:v4-flash/simran_en_sales"
+    voices = compute(st)["voices"]
+    assert voices[0]["name"] == "bulbul:v3/anushka" and voices[0]["early_hangup_rate"] == 100.0
+    single, _ = make()
+    assert pick_voice(st, single) == "bulbul:v3/anushka"
+
+
+def test_no_calls_on_saturday_but_whatsapp_ok():
+    from datetime import UTC, datetime
+
+    from fieldos_sales.compliance import within_contact_hours
+    s, _ = make()
+    saturday = datetime(2026, 11, 14, 6, 0, tzinfo=UTC)  # 11:30 IST
+    assert not within_contact_hours(s, saturday, "call")
+    assert within_contact_hours(s, saturday, "whatsapp")
+    tuesday = datetime(2026, 11, 10, 6, 0, tzinfo=UTC)
+    assert within_contact_hours(s, tuesday, "call")
+
+
+class StreamClient:
+    """Fake httpx client: /text-to-speech/stream yields raw PCM in odd-sized parts."""
+
+    def __init__(self, fail=False):
+        self.fail = fail
+        self.posts = []
+
+    def stream(self, method, url, json=None, headers=None):
+        import contextlib
+
+        import httpx
+        outer = self
+
+        class Resp:
+            headers = {"content-type": "audio/l16"}
+
+            def raise_for_status(self):
+                if outer.fail:
+                    raise httpx.HTTPStatusError("boom", request=httpx.Request("POST", url), response=httpx.Response(500))
+
+            async def aiter_bytes(self):
+                for part in (b"\x01", b"\x02\x03\x04\x05", b"\x06"):
+                    yield part
+
+        @contextlib.asynccontextmanager
+        async def cm():
+            outer.posts.append(json)
+            yield Resp()
+        return cm()
+
+    async def post(self, url, headers=None, json=None, files=None):
+        import base64 as b64
+
+        import httpx
+
+        from fieldos_sales.audio import pcm_to_wav
+        return httpx.Response(200, json={"audios": [b64.b64encode(pcm_to_wav(b"\x09\x00" * 4)).decode()]},
+                              request=httpx.Request("POST", url))
+
+
+def test_tts_streaming_yields_whole_samples_and_falls_back():
+    import asyncio
+
+    from fieldos_sales.telephony import Speech
+
+    async def collect(speech):
+        return [c async for c in speech.speak_stream("Namaste ji.", "hi", "bulbul:v3/anushka")]
+
+    s, _ = make(tts_stream=True, sarvam_api_key="k")
+    client = StreamClient()
+    chunks = asyncio.run(collect(Speech(s, client)))
+    assert all(len(c) % 2 == 0 for c in chunks) and b"".join(chunks) == b"\x01\x02\x03\x04\x05\x06"
+    assert client.posts[0]["output_audio_codec"] == "linear16" and client.posts[0]["speech_sample_rate"] == 8000
+    fallback = asyncio.run(collect(Speech(s, StreamClient(fail=True))))
+    assert fallback == [b"\x09\x00" * 4]

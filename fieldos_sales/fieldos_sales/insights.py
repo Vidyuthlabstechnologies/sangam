@@ -296,6 +296,24 @@ def compute(store: Store, now: datetime | None = None, transcripts: int = 150) -
     languages = [{"name": {"en": "English", "hi": "Hindi", "te": "Telugu"}.get(k, k), "calls": v[0],
                   "positive": v[1], "positive_rate": _pct(v[1], v[0])} for k, v in sorted(lang_rows.items())]
 
+    # ---- voice A/B test
+    vrows: dict[str, list[Any]] = defaultdict(list)
+    for t, m in zip(call_transcripts, metas, strict=True):
+        vrows[m.get("voice") or "default"].append((t, m))
+    voices = []
+    for name, items in sorted(vrows.items()):
+        n = len(items)
+        secs = [m["duration_s"] for _, m in items if m.get("duration_s") is not None]
+        lats = [m["latency_ms_avg"] for _, m in items if m.get("latency_ms_avg")]
+        voices.append({
+            "name": name, "calls": n,
+            "avg_seconds": round(sum(secs) / len(secs), 1) if secs else None,
+            "early_hangup_rate": _pct(sum(1 for t, m in items if t["outcome"] == "ended" and m.get("prospect_turns", 0) <= 1), n),
+            "positive_rate": _pct(sum(1 for t, _ in items if t["outcome"] in POSITIVE), n),
+            "demos": sum(1 for t, _ in items if t["outcome"] == "demo_booked"),
+            "avg_latency_ms": int(sum(lats) / len(lats)) if lats else None,
+        })
+
     # ---- what people said (from AI summaries)
     sums = list(summaries.values())
     def counted(values: list[str], top: int = 8) -> list[dict[str, Any]]:
@@ -374,6 +392,7 @@ def compute(store: Store, now: datetime | None = None, transcripts: int = 150) -
             "answer_rate": calls["answer_rate"], "reply_rate": whatsapp["reply_rate"],
         },
         "funnel": funnel, "calls": calls, "whatsapp": whatsapp, "best_times": best_times,
+        "voices": voices,
         "by_segment": breakdown("segment"), "by_priority": breakdown("priority"), "languages": languages,
         "voice": voice, "actions": actions[:40], "hot": hot[:20], "conversations": convos[:transcripts],
         "spend": spend,

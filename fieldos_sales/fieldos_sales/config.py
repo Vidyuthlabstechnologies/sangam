@@ -92,9 +92,19 @@ class Settings:
     wa_max_gap_seconds: int = 540
     contact_hours: tuple[int, int] = (10, 19)
     contact_days: tuple[str, ...] = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+    # Saturday is wage day on most sites: no calls then by default (WhatsApp still allowed).
+    call_days: tuple[str, ...] = ("Mon", "Tue", "Wed", "Thu", "Fri")
+    # Voice A/B test: "model/speaker" entries, comma separated. Empty = one voice (sarvam_tts_model/sarvam_speaker).
+    voice_variants: tuple[str, ...] = ()
+    # Experimental: stream TTS audio (Sarvam /text-to-speech/stream) so the first words play sooner.
+    tts_stream: bool = False
     dnd_max_age_days: int = 7
     dashboard_token: str = ""
     auto_summarise: bool = True
+
+    def voices(self) -> list[str]:
+        """The voices in the A/B test, as "model/speaker"."""
+        return list(self.voice_variants) or [f"{self.sarvam_tts_model}/{self.sarvam_speaker}"]
 
     @property
     def db_path(self) -> Path:
@@ -105,6 +115,7 @@ class Settings:
         load_dotenv(PACKAGE_ROOT / ".env")
         env = os.environ.get
         data_dir = Path(env("FIELDOS_SALES_DATA_DIR", "") or PACKAGE_ROOT / "data")
+        call_days = tuple(d.strip()[:3].title() for d in (env("CALL_DAYS", "") or "Mon,Tue,Wed,Thu,Fri").split(",") if d.strip())
         days = tuple(d.strip()[:3].title() for d in (env("CONTACT_DAYS", "") or "Mon,Tue,Wed,Thu,Fri,Sat").split(",") if d.strip())
         return cls(
             data_dir=data_dir,
@@ -142,6 +153,9 @@ class Settings:
             wa_max_gap_seconds=_int("WA_MAX_GAP_SECONDS", 540),
             contact_hours=_hours(env("CONTACT_HOURS_IST", "") or "10-19"),
             contact_days=days or ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat"),
+            call_days=call_days or ("Mon", "Tue", "Wed", "Thu", "Fri"),
+            voice_variants=tuple(v.strip() for v in env("VOICE_VARIANTS", "").split(",") if "/" in v),
+            tts_stream=env("SARVAM_TTS_STREAM", "0").strip() == "1",
             dnd_max_age_days=_int("DND_MAX_AGE_DAYS", 7),
             dashboard_token=env("DASHBOARD_TOKEN", ""),
             auto_summarise=env("AUTO_SUMMARISE", "1").strip() != "0",

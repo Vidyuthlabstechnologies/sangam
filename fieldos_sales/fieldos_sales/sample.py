@@ -45,7 +45,7 @@ def build(store: Store, seed: int = 7, now: datetime | None = None) -> None:
             day = now - timedelta(days=rng.randint(0, 13))
             ist_hour = rng.choice([10, 11, 11, 12, 13, 14, 15, 16, 16, 17, 18])
             at = day.replace(hour=ist_hour, minute=rng.randint(0, 59), second=0, microsecond=0) - timedelta(hours=5, minutes=30)
-            while at.astimezone(UTC).weekday() == 6:
+            while at.astimezone(UTC).weekday() >= 5:  # calls go out Mon-Fri
                 at -= timedelta(days=1)
             sid += 1
             call_sid = f"SAMPLE{sid}"
@@ -84,7 +84,8 @@ def build(store: Store, seed: int = 7, now: datetime | None = None) -> None:
                     "price_asks": int(rng.random() < 0.3), "language": firm_lang, "languages": [firm_lang],
                     "latency_ms_avg": int(sum(lat) / len(lat)), "latency_ms_p90": max(lat),
                     "barge_ins": rng.choice([0, 0, 1, 2]), "silence_prompts": int(rng.random() < 0.15),
-                    "ended_by": "caller" if outcome == "ended" else "agent"}
+                    "ended_by": "caller" if outcome == "ended" else "agent",
+                    "voice": "bulbul:v3/anushka" if sid % 2 else "bulbul:v4-flash/simran_en_sales"}
             end_at = at + timedelta(seconds=meta["duration_s"])
             tid = store.log("call", "transcript", prospect_id=pid, phone=phone, text="\n".join(lines), outcome=outcome,
                             meta=meta, at=end_at)

@@ -162,6 +162,19 @@ BARGE_IN_MS = 240          # caller speech this long while we talk = they are in
 BACKCHANNEL_MIN_S = 0.8    # don't "haan ji" a one-word answer
 
 
+def pick_voice(store: Store, settings: Settings) -> str:
+    """A/B test: give each new call the voice with the fewest finished calls so far."""
+    voices = settings.voices()
+    if len(voices) == 1:
+        return voices[0]
+    counts = dict.fromkeys(voices, 0)
+    for row in store.all("SELECT json_extract(meta, '$.voice') AS v, COUNT(*) AS n FROM touches "
+                         "WHERE channel = 'call' AND direction = 'transcript' GROUP BY v"):
+        if row["v"] in counts:
+            counts[row["v"]] = row["n"]
+    return min(voices, key=lambda v: (counts[v], voices.index(v)))
+
+
 def split_sentences(text: str) -> list[str]:
     parts = [p.strip() for p in re.split(r"(?<=[.!?।])\s+", text.strip()) if p.strip()]
     return parts or [text]
@@ -199,6 +212,7 @@ class VoiceSession:
         self.silence_prompts = 0
         self.languages: list[str] = []
         self.ended_by = "caller"
+        self.voice: str | None = None
 
     # ---- audio out ---------------------------------------------------------
     def playing(self) -> bool:
@@ -223,7 +237,18 @@ class VoiceSession:
         """
         generation = self.generation
         first: float | None = None
-        renders = [asyncio.create_task(self.speech.speak(sentence, language)) for sentence in split_sentences(text)]
+        sentences = split_sentences(text)
+        if self.settings.tts_stream and hasattr(self.speech, "speak_stream"):
+            # Stream each sentence: the first words go out while the rest is still being made.
+            for sentence in sentences:
+                async for pcm in self.speech.speak_stream(sentence, language, voice=self.voice):
+                    if generation != self.generation:
+                        return first
+                    await self._send_audio(pcm, generation)
+                    if first is None and pcm:
+                        first = time.monotonic()
+            return first
+        renders = [asyncio.create_task(self.speech.speak(sentence, language, voice=self.voice)) for sentence in sentences]
         for render in renders:
             pcm = await render
             await self._send_audio(pcm, generation)
@@ -250,11 +275,12 @@ class VoiceSession:
         prospect = self.store.prospect(self.call_row["prospect_id"])
         if not prospect or self.store.is_suppressed(self.call_row["phone"]):
             return False
+        self.voice = pick_voice(self.store, self.settings)
         self.convo = Conversation.load(self.store, self.llm, prospect, self.call_row["phone"], "call",
                                        agent_name=self.settings.agent_name, agent_gender=self.settings.agent_gender)
         await self.say(self.convo.opening(), self.convo.language)
         if hasattr(self.speech, "warm_up"):
-            asyncio.create_task(self.speech.warm_up(self._fixed_lines()))
+            asyncio.create_task(self.speech.warm_up(self._fixed_lines(), voice=self.voice))
         return True
 
     def _fixed_lines(self) -> list[tuple[str, str]]:
@@ -381,4 +407,6 @@ class VoiceSession:
             "barge_ins": self.barge_ins,
             "silence_prompts": self.silence_prompts,
             "ended_by": self.ended_by if not (convo and convo.outcome) else "agent",
+            "voice": self.voice,
+            "tts_stream": self.settings.tts_stream,
         }
