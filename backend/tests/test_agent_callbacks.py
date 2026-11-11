@@ -213,8 +213,22 @@ async def test_list_is_newest_first_and_can_filter_by_status(client, auth_header
 
 
 @pytest.mark.asyncio
-async def test_a_non_owner_cannot_read_or_update_another_tenants_callback(client, auth_headers):
-    created = (await client.post("/agent-callbacks", json=_body(), headers=HOOK)).json()
+async def test_a_non_owner_cannot_read_or_update_another_tenants_callback(client, auth_headers, db_session):
+    # The autouse fixture binds callbacks to the caller's own tenant, so prove
+    # this one against a separate tenant the caller does not own.
+    from app.core.billing_service import BillingService
+
+    other_tenant = str(uuid.uuid4())
+    other = await BillingService(db_session).get_or_create_wallet(other_tenant, business_name="Other business")
+    await db_session.commit()
+    await db_session.refresh(other)
+    created = (
+        await client.post(
+            "/agent-callbacks",
+            json=_body(tenant_id=other_tenant),
+            headers={**HOOK, "X-Tenant-Key": other.metering_key},
+        )
+    ).json()
     listed = await client.get("/agent-callbacks", params={"limit": 100}, headers=auth_headers)
     assert listed.status_code == 200
     assert created["id"] not in [row["id"] for row in listed.json()]

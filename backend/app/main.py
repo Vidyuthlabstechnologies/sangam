@@ -27,6 +27,8 @@ from app.api.voice import router as voice_router
 from app.api.agent_callbacks import router as agent_callbacks_router
 from app.api.agent_callbacks import webhook_router as agent_webhook_router
 from app.api.onboarding import router as onboarding_router
+from app.api.revenuecat import router as revenuecat_router
+from app.api.legal import router as legal_router
 from app.core.health import collect_readiness
 from app.core.middleware import (
     RequestIDMiddleware,
@@ -189,6 +191,8 @@ app.include_router(voice_router)
 app.include_router(agent_callbacks_router)
 app.include_router(agent_webhook_router)
 app.include_router(onboarding_router)
+app.include_router(revenuecat_router)
+app.include_router(legal_router)
 
 
 @app.get("/health")

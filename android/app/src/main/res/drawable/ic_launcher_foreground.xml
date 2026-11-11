@@ -1,4 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
-<inset xmlns:android="http://schemas.android.com/apk/res/android"
-    android:drawable="@drawable/ic_launcher_mascot"
-    android:inset="10dp" />
+<!-- Sangamitra mark (brand/mark.svg): two streams joining, with a fainter third between them.
+     Scaled to 0.75 so it stays inside the 66dp adaptive-icon safe zone on every mask shape. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.75"
+        android:scaleY="0.75">
+        <path
+            android:pathData="M29,24C29,50 50,47 50,70V84"
+            android:strokeColor="#F59E0B"
+            android:strokeWidth="8"
+            android:strokeLineCap="round" />
+        <path
+            android:pathData="M79,24C79,50 58,47 58,70V84"
+            android:strokeColor="#E6EEF0"
+            android:strokeWidth="8"
+            android:strokeLineCap="round" />
+        <path
+            android:pathData="M54,24h0.01M54,37h0.01M54,50h0.01"
+            android:strokeColor="#B3E6EEF0"
+            android:strokeWidth="6"
+            android:strokeLineCap="round" />
+    </group>
+</vector>

@@ -9,15 +9,17 @@ from app.models.actor import Actor
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 _LOGIN_GONE = (
-    "Password login is disabled. Sign in through your Zitadel organization. "
+    "Password login moved to the identity provider. In the app, sign in with Google "
+    "or email (Firebase Authentication) and send the Firebase ID token as a bearer token. "
     "Sangam does not accept a password or mint an access token."
 )
 _REGISTER_GONE = (
-    "Registration is disabled. Create the user in your Zitadel organization. "
-    "Sangam does not store a password."
+    "Registration moved to the identity provider. In the app, create the account with "
+    "Google or email (Firebase Authentication); the first authenticated request creates "
+    "the Sangam actor. Sangam does not store a password."
 )
 _REFRESH_GONE = (
-    "Sangam does not mint or refresh sessions. The Zitadel client refreshes its own tokens."
+    "Sangam does not mint or refresh sessions. The identity provider's client refreshes its own tokens."
 )
 
 

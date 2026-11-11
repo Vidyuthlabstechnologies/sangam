@@ -37,9 +37,13 @@ fun SangamNavHost(
     NavHost(navController = navController, startDestination = startDestination) {
         composable(Routes.LOGIN) {
             LoginScreen(
-                onLoginSuccess = {
+                onLoginSuccess = { isNewUser ->
+                    // Dashboard is always the root, so Back from onboarding lands there.
                     navController.navigate(Routes.DASHBOARD) {
                         popUpTo(Routes.LOGIN) { inclusive = true }
+                    }
+                    if (isNewUser) {
+                        navController.navigate(Routes.ONBOARDING_WIZARD)
                     }
                 },
             )
@@ -55,12 +59,22 @@ fun SangamNavHost(
                 onNavigateToVoiceWorkflow = { navController.navigate(Routes.VOICE_WORKFLOW) },
                 onNavigateToVendors = { navController.navigate(Routes.VENDORS) },
                 onOpenWorkflow = { id -> navController.navigate(Routes.workflowDetail(id)) },
+                onSignOut = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
             )
         }
         composable(Routes.ONBOARDING_WIZARD) {
             OnboardingWizardScreen(
                 onBack = { navController.popBackStack() },
                 onOpenCallInbox = { navController.navigate(Routes.CALL_INBOX) },
+                onAccountDeleted = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
             )
         }
         composable(Routes.CALL_INBOX) {

@@ -1,4 +1,4 @@
-"""Production must not boot without Zitadel, and a bad token must be a 401."""
+"""Production must not boot without an identity provider, and a bad token must be a 401."""
 import uuid
 
 import pytest
@@ -52,22 +52,33 @@ async def test_production_refuses_to_seed_live_pilot_wallets(db_session, monkeyp
         await seed_live_tenants(db_session)
 
 
-def test_production_accepts_a_strong_secret():
+def test_production_accepts_firebase():
     validate_production_settings(
         _settings(
             environment="production",
-            jwt_secret="x" * 40,
+            firebase_project_id="sangamitra-ai",
             database_url="postgresql+asyncpg://sangam:correct-horse@postgres:5432/sangam",
         )
     )
 
 
-def test_production_refuses_the_dev_compose_jwt():
-    with pytest.raises(RuntimeError, match="JWT_SECRET"):
+def test_production_refuses_no_identity_provider():
+    with pytest.raises(RuntimeError, match="FIREBASE_PROJECT_ID or ZITADEL_ISSUER"):
         validate_production_settings(
             _settings(
                 environment="production",
-                jwt_secret="dev-secret-change-in-production-padded-to-be-long",
+                jwt_secret="x" * 40,
+                database_url="postgresql+asyncpg://sangam:correct-horse@postgres:5432/sangam",
+            )
+        )
+
+
+def test_production_refuses_a_malformed_firebase_project():
+    with pytest.raises(RuntimeError, match="FIREBASE_PROJECT_ID"):
+        validate_production_settings(
+            _settings(
+                environment="production",
+                firebase_project_id="https://securetoken.google.com/x",
                 database_url="postgresql+asyncpg://sangam:correct-horse@postgres:5432/sangam",
             )
         )
@@ -78,7 +89,7 @@ def test_production_refuses_the_default_database_password():
         validate_production_settings(
             _settings(
                 environment="production",
-                jwt_secret="x" * 40,
+                firebase_project_id="sangamitra-ai",
                 database_url="postgresql+asyncpg://sangam:sangam@postgres:5432/sangam",
             )
         )

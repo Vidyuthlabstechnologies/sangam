@@ -1,0 +1,84 @@
+/* Home page only. Loaded after legal.css, which defines the variables and base type. */
+body.home {
+  --bg: #0d2633;
+  --ink: #e6eef0;
+  --muted: #9db2ba;
+  --rule: #27414d;
+  --link: #f59e0b;
+  --stream-a: #f59e0b;
+  --stream-b: #e6eef0;
+}
+
+.home .top,
+.home footer { max-width: 72rem; }
+.home main { max-width: none; padding: 0; }
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 3rem;
+  align-items: center;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 3rem 1.25rem 5rem;
+}
+
+.hero h1 {
+  margin: 0 0 1.5rem;
+  max-width: 11ch;
+  font-size: clamp(2.7rem, 7.2vw, 5.4rem);
+  line-height: 1;
+  letter-spacing: -0.035em;
+}
+
+.lede {
+  max-width: 32rem;
+  margin: 0 0 1.5rem;
+  font-size: 1.3rem;
+  line-height: 1.55;
+}
+
+.hero-mark {
+  display: block;
+  width: 100%;
+  max-width: 27rem;
+  height: auto;
+  margin: 0 auto;
+}
+
+.about { max-width: 41rem; margin: 0 auto; padding: 0 1.25rem; }
+
+.facts { margin: 1rem 0 0; }
+.facts > div {
+  display: grid;
+  grid-template-columns: 9.5rem minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1.1rem 0;
+  border-top: 1px solid var(--rule);
+}
+.facts > div:last-child { border-bottom: 1px solid var(--rule); }
+.facts dt {
+  font: 600 1.15rem/1.4 "Bricolage Grotesque", system-ui, sans-serif;
+}
+.facts dd { margin: 0; }
+
+@media (max-width: 760px) {
+  .hero { grid-template-columns: 1fr; gap: 1.75rem; padding-top: 1.5rem; padding-bottom: 3rem; }
+  .hero-art { order: -1; }
+  .hero-mark { max-width: 9rem; margin: 0; }
+  .facts > div { grid-template-columns: 1fr; gap: 0.25rem; }
+}
+
+/* One moment of motion: the two streams draw in, then the third appears. */
+@media (prefers-reduced-motion: no-preference) {
+  .hero-mark .s {
+    stroke-dasharray: 1 2;
+    stroke-dashoffset: 1;
+    animation: flow 1.5s cubic-bezier(0.4, 0, 0.2, 1) 0.15s forwards;
+  }
+  .hero-mark .s2 { animation-delay: 0.4s; }
+  .hero-mark .dots { opacity: 0; animation: appear 0.9s ease 1.6s forwards; }
+}
+
+@keyframes flow { to { stroke-dashoffset: 0; } }
+@keyframes appear { to { opacity: 1; } }

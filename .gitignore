@@ -36,6 +36,8 @@ local.properties
 *.aab
 *.keystore
 *.jks
+*.p12
+*.pfx
 .kotlin/
 captures/
 
@@ -55,3 +57,5 @@ desktop.ini
 # Scratch
 .remember/tmp/
 .remember/logs/
+.neon
+.env.local

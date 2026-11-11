@@ -120,15 +120,20 @@ object RealtimeClient {
         val delay = baseDelay * (1 shl (reconnectAttempts - 1).coerceAtMost(6))
         job = scope.launch {
             delay(delay)
-            val token = TokenManager.getToken()
+            val token = currentToken()
             if (token != null) connect(token)
         }
     }
 
+    /** Safe to call from the main thread; the token is fetched on IO. */
     fun start() {
-        val token = TokenManager.getToken() ?: return
-        connect(token)
+        scope.launch {
+            val token = currentToken() ?: return@launch
+            connect(token)
+        }
     }
+
+    private suspend fun currentToken(): String? = FirebaseSession.idToken()
 
     fun stop() {
         disconnect()

@@ -3,7 +3,7 @@
 Connects Sangam workflows to GitHub for issue tracking, PR reviews, and CI checks.
 """
 
-from typing import Optional
+from typing import Any, Optional
 import httpx
 import os
 
@@ -20,7 +20,7 @@ def create_github_server(token: Optional[str] = None) -> MCPServer:
 
     async def create_issue(repo: str, title: str, body: str, labels: Optional[list] = None):
         async with httpx.AsyncClient(headers=headers) as client:
-            payload = {"title": title, "body": body}
+            payload: dict[str, Any] = {"title": title, "body": body}
             if labels:
                 payload["labels"] = labels
             resp = await client.post(
