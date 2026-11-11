@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     # Empty means in-process rate limits. Set REDIS_URL (compose and k8s do)
     # so every replica shares one counter.
     redis_url: str = ""
+    # Rate limits key on the client IP. Behind a proxy that APPENDS the real
+    # client address to X-Forwarded-For (Cloud Run, most load balancers), set
+    # this to how many entries from the right that address sits (1 on Cloud
+    # Run). Entries further left are whatever the client sent and can be forged.
+    # 0 uses the socket peer (or whatever uvicorn --proxy-headers resolved).
+    client_ip_forwarded_hop: int = 0
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
 
     db_pool_size: int = 5
@@ -122,8 +128,9 @@ class Settings(BaseSettings):
     firebase_project_id: Optional[str] = None
     # Optional override of Google's securetoken JWKS URL (tests, proxies).
     firebase_jwks_url: Optional[str] = None
-    # Reject email/password accounts until the address is verified.
-    firebase_require_verified_email: bool = False
+    # Reject email/password accounts until the address is verified. The app
+    # sends the verification link and asks the user to sign in after tapping it.
+    firebase_require_verified_email: bool = True
 
     # RevenueCat (Google Play Billing). The webhook is accepted only with this
     # exact Authorization header value, set in RevenueCat -> Integrations ->
@@ -207,7 +214,9 @@ _PLACEHOLDER_LEGAL_EMAIL = "dpo@sangamitra.in"
 
 
 def _warn_on_placeholder_legal_details(s: Settings) -> None:
-    """Warn, but do not refuse to boot, when the public legal pages carry placeholders.
+    """Warn, but do not refuse to boot, on settings that are fine for testing but not for launch.
+
+    Covers placeholder legal details, canned AI replies and sandbox purchases.
 
     Play and the DPDP Act expect a monitored grievance contact. A missing
     mailbox should not take the API down, so this is a loud log line only.
@@ -221,5 +230,17 @@ def _warn_on_placeholder_legal_details(s: Settings) -> None:
             "before the privacy policy is shown on Google Play",
             _PLACEHOLDER_LEGAL_EMAIL,
         )
+    if not (s.sarvam_api_key or "").strip():
+        log.warning(
+            "SARVAM_API_KEY is not set; voice agents answer with canned fixture replies, "
+            "not real speech or language models"
+        )
+    if s.revenuecat_accept_sandbox:
+        log.warning(
+            "REVENUECAT_ACCEPT_SANDBOX is on; Play license-tester purchases credit real wallets. "
+            "Turn it off before the public launch"
+        )
+    if not s.firebase_require_verified_email and (s.firebase_project_id or "").strip():
+        log.warning("FIREBASE_REQUIRE_VERIFIED_EMAIL is off; unverified email accounts can sign in")
     if not s.legal_postal_address.strip():
         log.warning("LEGAL_POSTAL_ADDRESS is empty; the public legal pages show no postal address")
