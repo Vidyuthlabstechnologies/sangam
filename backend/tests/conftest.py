@@ -35,6 +35,10 @@ def _force_fixture_mode(monkeypatch):
     """
     monkeypatch.setattr(settings, "use_fixtures", True)
     monkeypatch.setattr(settings, "redis_url", "")
+    # Each test starts with empty rate-limit windows. The suite makes more than
+    # a minute's allowance of calls to /auth/me from one test client address.
+    from app.core import rate_limit
+    rate_limit._memory._buckets.clear()
     monkeypatch.setattr(settings, "s3_endpoint_url", None)
     monkeypatch.setattr(settings, "s3_bucket", None)
     monkeypatch.setattr(settings, "s3_access_key", None)
