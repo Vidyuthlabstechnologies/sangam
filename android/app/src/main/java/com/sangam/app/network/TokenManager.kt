@@ -9,6 +9,8 @@ import androidx.security.crypto.MasterKey
 object TokenManager {
     private const val PREFS_NAME = "sangam_secure_prefs"
     private const val LEGACY_PREFS = "sangam_prefs"
+    // Written by builds before Firebase sign-in (password JWT, Zitadel). The
+    // backend no longer accepts them, so they are removed on startup.
     private const val KEY_TOKEN = "jwt_token"
     private const val KEY_AUTH_STATE = "zitadel_auth_state"
     private const val KEY_ACTOR_ID = "actor_id"
@@ -33,15 +35,11 @@ object TokenManager {
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
         )
-        // One-time move off the old plaintext file, then wipe it.
+        // One-time move off the old plaintext file, then wipe it. Its token is
+        // not carried over: only Firebase sessions are accepted now.
         val legacy = context.getSharedPreferences(LEGACY_PREFS, Context.MODE_PRIVATE)
-        val legacyToken = legacy.getString(KEY_TOKEN, null)
-        if (!legacyToken.isNullOrEmpty() && prefs.getString(KEY_TOKEN, null).isNullOrEmpty()) {
-            prefs.edit()
-                .putString(KEY_TOKEN, legacyToken)
-                .putString(KEY_ACTOR_ID, legacy.getString(KEY_ACTOR_ID, null))
-                .putString(KEY_ACTOR_NAME, legacy.getString(KEY_ACTOR_NAME, null))
-                .apply()
+        if (prefs.contains(KEY_TOKEN) || prefs.contains(KEY_AUTH_STATE)) {
+            prefs.edit().remove(KEY_TOKEN).remove(KEY_AUTH_STATE).apply()
         }
         val legacyServer = legacy.getString(KEY_SERVER_URL, null)
         if (!legacyServer.isNullOrEmpty() && prefs.getString(KEY_SERVER_URL, null).isNullOrEmpty()) {
@@ -60,15 +58,6 @@ object TokenManager {
 
     fun appContext(): Context = appContext
 
-    fun readAuthStateJson(): String? = prefs.getString(KEY_AUTH_STATE, null)
-
-    fun saveAuthState(json: String) {
-        prefs.edit()
-            .putString(KEY_AUTH_STATE, json)
-            .remove(KEY_TOKEN)
-            .apply()
-    }
-
     fun saveProfile(actorId: String, name: String, email: String? = null) {
         val editor = prefs.edit()
             .putString(KEY_ACTOR_ID, actorId)
@@ -77,32 +66,6 @@ object TokenManager {
             editor.putString(KEY_ACTOR_EMAIL, email)
         }
         editor.apply()
-    }
-
-    fun saveToken(token: String, actorId: String, name: String, email: String? = null) {
-        if (!::prefs.isInitialized) return
-        val editor = prefs.edit()
-            .putString(KEY_TOKEN, token)
-            .putString(KEY_ACTOR_ID, actorId)
-            .putString(KEY_ACTOR_NAME, name)
-            .remove(KEY_AUTH_STATE)
-        if (email != null) {
-            editor.putString(KEY_ACTOR_EMAIL, email)
-        }
-        editor.apply()
-    }
-
-    fun getToken(): String? {
-        if (!::prefs.isInitialized) return null
-        val raw = prefs.getString(KEY_AUTH_STATE, null)
-        if (!raw.isNullOrEmpty()) {
-            return try {
-                net.openid.appauth.AuthState.jsonDeserialize(raw).accessToken
-            } catch (_: Exception) {
-                null
-            }
-        }
-        return prefs.getString(KEY_TOKEN, null)
     }
 
     fun getServerUrl(): String {
@@ -135,6 +98,6 @@ object TokenManager {
 
     fun getActorName(): String? = if (::prefs.isInitialized) prefs.getString(KEY_ACTOR_NAME, null) else null
 
-    /** Signed in through Firebase (Google or email), or a legacy stored token. */
-    fun isLoggedIn(): Boolean = FirebaseSession.isSignedIn() || getToken() != null
+    /** Signed in through Firebase (Google or email). */
+    fun isLoggedIn(): Boolean = FirebaseSession.isSignedIn()
 }

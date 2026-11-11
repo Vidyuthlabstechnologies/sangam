@@ -22,8 +22,7 @@ class AuthInterceptor : Interceptor {
     }
 
     companion object {
-        fun currentBearerToken(): String? =
-            FirebaseSession.idTokenBlocking() ?: ZitadelAuth.accessTokenForRequest()
+        fun currentBearerToken(): String? = FirebaseSession.idTokenBlocking()
     }
 }
 

@@ -13,6 +13,7 @@ import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
+import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
@@ -36,7 +37,10 @@ object FirebaseSession {
 
     data class Result(val actorId: String, val name: String, val email: String?, val isNewUser: Boolean)
 
-    class AuthFailure(message: String) : Exception(message)
+    open class AuthFailure(message: String) : Exception(message)
+
+    /** The account exists but its email is not verified yet; a link was (re)sent. */
+    class VerificationPending(message: String) : AuthFailure(message)
 
     private fun auth(): FirebaseAuth? = try {
         FirebaseAuth.getInstance()
@@ -80,7 +84,9 @@ object FirebaseSession {
 
     suspend fun signInWithEmail(email: String, password: String): Result {
         val auth = auth() ?: throw AuthFailure("Sign-in is not available on this device.")
-        mapErrors { auth.signInWithEmailAndPassword(email, password).await() }
+        val result = mapErrors { auth.signInWithEmailAndPassword(email, password).await() }
+        val user = result.user ?: throw AuthFailure("Sign-in failed. Please try again.")
+        requireVerifiedEmail(user, justCreated = false)
         return linkWithBackend(isNewUser = false)
     }
 
@@ -91,14 +97,48 @@ object FirebaseSession {
         mapErrors {
             user.updateProfile(UserProfileChangeRequest.Builder().setDisplayName(name).build()).await()
         }
-        // Best effort. The account works before the address is verified.
-        try {
-            user.sendEmailVerification().await()
-        } catch (_: Exception) {
-        }
-        // Force a fresh ID token so it carries the display name just set.
+        // The backend accepts email accounts only once the address is verified,
+        // so a new account sends the link and asks the user to sign in after it.
+        requireVerifiedEmail(user, justCreated = true)
+        // Not reached for a new email account; kept for providers that verify up front.
         mapErrors { user.getIdToken(true).await() }
         return linkWithBackend(isNewUser = true)
+    }
+
+    /**
+     * Email accounts must prove the address before the backend links them.
+     * An unverified user gets a (fresh) verification link and is signed out,
+     * so no half-signed-in state remains; signing in after tapping the link
+     * returns a token with email_verified set.
+     */
+    private suspend fun requireVerifiedEmail(user: FirebaseUser, justCreated: Boolean) {
+        if (user.isEmailVerified) return
+        try {
+            user.reload().await()
+        } catch (_: Exception) {
+        }
+        val current = auth()?.currentUser ?: user
+        if (current.isEmailVerified) {
+            // Verified since the cached token was minted; refresh so the claim is set.
+            mapErrors { current.getIdToken(true).await() }
+            return
+        }
+        val address = current.email ?: "your email address"
+        val sent = try {
+            current.sendEmailVerification().await()
+            true
+        } catch (_: Exception) {
+            false
+        }
+        auth()?.signOut()
+        throw VerificationPending(
+            when {
+                justCreated && sent ->
+                    "Account created. We sent a verification link to $address. Open it, then sign in."
+                sent -> "Verify your email first. We sent a new link to $address. Open it, then sign in."
+                else -> "Verify your email first using the link we sent to $address, then sign in."
+            }
+        )
     }
 
     suspend fun sendPasswordReset(email: String) {
