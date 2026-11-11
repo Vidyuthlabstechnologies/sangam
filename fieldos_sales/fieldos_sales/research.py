@@ -44,7 +44,7 @@ PROFILE_SCHEMA: dict[str, Any] = {
                 "required": ["pain", "feature", "why"], "additionalProperties": False,
             },
         },
-        "opening_hook": {"type": "string", "description": "one specific, respectful line referencing a real project or fact from their site"},
+        "opening_hook": {"type": "string", "description": "a short phrase (under 12 words) naming one real project or fact from their pages, written to follow 'I saw', e.g. 'your villa project in Kokapet'; empty if nothing specific"},
         "decision_maker_hint": {"type": "string", "description": "names/titles of leaders if the pages list them, else empty"},
         "language_hint": {"type": "string", "enum": ["en", "hi", "te"]},
         "confidence": {"type": "string", "enum": ["high", "medium", "low"]},

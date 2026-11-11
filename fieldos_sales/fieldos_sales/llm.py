@@ -92,7 +92,7 @@ def _offline_answer(purpose: str, messages: list[dict[str, Any]]) -> dict[str, A
             "likely_pains": ["tracking labour, spending and deliveries across sites"],
             "fieldos_fits": [{"pain": "tracking work across sites", "feature": "Daily Site Brief",
                               "why": "one screen shows which site needs attention"}],
-            "opening_hook": "how your team closes each site's week today",
+            "opening_hook": "",
             "decision_maker_hint": "", "language_hint": "en", "confidence": "low",
             "evidence": [],
         }

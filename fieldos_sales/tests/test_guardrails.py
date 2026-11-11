@@ -3,6 +3,7 @@ import pytest
 from fieldos_sales import guardrails
 from fieldos_sales.conversation import (
     AI_ANSWER,
+    BACKCHANNELS,
     DISCLOSURE,
     GOODBYE_OPT_OUT,
     HANDOVER,
@@ -10,6 +11,7 @@ from fieldos_sales.conversation import (
 )
 from fieldos_sales.knowledge import KNOWLEDGE_TEXT, PRICE_DEFLECTION
 from fieldos_sales.pitch import fallback_opener
+from fieldos_sales.server import STILL_THERE
 from fieldos_sales.whatsapp import FOLLOW_UP
 
 
@@ -48,11 +50,12 @@ def test_normal_sales_talk_is_allowed(text):
 
 def test_every_fixed_line_we_send_passes_the_checks():
     lines = [fallback_opener({"firm": "Demo Builders"}), FOLLOW_UP]
-    for table in (PRICE_DEFLECTION, AI_ANSWER, HANDOVER, SAFE_LINE):
-        lines += list(table.values())
-    for table in (DISCLOSURE, GOODBYE_OPT_OUT):
-        for per_lang in table.values():
-            lines += [v.format(hook="") for v in per_lang.values()]
+    def flat(value):
+        if isinstance(value, dict):
+            return [x for v in value.values() for x in flat(v)]
+        return list(value) if isinstance(value, list) else [value]
+    for table in (PRICE_DEFLECTION, AI_ANSWER, HANDOVER, SAFE_LINE, DISCLOSURE, GOODBYE_OPT_OUT, BACKCHANNELS, STILL_THERE):
+        lines += [line.format(greet="Good morning", name="", agent="Priya", hook="") for line in flat(table)]
     for line in lines:
         assert guardrails.check_outbound(line) == [], line
 

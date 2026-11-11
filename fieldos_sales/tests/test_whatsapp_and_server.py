@@ -195,9 +195,9 @@ def test_voice_stream_full_call():
                 events.append(json.loads(ws.receive_text())["event"])
         except Exception:
             pass
-    assert "AI assistant" in speech.spoken[0]
-    assert speech.spoken[1] == TURN["say"]
-    assert "removed your number" in speech.spoken[2]
+    spoken = " ".join(speech.spoken)
+    assert "AI assistant" in spoken
+    assert spoken.index("AI assistant") < spoken.index("How do your supervisors") < spoken.index("removed your number")
     assert st.is_suppressed(MOBILE)
     assert st.one("SELECT 1 FROM touches WHERE direction = 'transcript'")
 
@@ -218,3 +218,31 @@ def test_voice_stream_rejects_unknown_calls_and_bad_token():
         assert False
     except Exception:
         pass
+
+
+class LongSpeech(FakeSpeech):
+    async def speak(self, text, language="en"):
+        self.spoken.append(text)
+        return tone(3000)  # 3 s of audio per sentence: still playing when the caller cuts in
+
+
+def test_caller_can_interrupt_the_agent():
+    s, st = make(voice_stream_token="vt")
+    st.execute("INSERT INTO calls (call_sid, prospect_id, phone, status, created_at) VALUES ('CA2', 1, ?, 'queued', 'x')", (MOBILE,))
+    client = TestClient(create_app(s, st, OfflineLLM(lambda *a: TURN), RecordingGateway(), LongSpeech(["haan bolo"]), run_sender=False))
+    with client.websocket_connect("/exotel/stream?token=vt") as ws:
+        ws.send_text(json.dumps({"event": "start", "start": {"stream_sid": "S2", "call_sid": "CA2"}}))
+        ws.send_text(json.dumps({"event": "media", "media": {"payload": base64.b64encode(tone(400)).decode()}}))
+        seen = []
+        for _ in range(400):
+            ev = json.loads(ws.receive_text())["event"]
+            seen.append(ev)
+            if ev == "clear":
+                break
+    assert "clear" in seen
+
+
+def test_sentences_split_for_faster_first_audio():
+    from fieldos_sales.server import split_sentences
+    assert split_sentences("Achha. Kitni sites chal rahi hain? Bataiye!") == ["Achha.", "Kitni sites chal rahi hain?", "Bataiye!"]
+    assert split_sentences("जी। कितनी sites हैं?") == ["जी।", "कितनी sites हैं?"]

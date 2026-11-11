@@ -30,9 +30,18 @@ class Heard:
 
 
 class Speech:
-    def __init__(self, settings: Settings):
+    """Sarvam speech-to-text and text-to-speech, tuned for phone calls.
+
+    One HTTP connection is kept open and reused (no new TLS handshake per
+    turn), and spoken audio is cached, so fixed lines such as the greeting,
+    "haan ji" acknowledgements and the goodbye play with no delay.
+    """
+
+    def __init__(self, settings: Settings, client: httpx.AsyncClient | None = None):
         self.settings = settings
         self.headers = {"api-subscription-key": settings.sarvam_api_key}
+        self.client = client or httpx.AsyncClient(timeout=20, limits=httpx.Limits(max_keepalive_connections=4))
+        self.cache: dict[tuple[str, str], bytes] = {}
 
     async def transcribe(self, pcm: bytes) -> Heard:
         files = {
@@ -41,29 +50,39 @@ class Speech:
             "mode": (None, "transcribe"),
             "language_code": (None, "unknown"),
         }
-        async with httpx.AsyncClient(timeout=20) as client:
-            r = await client.post(f"{SARVAM_BASE}/speech-to-text", headers=self.headers, files=files)
-            r.raise_for_status()
-            data = r.json()
+        r = await self.client.post(f"{SARVAM_BASE}/speech-to-text", headers=self.headers, files=files)
+        r.raise_for_status()
+        data = r.json()
         return Heard(text=data.get("transcript", ""), language=SARVAM_TO_LANG.get(data.get("language_code", "")))
 
     async def speak(self, text: str, language: str = "en") -> bytes:
+        key = (language, text)
+        if key in self.cache:
+            return self.cache[key]
         payload = {
             "text": text,
             "target_language_code": LANG_TO_SARVAM.get(language, "en-IN"),
             "speaker": self.settings.sarvam_speaker,
-            "model": "bulbul:v3",
-            "pace": 1.0,
+            "model": self.settings.sarvam_tts_model,
+            "pace": self.settings.voice_pace,
             "speech_sample_rate": RATE,
         }
-        async with httpx.AsyncClient(timeout=20) as client:
-            r = await client.post(f"{SARVAM_BASE}/text-to-speech",
-                                  headers={**self.headers, "Content-Type": "application/json"}, json=payload)
-            r.raise_for_status()
-            audios = r.json().get("audios", [])
-        if not audios:
-            return b""
-        return wav_to_pcm(base64.b64decode(audios[0]), RATE)
+        r = await self.client.post(f"{SARVAM_BASE}/text-to-speech",
+                                   headers={**self.headers, "Content-Type": "application/json"}, json=payload)
+        r.raise_for_status()
+        audios = r.json().get("audios", [])
+        pcm = wav_to_pcm(base64.b64decode(audios[0]), RATE) if audios else b""
+        if len(text) <= 300 and len(self.cache) < 500:
+            self.cache[key] = pcm
+        return pcm
+
+    async def warm_up(self, lines: list[tuple[str, str]]) -> None:
+        """Pre-render fixed lines (language, text) so they play instantly."""
+        for language, text in lines:
+            try:
+                await self.speak(text, language)
+            except httpx.HTTPError:
+                log.warning("could not pre-render %r", text[:40])
 
 
 class ExotelDialer:

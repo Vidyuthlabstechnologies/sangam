@@ -176,7 +176,8 @@ def cmd_simulate(args, settings, store):
     for kind in ("call_brief", "wa_opener"):
         if store.draft(p["id"], kind):
             sim.save_draft(p["id"], kind, store.draft(p["id"], kind))
-    convo = Conversation.load(sim, make_llm(settings, store), sim.prospect(p["id"]), phone, args.channel)
+    convo = Conversation.load(sim, make_llm(settings, store), sim.prospect(p["id"]), phone, args.channel,
+                              agent_name=settings.agent_name, agent_gender=settings.agent_gender)
     print(f"Rehearsing a {args.channel} with {p['firm']}. Type as the prospect; empty line or Ctrl-D ends.\n")
     if args.channel == "call":
         print("AI:", convo.opening())

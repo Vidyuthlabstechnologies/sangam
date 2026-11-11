@@ -81,6 +81,10 @@ Twilio instead: `WHATSAPP_GATEWAY=twilio`, the `TWILIO_*` values, `PUBLIC_BASE_U
 
 Only calls placed by `call` get the agent; any other stream is refused.
 
+## Making calls feel natural
+
+See [CALL_PLAYBOOK.md](CALL_PLAYBOOK.md): what makes people hang up, what the agent does about it, and what to tune in the first week.
+
 ## Keeping it accurate
 
 `knowledge.py` is the only source of product claims. Update it when the app changes (for example when the app goes public on Play, or a web dashboard ships). `tests/test_guardrails.py` fails if a price slips into it or into any fixed line.

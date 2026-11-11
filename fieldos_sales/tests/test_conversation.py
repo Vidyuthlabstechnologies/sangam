@@ -83,7 +83,38 @@ def test_demo_booking_is_logged():
 def test_language_switch_to_telugu_uses_telugu_lines():
     _, _, c = convo()
     c.language = "te"
-    assert c.respond("vaddu").say.startswith("Artham")
+    assert c.respond("vaddu").say.startswith("సరే అండి")
+
+
+def test_opening_is_natural_and_uses_name_and_time():
+    st, llm, c = convo()
+    st.execute("UPDATE prospects SET contact_name = 'Ramesh Rao' WHERE id = 1")
+    c = Conversation.load(st, llm, st.prospect(1), MOBILE, "call", agent_name="Priya")
+    from datetime import UTC, datetime
+    text = c.opening(now=datetime(2026, 11, 10, 4, 0, tzinfo=UTC))  # 9:30 IST
+    assert text.startswith("Good morning Ramesh ji! This is Priya, an AI assistant")
+    assert "I saw your Kondapur towers" in text
+
+
+def test_hindi_opening_respects_agent_gender():
+    st, llm, _ = convo()
+    st.save_profile(1, {"language_hint": "hi"})
+    female = Conversation.load(st, llm, st.prospect(1), MOBILE, "call", agent_name="Priya").opening()
+    male = Conversation.load(st, llm, st.prospect(1), MOBILE, "call", agent_name="Arjun", agent_gender="m").opening()
+    assert "बोल रही" in female and "AI assistant" in female
+    assert "बोल रहा" in male and "Arjun" in male
+
+
+def test_backchannel_never_repeats_twice_in_a_row():
+    _, _, c = convo()
+    said = [c.backchannel() for _ in range(30)]
+    assert all(a != b for a, b in zip(said, said[1:], strict=False))
+
+
+def test_send_info_outcome():
+    st, _, c = convo(lambda *a: {"say": "Sure, I'll send a one-minute video on WhatsApp.", "action": "send_info",
+                                 "language": "en", "demo_slot": "", "callback_time": "", "note": "wants video"})
+    assert c.respond("just send me details on whatsapp").outcome == "send_info"
 
 
 def test_claude_request_shape_for_live_calls():

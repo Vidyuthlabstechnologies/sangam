@@ -84,9 +84,9 @@ GOAL = (
 )
 
 PRICE_DEFLECTION = {
-    "en": "That depends on how many sites and people you run, so our team shares a written proposal after a short site walkthrough. Shall I book that walkthrough for you?",
-    "hi": "Yeh aapke sites aur team ke size par depend karta hai, isliye hamari team ek chhoti site walkthrough ke baad likhit proposal bhejti hai. Kya main walkthrough book kar doon?",
-    "te": "Adi mee sites, team size meeda depend avutundi, anduke maa team chinna site walkthrough tarvata written proposal pampistundi. Walkthrough book cheyamantara?",
+    "en": "Fair question! It really depends on how many sites and people you run, so our team gives a written proposal after a short site walkthrough. Shall I set that up?",
+    "hi": "अच्छा सवाल है जी। यह आपकी sites और team के size पर depend करता है, इसलिए हमारी team एक छोटे site walkthrough के बाद written proposal देती है। Walkthrough fix कर दें?",
+    "te": "మంచి ప్రశ్న అండి. అది మీ sites, team size మీద depend అవుతుంది, అందుకే మా team చిన్న site walkthrough తర్వాత written proposal ఇస్తుంది. Walkthrough fix చేయమంటారా?",
 }
 
 KNOWLEDGE_TEXT = "\n".join(

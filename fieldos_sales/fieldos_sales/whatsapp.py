@@ -257,7 +257,8 @@ async def handle_inbound(store: Store, llm: LLM, settings: Settings, gateway: Ga
         store.execute("INSERT INTO wa_chats (phone, prospect_id, updated_at) VALUES (?, ?, ?)", (phone, prospect["id"], iso()))
         chat = store.one("SELECT * FROM wa_chats WHERE phone = ?", (phone,))
 
-    convo = Conversation.load(store, llm, prospect, phone, "whatsapp")
+    convo = Conversation.load(store, llm, prospect, phone, "whatsapp",
+                              agent_name=settings.agent_name, agent_gender=settings.agent_gender)
     store.log("whatsapp", "in", prospect_id=prospect["id"], phone=phone, text=text)
 
     opted_out_before = store.is_suppressed(phone)
