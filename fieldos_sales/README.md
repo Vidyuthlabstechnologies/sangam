@@ -99,6 +99,20 @@ Only calls placed by `call` get the agent; any other stream is refused.
 
 **Faster replies**: speech is streamed from Sarvam as it is made (`SARVAM_TTS_STREAM=1`, the default). Measured against the live API on 2026-11-12: the first audio arrives in about 0.5 s instead of 1.1 to 3.4 s for a whole sentence, in English, Hindi and Telugu. Any streaming error falls back to the normal request; set `SARVAM_TTS_STREAM=0` to turn it off.
 
+## Calling through Sarvam Voice Agents (Samvaad)
+
+Samvaad can host the whole call (the number, speech and the agent), so no Exotel account or voice server of our own is needed for the call itself.
+
+1. In the Samvaad dashboard, paste [SAMVAAD_AGENT.md](SAMVAAD_AGENT.md) into the agent behind the **sangam** line (Bulbul V4 voice), create the listed input and output variables, and commit the version.
+2. Set `SARVAM_SAMVAAD_API_KEY` (Voice Agents key, not the normal Sarvam key), `SAMVAAD_ORG_ID` and `SAMVAAD_WORKSPACE_ID` (both in the dashboard URL or Settings). `SAMVAAD_DEPLOYMENT` picks the line by name, agent id or number (default `sangam`). With the key set, `call` and the scheduler use Samvaad (`CALL_PROVIDER=exotel` to switch back).
+3. `python -m fieldos_sales samvaad info` shows the deployments (numbers masked) and the line calls go out on.
+4. `python -m fieldos_sales samvaad test-call --phone +91... --lang hi` rings your own phone (it must be in `TEST_NUMBERS`).
+5. For transcripts in the dashboard, run `serve` reachable at `PUBLIC_BASE_URL` with `VOICE_STREAM_TOKEN`: each call then posts its transcript, outcome and opt-outs to `/samvaad/webhook`.
+
+Each firm's notes go to the agent as variables, and each call opens with our own greeting in their language. Every variable passes the pricing filter before dialling, the agent has no pricing to reveal, and each transcript is checked again (a slip is logged as `pricing_alert`). All the usual checks (live mode, approval, DND, hours, caps) still run before each call.
+
+**Test from GitHub Actions** (keys stay in repo secrets): add secrets `SARVAM_SAMVAAD_API_KEY`, `SAMVAAD_ORG_ID`, `SAMVAAD_WORKSPACE_ID` and `TEST_NUMBERS` (your own number), then put `test-call hi` in `samvaad-request.txt` and push, which runs `.github/workflows/samvaad-test-call.yml`. It only ever rings `TEST_NUMBERS`.
+
 ## Insights dashboard
 
 Every finished call gets a short AI summary (about $0.001): why it ended, the problems and objections the prospect mentioned, how they track site work today, other apps they named, interest, the next step, and one coaching tip for the agent. WhatsApp chats get the same with `insights --summarise`.

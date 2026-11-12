@@ -210,7 +210,14 @@ def cmd_call(args, settings, store):
     decision = can_contact(store, settings, p, phone, "call")
     if not decision:
         sys.exit("Not calling: " + "; ".join(decision.reasons))
-    sid = ExotelDialer(settings).dial(phone, p["id"])
+    if settings.uses_samvaad:
+        from .samvaad import SamvaadError, make_dial
+        try:
+            sid = make_dial(store, settings)(phone, p["id"])
+        except SamvaadError as e:
+            sys.exit(str(e))
+    else:
+        sid = ExotelDialer(settings).dial(phone, p["id"])
     from .store import iso
     store.execute("INSERT INTO calls (call_sid, prospect_id, phone, status, created_at) VALUES (?, ?, ?, 'queued', ?)",
                   (sid, p["id"], phone, iso()))
@@ -285,6 +292,40 @@ Next:
   python -m fieldos_sales call {pid}                         # the AI calls your phone (Exotel set up)
   python -m fieldos_sales show {pid}                         # what happened
   python -m fieldos_sales selftest reset                     # clear it and test again""")
+
+
+def cmd_samvaad(args, settings, store):
+    from . import selftest
+    from .samvaad import SamvaadDialer, SamvaadError, _mask, describe, make_dial
+    dialer = SamvaadDialer(settings)
+    try:
+        if args.action == "info":
+            print("\n".join(describe(dialer)) or "No deployments in this workspace.")
+            line = dialer.line()
+            print(f"\nCalls go out from '{line['name']}' (agent {line['app_id']} v{line['app_version']}, "
+                  f"line {_mask(line['agent_phone_number'])}).")
+            return
+        # test-call: your own number only (TEST_NUMBERS), with a made-up test firm.
+        if not args.phone:
+            sys.exit("samvaad test-call needs --phone (your own number, listed in TEST_NUMBERS)")
+        try:
+            pid = selftest.add(store, settings, make_llm(settings, store), args.phone, firm=args.firm,
+                               contact_name=args.name or "", language=args.lang)
+        except ValueError as e:
+            sys.exit(str(e))
+        p = store.prospect(pid)
+        phone = p["phones"][0]
+        decision = can_contact(store, settings, p, phone, "call")
+        if not decision:
+            sys.exit("Not calling: " + "; ".join(decision.reasons))
+        sid = make_dial(store, settings, dialer)(phone, pid)
+    except SamvaadError as e:
+        sys.exit(str(e))
+    from .store import iso
+    store.execute("INSERT INTO calls (call_sid, prospect_id, phone, status, created_at) VALUES (?, ?, ?, 'queued', ?)",
+                  (sid, pid, phone, iso()))
+    store.log("call", "out", prospect_id=pid, phone=phone, outcome="dialled", meta={"call_sid": sid, "provider": "samvaad"})
+    print(f"Calling your test number {_mask(phone)} from Samvaad (attempt {sid}). Pick up!")
 
 
 def cmd_schedule_calls(args, settings, store):
@@ -390,6 +431,12 @@ def main(argv: list[str] | None = None) -> None:
     sp.add_argument("--firm", default="Test Builders (you)")
     sp.add_argument("--name", help="your first name, used in the greeting")
     sp.add_argument("--lang", choices=["en", "hi", "te"], default="en")
+    sp = add("samvaad", cmd_samvaad, "Sarvam Voice Agents: `info` shows the line used; `test-call` rings your own phone")
+    sp.add_argument("action", choices=["info", "test-call"])
+    sp.add_argument("--phone")
+    sp.add_argument("--firm", default="Test Builders (you)")
+    sp.add_argument("--name", default="")
+    sp.add_argument("--lang", default="en", choices=["en", "hi", "te"])
     sp = add("schedule-calls", cmd_schedule_calls, "plan AI calls over the coming weekdays (best hours, best-fit firms first)", select=True)
     sp.add_argument("--start", help="first day, YYYY-MM-DD (default tomorrow)")
     sp.add_argument("--per-day", type=int)

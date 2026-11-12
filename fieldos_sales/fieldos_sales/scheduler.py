@@ -148,6 +148,13 @@ async def scheduler_loop(store: Store, settings: Settings, stop: asyncio.Event, 
     if not settings.live:
         log.warning("live mode is off: scheduled calls are not dialled")
         return
+    if dial is None and settings.uses_samvaad:
+        from .samvaad import SamvaadDialer, make_dial
+        missing = SamvaadDialer(settings).configured()
+        if missing:
+            log.warning("Samvaad not configured (%s): scheduled calls are not dialled", ", ".join(missing))
+            return
+        dial = make_dial(store, settings)
     if dial is None:
         from .telephony import ExotelDialer
         dialer = ExotelDialer(settings)

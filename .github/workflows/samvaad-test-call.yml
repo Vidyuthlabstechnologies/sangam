@@ -1,0 +1,64 @@
+# Rings the OWNER'S OWN phone from the Sarvam Voice Agents "sangam" line, to test the sales agent.
+# Never calls a prospect: the number comes only from the TEST_NUMBERS secret, and no prospect data
+# exists in Actions. Logs are public on this repo, so nothing here prints a full phone number or key.
+#
+# Needs repo secrets: SARVAM_SAMVAAD_API_KEY, SAMVAAD_ORG_ID, SAMVAAD_WORKSPACE_ID, TEST_NUMBERS.
+# Trigger: edit fieldos_sales/samvaad-request.txt ("info" or "test-call en|hi|te") and push,
+# or run it from the Actions tab once this file is on the default branch.
+name: Samvaad test call
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "info, or test-call"
+        default: info
+      lang:
+        description: "en, hi or te"
+        default: en
+  push:
+    branches: [claude/project-thread-xlwjia]
+    paths: [fieldos_sales/samvaad-request.txt]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: samvaad-test-call
+  cancel-in-progress: false
+
+jobs:
+  call:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ./fieldos_sales
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q -r requirements.txt
+      - name: Run
+        env:
+          SARVAM_SAMVAAD_API_KEY: ${{ secrets.SARVAM_SAMVAAD_API_KEY }}
+          SAMVAAD_ORG_ID: ${{ secrets.SAMVAAD_ORG_ID }}
+          SAMVAAD_WORKSPACE_ID: ${{ secrets.SAMVAAD_WORKSPACE_ID }}
+          TEST_NUMBERS: ${{ secrets.TEST_NUMBERS }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CALL_PROVIDER: samvaad
+          FIELDOS_SALES_LIVE: "1"
+          FIELDOS_SALES_DATA_DIR: ${{ runner.temp }}/sales
+          INPUT_ACTION: ${{ github.event.inputs.action }}
+          INPUT_LANG: ${{ github.event.inputs.lang }}
+        run: |
+          if [ -n "$INPUT_ACTION" ]; then set -- $INPUT_ACTION ${INPUT_LANG:-en}; else set -- $(head -1 samvaad-request.txt); fi
+          action="${1:-info}"; lang="${2:-en}"
+          case "$lang" in en|hi|te) ;; *) lang=en ;; esac
+          python -m fieldos_sales samvaad info
+          if [ "$action" = "test-call" ]; then
+            phone="${TEST_NUMBERS%%,*}"
+            [ -n "$phone" ] || { echo "TEST_NUMBERS secret is empty"; exit 1; }
+            python -m fieldos_sales samvaad test-call --phone "$phone" --lang "$lang"
+          fi

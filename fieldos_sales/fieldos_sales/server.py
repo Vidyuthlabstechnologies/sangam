@@ -147,6 +147,21 @@ def create_app(settings: Settings | None = None, store: Store | None = None, llm
                       meta={"call_sid": sid, "duration": form.get("ConversationDuration")})
         return {"ok": True}
 
+    @app.post("/samvaad/webhook")
+    async def samvaad_webhook(request: Request, token: str = "") -> dict:
+        """Sarvam Voice Agents posts here after each call attempt (connected or not)."""
+        if not _token_ok(settings.voice_stream_token, token):
+            raise HTTPException(status_code=403)
+        from .samvaad import handle_webhook
+        result = handle_webhook(store, await request.json())
+        if result.get("logged") == "transcript" and settings.auto_summarise:
+            from .insights import summarise_call
+            try:
+                await asyncio.to_thread(summarise_call, store, llm, result["touch_id"])
+            except Exception:
+                log.exception("call summary failed (run `insights --summarise` later)")
+        return result
+
     @app.websocket("/exotel/stream")
     async def exotel_stream(ws: WebSocket) -> None:
         if not _token_ok(settings.voice_stream_token, ws.query_params.get("token")):

@@ -78,6 +78,13 @@ class Settings:
     exotel_subdomain: str = "api.exotel.com"
     exotel_caller_id: str = ""
     exotel_flow_url: str = ""
+    # Sarvam Voice Agents (Samvaad): hosts the whole call. Its key is separate from SARVAM_API_KEY.
+    samvaad_api_key: str = ""
+    samvaad_org_id: str = ""
+    samvaad_workspace_id: str = ""
+    samvaad_deployment: str = "sangam"
+    # "samvaad", "exotel", or "auto" (Samvaad when its key is set, else Exotel).
+    call_provider: str = "auto"
     voice_stream_token: str = ""
     public_base_url: str = ""
 
@@ -108,6 +115,10 @@ class Settings:
     dnd_max_age_days: int = 7
     dashboard_token: str = ""
     auto_summarise: bool = True
+
+    @property
+    def uses_samvaad(self) -> bool:
+        return self.call_provider == "samvaad" or (self.call_provider == "auto" and bool(self.samvaad_api_key))
 
     def voices(self) -> list[str]:
         """The voices in the A/B test, as "model/speaker"."""
@@ -143,6 +154,11 @@ class Settings:
             exotel_subdomain=env("EXOTEL_SUBDOMAIN", "") or "api.exotel.com",
             exotel_caller_id=env("EXOTEL_CALLER_ID", ""),
             exotel_flow_url=env("EXOTEL_FLOW_URL", ""),
+            samvaad_api_key=env("SARVAM_SAMVAAD_API_KEY", ""),
+            samvaad_org_id=env("SAMVAAD_ORG_ID", ""),
+            samvaad_workspace_id=env("SAMVAAD_WORKSPACE_ID", ""),
+            samvaad_deployment=env("SAMVAAD_DEPLOYMENT", "") or "sangam",
+            call_provider=(env("CALL_PROVIDER", "") or "auto").lower(),
             voice_stream_token=env("VOICE_STREAM_TOKEN", ""),
             public_base_url=env("PUBLIC_BASE_URL", "").rstrip("/"),
             whatsapp_gateway=(env("WHATSAPP_GATEWAY", "") or "waha").lower(),
