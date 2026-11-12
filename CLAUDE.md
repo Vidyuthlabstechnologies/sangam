@@ -99,10 +99,11 @@ Jetpack Compose, single-activity (`MainActivity.kt` → `SangamNavHost.kt`), pac
 
 **Fixture mode** (`app/core/fixtures.py`): when a service's credentials are absent or `USE_FIXTURES=true`, the Sarvam and Razorpay clients return deterministic canned responses through identical code paths. `tests/conftest.py` forces it on suite-wide — without that, tests make billable Sarvam calls and reach a live gateway. Enabling live keys is a config change, never a code change.
 
-Three integration shapes are easy to get wrong and are documented in code comments where they matter:
+Four integration shapes are easy to get wrong and are documented in code comments where they matter:
 - Sarvam doc digitisation needs create → `upload-files` → PUT to the presigned Azure blob (`x-ms-blob-type: BlockBlob`) → `start`. Status reports `job_state`; output is a ZIP fetched via `POST {job_id}/download-files`.
 - `sarvam-30b` is a reasoning model: budget `max_tokens` generously (4096 is the starter-tier ceiling) or `content` comes back null.
 - Razorpay Orders takes `method` as a **string**; a nested object is rejected.
+- Sarvam Voice Agents (Samvaad, `app/core/samvaad.py`, routes in `app/api/voice_agents.py`) use `SARVAM_SAMVAAD_API_KEY` in an `X-API-Key` header, a different key from `SARVAM_API_KEY`. Each service has its own base under `https://apps.sarvam.ai/api`, and calls need `SAMVAAD_ORG_ID`/`SAMVAAD_WORKSPACE_ID`. Outbound calls return only an `attempt_id`; the outcome arrives on an **unsigned** webhook, so each call gets its own secret webhook URL. The app never holds the key: it streams PCM to `/voice-agents/ws/{app_id}` and the server runs the SDK session.
 
 ## Conventions worth preserving
 
