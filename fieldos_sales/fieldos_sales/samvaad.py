@@ -22,6 +22,7 @@ import httpx
 from .config import Settings
 from .conversation import Conversation
 from .guardrails import check_outbound, is_opt_out, pricing_violation
+from .selftest import is_test
 from .store import Store
 
 log = logging.getLogger("fieldos_sales.samvaad")
@@ -149,6 +150,12 @@ def call_inputs(store: Store, settings: Settings, prospect: dict[str, Any], phon
     return variables, opening, convo.language
 
 
+def promotional_line(number: str) -> bool:
+    """A TRAI 140-series promotional number (+91 140xxxxxxx)."""
+    digits = "".join(ch for ch in number if ch.isdigit())
+    return digits.startswith(("140", "91140"))
+
+
 def make_dial(store: Store, settings: Settings, dialer: SamvaadDialer | None = None):
     """A `dial(phone, prospect_id) -> attempt_id` for the scheduler and the `call` command."""
     dialer = dialer or SamvaadDialer(settings)
@@ -157,6 +164,11 @@ def make_dial(store: Store, settings: Settings, dialer: SamvaadDialer | None = N
         prospect = store.prospect(prospect_id)
         if not prospect:
             raise SamvaadError(f"no prospect {prospect_id}")
+        if not is_test(settings, prospect, phone) and not promotional_line(dialer.line()["agent_phone_number"]):
+            # TRAI (TCCCPR 2025): sales calls must come from a 140-series number. A rented 080/079
+            # landline may only ring your own TEST_NUMBERS.
+            raise SamvaadError("the Samvaad line is not a 140-series number, so it may only call TEST_NUMBERS; "
+                               "add a 140-series line to the deployment before calling prospects")
         variables, opening, language = call_inputs(store, settings, prospect, phone)
         return dialer.dial(phone, prospect_id, variables, opening, language)
     return dial

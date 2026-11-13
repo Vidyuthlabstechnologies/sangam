@@ -109,7 +109,7 @@ Samvaad can host the whole call (the number, speech and the agent), so no Exotel
 4. `python -m fieldos_sales samvaad test-call --phone +91... --lang hi` rings your own phone (it must be in `TEST_NUMBERS`).
 5. For transcripts in the dashboard, run `serve` reachable at `PUBLIC_BASE_URL` with `VOICE_STREAM_TOKEN`: each call then posts its transcript, outcome and opt-outs to `/samvaad/webhook`.
 
-Each firm's notes go to the agent as variables, and each call opens with our own greeting in their language. Every variable passes the pricing filter before dialling, the agent has no pricing to reveal, and each transcript is checked again (a slip is logged as `pricing_alert`). All the usual checks (live mode, approval, DND, hours, caps) still run before each call.
+Each firm's notes go to the agent as variables, and each call opens with our own greeting in their language. Every variable passes the pricing filter before dialling, the agent has no pricing to reveal, and each transcript is checked again (a slip is logged as `pricing_alert`). All the usual checks (live mode, approval, DND, hours, caps) still run before each call. Calls to prospects are refused unless the Samvaad line is a 140-series number (TRAI rule for sales calls); a rented 080/079 line can only ring your own `TEST_NUMBERS`.
 
 **Test from GitHub Actions** (keys stay in repo secrets): add secrets `SARVAM_SAMVAAD_API_KEY`, `SAMVAAD_ORG_ID`, `SAMVAAD_WORKSPACE_ID` and `TEST_NUMBERS` (your own number), then put `test-call hi` in `samvaad-request.txt` and push, which runs `.github/workflows/samvaad-test-call.yml`. It only ever rings `TEST_NUMBERS`.
 

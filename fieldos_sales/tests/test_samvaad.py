@@ -12,6 +12,7 @@ from fieldos_sales.samvaad import (
     describe,
     handle_webhook,
     make_dial,
+    promotional_line,
 )
 from fieldos_sales.server import create_app
 from fieldos_sales.store import iso
@@ -50,8 +51,9 @@ def settings_for(**kw):
 
 
 def test_finds_the_sangam_line_and_places_a_call_with_the_firms_notes():
-    s, st = settings_for(public_base_url="https://x.example", voice_stream_token="vt")
+    s, st = settings_for(public_base_url="https://x.example", voice_stream_token="vt", test_numbers=(MOBILE,))
     ready_for(st, "call")
+    st.execute("UPDATE prospects SET source = 'self-test' WHERE id = 1")  # the 080 test line may ring only you
     fake = Fake()
     attempt = make_dial(st, s, SamvaadDialer(s, fake))(MOBILE, 1)
     assert attempt == "att-1"
@@ -64,6 +66,14 @@ def test_finds_the_sangam_line_and_places_a_call_with_the_firms_notes():
     opening = body["app_config"]["app_overrides"]["initial_bot_message"]
     assert "FieldOS" in opening and "AI" not in opening and "record" not in opening.lower()
     assert body["webhook_config"]["url"] == "https://x.example/samvaad/webhook?token=vt"
+
+
+def test_landline_only_rings_test_numbers():
+    s, st = settings_for(test_numbers=())
+    ready_for(st, "call")
+    with pytest.raises(SamvaadError, match="140-series"):
+        make_dial(st, s, SamvaadDialer(s, Fake()))(MOBILE, 1)
+    assert promotional_line("+91 1401234567") and not promotional_line("+918047161111")
 
 
 def test_not_configured_and_no_matching_line_fail_clearly():
