@@ -12,6 +12,7 @@ android/   Jetpack Compose (Material 3 Expressive) client
 web/       React 19 + Refine + shadcn/ui dashboard
 sdk/       python/ and typescript/ client SDKs
 k8s/       Kubernetes manifests (ArgoCD-ready)
+fieldos_sales/  FieldOS AI sales agents (research, AI calls, WhatsApp bot); standalone, see its README
 ```
 
 ## Commands

@@ -1,0 +1,7 @@
+# Prospect data, call transcripts, opt-out lists and keys never go in git.
+data/
+*.db
+.env
+__pycache__/
+.pytest_cache/
+waha-sessions/
