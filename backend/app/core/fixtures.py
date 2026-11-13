@@ -198,3 +198,67 @@ def razorpay_refund(payment_id: str) -> Dict[str, Any]:
         "payment_id": payment_id,
         "status": "processed",
     }
+
+
+# --------------------------------------------------------------------------
+# Sarvam Voice Agents (Samvaad)
+# --------------------------------------------------------------------------
+
+def samvaad_deployment(deployment_id: str, body: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    body = body or {}
+    return {
+        "deployment_id": deployment_id,
+        "app_id": body.get("app_id", "fixture-agent"),
+        "app_version": body.get("app_version", 1),
+        "connection_configs": body.get(
+            "connection_configs", [{"connection_id": "conn-fixture", "agent_phone_number": "+918000000000"}]
+        ),
+        "channel_direction": "inbound",
+        "created_by": "fixture@example.test",
+        "created_at": "2026-11-01T10:00:00Z",
+        "updated_at": "2026-11-01T10:00:00Z",
+        "name": body.get("name", "Fixture deployment"),
+        "status": "active",
+        "description": body.get("description"),
+        "inbound_config": body.get("inbound_config"),
+        "webhook_config": body.get("webhook_config"),
+    }
+
+
+def samvaad_deployments() -> Dict[str, Any]:
+    return {"items": [samvaad_deployment("dep-fixture")], "total": 1}
+
+
+def samvaad_outbound_attempt_id() -> str:
+    import uuid
+
+    return f"fixture-{uuid.uuid4()}"
+
+
+SAMVAAD_FIXTURE_TRANSCRIPT = [
+    {"turn_id": 1, "role": "assistant", "content": "Namaste! How can I help you today?", "language_name": "English"},
+    {"turn_id": 2, "role": "user", "content": "I want to book a visit for tomorrow.", "language_name": "English"},
+    {"turn_id": 3, "role": "assistant", "content": "Done. You are booked for 11 AM tomorrow.", "language_name": "English"},
+]
+
+
+def samvaad_transcript(interaction_id: str) -> Dict[str, Any]:
+    return {"interaction_id": interaction_id, "messages": list(SAMVAAD_FIXTURE_TRANSCRIPT)}
+
+
+def samvaad_interactions(app_id: str, include_transcript: bool = False) -> Dict[str, Any]:
+    item: Dict[str, Any] = {
+        "interaction_id": "20261101/fixture-interaction",
+        "app_id": app_id,
+        "start_datetime": "2026-11-01T10:00:00+05:30",
+        "end_datetime": "2026-11-01T10:01:10+05:30",
+        "duration_in_seconds": 70,
+        "user_contact": "+919800000000",
+        "ended_by": "user",
+    }
+    if include_transcript:
+        item["original_transcript"] = [
+            {"role": "agent" if m["role"] == "assistant" else "user", "content": m["content"]}
+            for m in SAMVAAD_FIXTURE_TRANSCRIPT
+        ]
+    return {"items": [item], "next_page_uri": None}

@@ -649,4 +649,13 @@ object ApiClient {
             .build()
             .create(SangamOnboardingApi::class.java)
     }
+
+    val voiceAgentApi: SangamVoiceAgentApi by lazy {
+        Retrofit.Builder()
+            .baseUrl(apiBaseUrl())
+            .client(httpClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(SangamVoiceAgentApi::class.java)
+    }
 }

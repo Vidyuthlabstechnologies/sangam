@@ -7,9 +7,9 @@ Integrates GSTN, MCA, Udyam, MoSPI/NSO, PM GatiShakti, National Power Portal via
 import os
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_sangam.db"
 os.environ["JWT_SECRET"] = "test-secret"
-os.environ["SARVAM_API_KEY"] = "sk_gv50556a_Xj5lc0qeDpsi7QkHbSlNCGFC"
-os.environ["RAZORPAY_KEY_ID"] = "rzp_live_TD0msDGLQvTmsJ"
-os.environ["RAZORPAY_KEY_SECRET"] = "n3RVOZSoujb8EdlJVxmNhdmC"
+os.environ.setdefault("SARVAM_API_KEY", "")  # set in your shell or backend/.env; never commit keys
+os.environ.setdefault("RAZORPAY_KEY_ID", "")  # set in your shell or backend/.env; never commit keys
+os.environ.setdefault("RAZORPAY_KEY_SECRET", "")  # set in your shell or backend/.env; never commit keys
 os.environ["EMAIL_API_KEY"] = "test"
 os.environ["SLACK_WEBHOOK_URL"] = "https://hooks.slack.com/services/test"
 os.environ["BRIGHTDATA_API_TOKEN"] = "your_brightdata_token_here"  # User must provide

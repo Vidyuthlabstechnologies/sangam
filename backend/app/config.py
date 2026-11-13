@@ -50,6 +50,21 @@ class Settings(BaseSettings):
 
     sarvam_api_key: Optional[str] = None
 
+    # Sarvam Voice Agents (Samvaad). A SEPARATE key from SARVAM_API_KEY: the two
+    # are not interchangeable. It stays on the server; the app reaches agents only
+    # through /voice-agents, which proxies the WebSocket. Org and workspace ids
+    # come from the Samvaad dashboard URL or Settings. Missing key = fixture mode.
+    sarvam_samvaad_api_key: Optional[str] = None
+    samvaad_org_id: Optional[str] = None
+    samvaad_workspace_id: Optional[str] = None
+    samvaad_api_base: str = "https://apps.sarvam.ai/api"
+    # Public https base of this API, used to build the outbound-call webhook URL.
+    # Empty = taken from the request (Cloud Run forwards the https scheme).
+    public_base_url: Optional[str] = None
+    # Abuse guards on calls that spend money.
+    samvaad_max_pending_calls: int = 5
+    samvaad_max_session_seconds: int = 900
+
     razorpay_key_id: Optional[str] = None
     razorpay_key_secret: Optional[str] = None
     razorpay_webhook_secret: Optional[str] = None
@@ -234,6 +249,15 @@ def _warn_on_placeholder_legal_details(s: Settings) -> None:
         log.warning(
             "SARVAM_API_KEY is not set; voice agents answer with canned fixture replies, "
             "not real speech or language models"
+        )
+    if not (s.sarvam_samvaad_api_key or "").strip():
+        log.warning(
+            "SARVAM_SAMVAAD_API_KEY is not set; /voice-agents calls and sessions return canned fixtures"
+        )
+    elif not ((s.samvaad_org_id or "").strip() and (s.samvaad_workspace_id or "").strip()):
+        log.warning(
+            "SARVAM_SAMVAAD_API_KEY is set but SAMVAAD_ORG_ID or SAMVAAD_WORKSPACE_ID is missing; "
+            "/voice-agents answers 503 until both are set"
         )
     if s.revenuecat_accept_sandbox:
         log.warning(

@@ -29,12 +29,20 @@
   Public launch settings: sandbox (license-tester) purchases stop crediting wallets.
   Leave it off during closed testing so testers can buy.
 
+.PARAMETER SamvaadOrgId
+  Sarvam Voice Agents organization id (from the Samvaad dashboard URL or Settings).
+  Given once, it stays on the service; later runs can leave it out.
+
+.PARAMETER SamvaadWorkspaceId
+  Sarvam Voice Agents workspace id, same place. Needed with SARVAM_SAMVAAD_API_KEY.
+
 .PARAMETER UseLocalNeon
   Take the direct Neon string from .env.local (written by `neon init`) without asking.
 
 .EXAMPLE
   pwsh -File .\deploy\cloudrun\deploy.ps1 -DryRun
   pwsh -File .\deploy\cloudrun\deploy.ps1
+  pwsh -File .\deploy\cloudrun\deploy.ps1 -SamvaadOrgId <org> -SamvaadWorkspaceId <workspace>
 #>
 #requires -Version 7
 [CmdletBinding()]
@@ -50,7 +58,10 @@ param(
     # Use DATABASE_URL_UNPOOLED from .env.local without asking (for unattended runs).
     [switch]$UseLocalNeon,
     # Public launch: stop crediting Play license-tester (sandbox) purchases.
-    [switch]$Launch
+    [switch]$Launch,
+    # Sarvam Voice Agents (Samvaad) scope. Not secrets; stored as plain env vars.
+    [string]$SamvaadOrgId = '',
+    [string]$SamvaadWorkspaceId = ''
 )
 
 Set-StrictMode -Version Latest
@@ -61,10 +72,13 @@ $DbSecret = 'sangam-database-url'
 $JwtSecret = 'sangam-jwt-secret'
 $WebhookSecret = 'sangam-revenuecat-webhook-auth'
 # Provider keys: env var name -> secret name. Without SARVAM_API_KEY the voice
-# agents answer with canned fixture replies. Razorpay is not used: the app sells
-# through Google Play Billing.
+# agents answer with canned fixture replies. SARVAM_SAMVAAD_API_KEY is the
+# separate Voice Agents key (Settings -> API Key in the Samvaad dashboard); the
+# two are not interchangeable. Without it /voice-agents returns fixtures.
+# Razorpay is not used: the app sells through Google Play Billing.
 $ProviderSecrets = [ordered]@{
     'SARVAM_API_KEY' = 'sangam-sarvam-api-key'
+    'SARVAM_SAMVAAD_API_KEY' = 'sangam-sarvam-samvaad-api-key'
 }
 $ApiServices = 'run.googleapis.com', 'cloudbuild.googleapis.com', 'artifactregistry.googleapis.com', 'secretmanager.googleapis.com'
 
@@ -184,7 +198,7 @@ if (-not (Test-Secret $WebhookSecret)) {
     }
 }
 
-Step 'Storing the Sarvam API key'
+Step 'Storing the Sarvam API keys'
 $providerRefs = @()
 foreach ($envName in $ProviderSecrets.Keys) {
     $secretName = $ProviderSecrets[$envName]
@@ -239,6 +253,11 @@ $acceptSandbox = if ($Launch) { 'false' } else { 'true' }
 $envVars = "ENVIRONMENT=production,FIREBASE_PROJECT_ID=sangamitra-ai,FIREBASE_REQUIRE_VERIFIED_EMAIL=true,REVENUECAT_ACCEPT_SANDBOX=$acceptSandbox,FORWARDED_ALLOW_IPS=*,CLIENT_IP_FORWARDED_HOP=1"
 $secretRefs = "DATABASE_URL=${DbSecret}:latest,JWT_SECRET=${JwtSecret}:latest,REVENUECAT_WEBHOOK_AUTH=${WebhookSecret}:latest"
 foreach ($envName in $providerRefs) { $secretRefs += ",$envName=$($ProviderSecrets[$envName]):latest" }
+foreach ($pair in @(@('SAMVAAD_ORG_ID', $SamvaadOrgId), @('SAMVAAD_WORKSPACE_ID', $SamvaadWorkspaceId))) {
+    $value = $pair[1].Trim()
+    if ($value -and $value -notmatch '^[A-Za-z0-9._-]+$') { throw "$($pair[0]) has unexpected characters." }
+    if ($value) { $envVars += ",$($pair[0])=$value" }
+}
 Write-Host "  sandbox purchases credited: $acceptSandbox$(if (-not $Launch) { ' (run with -Launch at the public launch)' })"
 Invoke-Cloud "gcloud run deploy $Service --source backend --port 8000 --min-instances 0 --max-instances 3" {
     gcloud run deploy $Service --source (Join-Path $RepoRoot 'backend') --project $ProjectId --region $Region `
@@ -259,5 +278,13 @@ if (-not $DryRun) {
 }
 if ($missingProviders -contains 'SARVAM_API_KEY') {
     Write-Host "`nSARVAM_API_KEY is not set: voice agents answer with canned replies. Run this again and paste it." -ForegroundColor Yellow
+}
+if ($missingProviders -contains 'SARVAM_SAMVAAD_API_KEY') {
+    Write-Host "`nSARVAM_SAMVAAD_API_KEY is not set: /voice-agents returns canned fixtures. Run this again and paste the Voice Agents key." -ForegroundColor Yellow
+} elseif (-not $DryRun) {
+    $current = gcloud run services describe $Service --project $ProjectId --region $Region --format='value(spec.template.spec.containers[0].env)'
+    if ("$current" -notmatch 'SAMVAAD_WORKSPACE_ID') {
+        Write-Host "`nSAMVAAD_ORG_ID / SAMVAAD_WORKSPACE_ID are not set: /voice-agents answers 503. Run again with -SamvaadOrgId and -SamvaadWorkspaceId." -ForegroundColor Yellow
+    }
 }
 
