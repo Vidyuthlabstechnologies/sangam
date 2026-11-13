@@ -63,7 +63,7 @@ class Escrow(Base):
     __tablename__ = "escrows"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    workflow_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workflows.id"), nullable=False)
+    workflow_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workflows.id"), nullable=False)
     payment_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("payments.id"), nullable=False)
     amount: Mapped[float] = mapped_column(Float, nullable=False)
     status: Mapped[EscrowStatus] = mapped_column(SAEnum(EscrowStatus), nullable=False, default=EscrowStatus.HELD)
@@ -80,7 +80,7 @@ class Invoice(Base):
     __tablename__ = "invoices"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    workflow_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workflows.id"), nullable=False)
+    workflow_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workflows.id"), nullable=False)
     payment_id: Mapped[Optional[UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("payments.id"), nullable=True)
     invoice_number: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     amount: Mapped[float] = mapped_column(Float, nullable=False)

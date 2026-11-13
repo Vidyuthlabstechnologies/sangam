@@ -14,6 +14,8 @@ from app.core.oidc import install_test_jwks
 
 TEST_ISSUER = "https://zitadel.test/local"
 TEST_CLIENT_ID = "sangam-test-web"
+TEST_FIREBASE_PROJECT = "sangam-test-firebase"
+TEST_FIREBASE_ISSUER = f"https://securetoken.google.com/{TEST_FIREBASE_PROJECT}"
 _KID = "test-key"
 
 _private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -61,6 +63,46 @@ def mint_access_token(
         payload,
         _private_key if key is None else key,
         algorithm=algorithm,
+        headers={"kid": _KID},
+    )
+
+
+def mint_firebase_token(
+    *,
+    uid: str,
+    provider: str = "google.com",
+    email: Optional[str] = None,
+    email_verified: bool = True,
+    name: Optional[str] = "Test User",
+    audience: Optional[str] = None,
+    issuer: Optional[str] = None,
+    extra: Optional[dict] = None,
+    key=None,
+    expires_in: int = 3600,
+    auth_time_offset: int = 0,
+) -> str:
+    """A token shaped like a Firebase Authentication ID token."""
+    now = int(time.time())
+    payload = {
+        "iss": issuer or TEST_FIREBASE_ISSUER,
+        "aud": audience or TEST_FIREBASE_PROJECT,
+        "sub": uid,
+        "user_id": uid,
+        "auth_time": now + auth_time_offset,
+        "iat": now,
+        "exp": now + expires_in,
+        "email": email or f"{uid}@example.test",
+        "email_verified": email_verified,
+        "firebase": {"sign_in_provider": provider, "identities": {}},
+    }
+    if name is not None:
+        payload["name"] = name
+    if extra:
+        payload.update(extra)
+    return jwt.encode(
+        payload,
+        _private_key if key is None else key,
+        algorithm="RS256",
         headers={"kid": _KID},
     )
 

@@ -1,0 +1,50 @@
+name: Launch readiness
+
+# Lists which release settings are set or missing. Never prints a value.
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check secrets and variables
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || secrets.SANGAM_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || secrets.SANGAM_KEY_PASSWORD }}
+          REVENUECAT_ANDROID_KEY: ${{ secrets.REVENUECAT_ANDROID_KEY }}
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+          PRIVACY_POLICY_URL: ${{ vars.PRIVACY_POLICY_URL }}
+          TERMS_URL: ${{ vars.TERMS_URL }}
+          ACCOUNT_DELETION_URL: ${{ vars.ACCOUNT_DELETION_URL }}
+          UPLOAD_KEY_SHA1: ${{ vars.UPLOAD_KEY_SHA1 }}
+        run: |
+          status=0
+          row() { # name, value, required, hint
+            if [ -n "$2" ]; then mark="set"; else mark="MISSING"; fi
+            if [ -z "$2" ] && [ "$3" = "required" ]; then status=1; fi
+            echo "| $1 | $mark | $3 | $4 |" >> "$GITHUB_STEP_SUMMARY"
+            echo "$1: $mark ($3)"
+          }
+          {
+            echo "### Release settings"
+            echo "| Name | State | Needed | Where it comes from |"
+            echo "|---|---|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          row ANDROID_KEYSTORE_BASE64 "$ANDROID_KEYSTORE_BASE64" required "Upload keystore, base64"
+          row "ANDROID_KEYSTORE_PASSWORD (or SANGAM_)" "$KEYSTORE_PASSWORD" required "Keystore password"
+          row "ANDROID_KEY_PASSWORD (or SANGAM_)" "$KEY_PASSWORD" required "Key password"
+          row REVENUECAT_ANDROID_KEY "$REVENUECAT_ANDROID_KEY" required "RevenueCat, Project settings, API keys (goog_)"
+          row API_BASE_URL "$API_BASE_URL" required "Repository variable, public https backend"
+          row PRIVACY_POLICY_URL "$PRIVACY_POLICY_URL" recommended "Repository variable, live privacy page"
+          row TERMS_URL "$TERMS_URL" recommended "Repository variable, live terms page"
+          row ACCOUNT_DELETION_URL "$ACCOUNT_DELETION_URL" recommended "Repository variable, delete-account page"
+          row UPLOAD_KEY_SHA1 "$UPLOAD_KEY_SHA1" recommended "Repository variable, checks the bundle signature"
+          row GOOGLE_SERVICES_JSON_BASE64 "$GOOGLE_SERVICES_JSON_BASE64" optional "Or commit android/app/google-services.json"
+          row PLAY_SERVICE_ACCOUNT_JSON "$PLAY_SERVICE_ACCOUNT_JSON" optional "Uploads builds to Play as drafts"
+          case "$API_BASE_URL" in ""|https://*) ;; *) echo "::error::API_BASE_URL must start with https://"; status=1;; esac
+          case "$REVENUECAT_ANDROID_KEY" in ""|goog_*) ;; *) echo "::error::REVENUECAT_ANDROID_KEY must be the public Play key (goog_...)"; status=1;; esac
+          exit $status

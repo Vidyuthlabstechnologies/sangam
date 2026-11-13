@@ -164,7 +164,7 @@ class RazorpayService:
         payer_contact: Optional[str] = None,
         currency: str = "INR",
     ) -> Dict[str, Any]:
-        invoice_data = {
+        invoice_data: dict[str, Any] = {
             "type": "invoice",
             "amount": to_minor_units(amount),
             "currency": currency,

@@ -1,0 +1,216 @@
+name: Android
+
+on:
+  pull_request:
+    branches: [main, master]
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  push:
+    branches: [main, master]
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      play_track:
+        description: "Play track to upload to (internal, alpha, beta, production). Empty = build only."
+        required: false
+        default: "internal"
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Compiles the app on every PR so a Kotlin error never reaches master.
+  debug-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # android/gradle.properties pins a Windows JDK path for local builds.
+      # The Gradle user home file takes precedence, so CI uses its own JDK.
+      - name: Point Gradle at the CI JDK
+        run: |
+          mkdir -p ~/.gradle
+          echo "org.gradle.java.home=$JAVA_HOME" >> ~/.gradle/gradle.properties
+
+      - name: Use google-services.json from secrets when provided
+        env:
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON_BASE64" ]; then
+            echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > app/google-services.json
+          fi
+
+      - name: Build debug APK
+        run: ./gradlew --no-daemon assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: android/app/build/outputs/apk/debug/*.apk
+          retention-days: 7
+
+  # Signed Play Store bundle. Runs on a v* tag or a manual run.
+  release:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    needs: [debug-build]
+    runs-on: ubuntu-latest
+    environment: play-store
+    defaults:
+      run:
+        working-directory: ./android
+    env:
+      API_BASE_URL: ${{ vars.API_BASE_URL }}
+      GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID }}
+      PRIVACY_POLICY_URL: ${{ vars.PRIVACY_POLICY_URL }}
+      TERMS_URL: ${{ vars.TERMS_URL }}
+      ACCOUNT_DELETION_URL: ${{ vars.ACCOUNT_DELETION_URL }}
+      # RevenueCat public Android SDK key (goog_...). Public by design, but kept
+      # as a secret so it is set in one place.
+      REVENUECAT_ANDROID_KEY: ${{ secrets.REVENUECAT_ANDROID_KEY }}
+      # Either naming works: ANDROID_* (playbook) or SANGAM_* (earlier setup).
+      SANGAM_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || secrets.SANGAM_KEYSTORE_PASSWORD }}
+      SANGAM_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || secrets.SANGAM_KEY_PASSWORD }}
+      SANGAM_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || secrets.SANGAM_KEY_ALIAS || 'sangamitra' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Point Gradle at the CI JDK
+        run: |
+          mkdir -p ~/.gradle
+          echo "org.gradle.java.home=$JAVA_HOME" >> ~/.gradle/gradle.properties
+
+      - name: Check release configuration
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          missing=""
+          [ -n "$ANDROID_KEYSTORE_BASE64" ] || missing="$missing ANDROID_KEYSTORE_BASE64"
+          [ -n "$SANGAM_KEYSTORE_PASSWORD" ] || missing="$missing SANGAM_KEYSTORE_PASSWORD"
+          [ -n "$SANGAM_KEY_PASSWORD" ] || missing="$missing SANGAM_KEY_PASSWORD"
+          case "$REVENUECAT_ANDROID_KEY" in
+            goog_*) ;;
+            *) missing="$missing REVENUECAT_ANDROID_KEY(goog_...)";;
+          esac
+          case "$API_BASE_URL" in
+            https://*) ;;
+            *) missing="$missing API_BASE_URL(https)";;
+          esac
+          if [ -n "$missing" ]; then
+            echo "::error::Missing release settings:$missing"
+            exit 1
+          fi
+
+      - name: Restore signing key and Firebase config
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > app/sangamitra-release.jks
+          if [ -n "$GOOGLE_SERVICES_JSON_BASE64" ]; then
+            echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > app/google-services.json
+          fi
+
+      - name: Build signed release bundle
+        run: |
+          VERSION_NAME="${GITHUB_REF_NAME#v}"
+          case "$GITHUB_REF" in refs/tags/v*) ;; *) VERSION_NAME="1.1.${{ github.run_number }}";; esac
+          # Play needs a higher versionCode for every upload. 1000 + run number
+          # stays above the 1.0.x bundles uploaded by hand.
+          VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER))
+          echo "Building $VERSION_NAME ($VERSION_CODE)"
+          echo "VERSION_NAME_OUT=$VERSION_NAME ($VERSION_CODE)" >> "$GITHUB_ENV"
+          ./gradlew --no-daemon bundleRelease -PVERSION_NAME="$VERSION_NAME" -PVERSION_CODE="$VERSION_CODE"
+
+      # Prove the bundle before anyone uploads it: right key, version,
+      # billing permission and config compiled in. Prints prefixes only.
+      - name: Verify the release bundle
+        env:
+          UPLOAD_KEY_SHA1: ${{ vars.UPLOAD_KEY_SHA1 }}
+        run: |
+          set -euo pipefail
+          AAB=$(ls app/build/outputs/bundle/release/*.aab | head -1)
+          echo "Bundle: $AAB"
+          SHA1=$(keytool -printcert -jarfile "$AAB" | grep -m1 'SHA1:' | awk '{print $2}')
+          echo "Signed with SHA-1: $SHA1"
+          if [ -n "${UPLOAD_KEY_SHA1:-}" ] && [ "${UPLOAD_KEY_SHA1^^}" != "${SHA1^^}" ]; then
+            echo "::error::Bundle is signed with $SHA1, expected the upload key $UPLOAD_KEY_SHA1"
+            exit 1
+          fi
+          # Bundle manifests are protobuf (UTF-8 strings); dex strings are UTF-8.
+          MANIFEST=$(unzip -p "$AAB" base/manifest/AndroidManifest.xml | strings -a)
+          DEX=$(unzip -p "$AAB" 'base/dex/*.dex' | strings)
+          grep -q 'com.android.vending.BILLING' <<< "$MANIFEST" \
+            || { echo "::error::BILLING permission missing from the manifest"; exit 1; }
+          grep -q 'goog_' <<< "$DEX" \
+            || { echo "::error::RevenueCat key is not compiled into the app"; exit 1; }
+          echo "RevenueCat key prefix found: $(grep -o -m1 'goog_....' <<< "$DEX")..."
+          grep -qF "$API_BASE_URL" <<< "$DEX" \
+            || { echo "::error::API_BASE_URL is not compiled into the app"; exit 1; }
+          {
+            echo "### Release bundle verified"
+            echo "- Version: $VERSION_NAME_OUT"
+            echo "- Upload key SHA-1: \`$SHA1\`"
+            echo "- Billing permission: present"
+            echo "- RevenueCat key: present"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove signing key from the runner
+        if: always()
+        run: rm -f app/sangamitra-release.jks
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-release-aab
+          path: |
+            android/app/build/outputs/bundle/release/*.aab
+            android/app/build/outputs/mapping/release/mapping.txt
+          retention-days: 30
+
+      - name: Check for Play upload credentials
+        id: play
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          EVENT: ${{ github.event_name }}
+          INPUT_TRACK: ${{ github.event.inputs.play_track }}
+        run: |
+          # A manual run uses the track as typed, so an empty track builds only.
+          # A tag push uploads to internal.
+          if [ "$EVENT" = "workflow_dispatch" ]; then TRACK="$INPUT_TRACK"; else TRACK="internal"; fi
+          if [ -n "$PLAY_SERVICE_ACCOUNT_JSON" ] && [ -n "$TRACK" ]; then
+            echo "upload=true" >> "$GITHUB_OUTPUT"
+            echo "track=$TRACK" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Uploads as a draft so a person still presses "Send for review" in Play Console.
+      - name: Upload to Google Play
+        if: steps.play.outputs.upload == 'true'
+        uses: r0adkll/upload-google-play@v1.1.3
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.mldynamic.sangamitra
+          releaseFiles: android/app/build/outputs/bundle/release/*.aab
+          mappingFile: android/app/build/outputs/mapping/release/mapping.txt
+          track: ${{ steps.play.outputs.track }}
+          status: draft

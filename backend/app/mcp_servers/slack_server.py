@@ -3,7 +3,7 @@
 Connects Sangam workflows to Slack channels for notifications, approvals, and updates.
 """
 
-from typing import Optional
+from typing import Any, Optional
 import httpx
 
 from app.mcp_servers.base import MCPServer, MCPTool
@@ -13,7 +13,7 @@ def create_slack_server(webhook_url: Optional[str] = None) -> MCPServer:
     server = MCPServer(name="slack", version="1.0.0")
 
     async def send_message(channel: str, text: str, blocks: Optional[list] = None):
-        payload = {"channel": channel, "text": text}
+        payload: dict[str, Any] = {"channel": channel, "text": text}
         if blocks:
             payload["blocks"] = blocks
         async with httpx.AsyncClient() as client:

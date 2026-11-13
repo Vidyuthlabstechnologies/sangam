@@ -319,7 +319,7 @@ async def get_company_details(
         authorized_capital=result.authorized_capital,
         paid_up_capital=result.paid_up_capital,
         registered_address=result.registered_address,
-        directors=result.directors,
+        directors=result.directors or [],
     )
 
 
@@ -383,7 +383,7 @@ async def get_economic_indicator(
         unit=result.unit,
         period=result.period,
         source=result.source,
-        metadata=result.metadata,
+        metadata=result.metadata or {},
     )
 
 
@@ -400,7 +400,7 @@ async def get_labor_data(
         period=result.period,
         unemployment_rate=result.unemployment_rate,
         labor_force_participation=result.labor_force_participation,
-        employment_by_sector=result.employment_by_sector,
+        employment_by_sector=result.employment_by_sector or {},
         wage_growth=result.wage_growth,
     )
 
@@ -505,8 +505,8 @@ async def validate_din(
         is_valid=result.is_valid,
         director_name=result.director_name,
         status=result.status,
-        companies=result.companies,
-        appointment_dates=result.appointment_dates,
+        companies=result.companies or [],
+        appointment_dates=result.appointment_dates or [],
     )
 
 
@@ -564,7 +564,7 @@ async def validate_iec(
         is_valid=result.is_valid,
         company_name=result.company_name,
         address=result.address,
-        branches=result.branches,
+        branches=result.branches or [],
         status=result.status,
     )
 
@@ -623,7 +623,7 @@ async def validate_fssai(
         is_valid=result.is_valid,
         business_name=result.business_name,
         license_type=result.license_type,
-        food_categories=result.food_categories,
+        food_categories=result.food_categories or [],
         address=result.address,
         validity_period=result.validity_period,
     )

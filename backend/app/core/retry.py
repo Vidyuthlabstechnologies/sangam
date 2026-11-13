@@ -30,6 +30,8 @@ async def retry_async(
                     attempt + 1, max_retries, func.__name__, delay, e,
                 )
                 await asyncio.sleep(delay)
+    if last_exc is None:
+        raise RuntimeError(f"{func.__name__} was not attempted (max_retries={max_retries})")
     raise last_exc
 
 

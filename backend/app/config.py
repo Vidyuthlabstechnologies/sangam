@@ -1,5 +1,7 @@
-from pydantic_settings import BaseSettings
+import re
 from typing import Optional
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -13,6 +15,12 @@ class Settings(BaseSettings):
     # Empty means in-process rate limits. Set REDIS_URL (compose and k8s do)
     # so every replica shares one counter.
     redis_url: str = ""
+    # Rate limits key on the client IP. Behind a proxy that APPENDS the real
+    # client address to X-Forwarded-For (Cloud Run, most load balancers), set
+    # this to how many entries from the right that address sits (1 on Cloud
+    # Run). Entries further left are whatever the client sent and can be forged.
+    # 0 uses the socket peer (or whatever uvicorn --proxy-headers resolved).
+    client_ip_forwarded_hop: int = 0
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
 
     db_pool_size: int = 5
@@ -112,12 +120,39 @@ class Settings(BaseSettings):
     whatsapp_template_lang: str = "en"
     whatsapp_graph_version: Optional[str] = None  # set to a currently supported Graph API version
 
-    # Zitadel resource-server settings.
-    zitadel_issuer: Optional[str] = None
-    zitadel_client_id: Optional[str] = None
-    zitadel_android_client_id: Optional[str] = None
-    zitadel_project_id: Optional[str] = None
-    zitadel_jwks_url: Optional[str] = None
+    # Firebase Authentication. The Android app signs users in with Google or
+    # email/password through Firebase and sends the Firebase ID token. Set this
+    # to the Firebase project id (android/app/google-services.json
+    # project_info.project_id) to accept those tokens. Unset means Firebase
+    # tokens are rejected.
+    firebase_project_id: Optional[str] = None
+    # Optional override of Google's securetoken JWKS URL (tests, proxies).
+    firebase_jwks_url: Optional[str] = None
+    # Reject email/password accounts until the address is verified. The app
+    # sends the verification link and asks the user to sign in after tapping it.
+    firebase_require_verified_email: bool = True
+
+    # RevenueCat (Google Play Billing). The webhook is accepted only with this
+    # exact Authorization header value, set in RevenueCat -> Integrations ->
+    # Webhooks. Unset means the webhook rejects everything.
+    revenuecat_webhook_auth: Optional[str] = None
+    # Credit license-tester (sandbox) purchases. Keep true through closed
+    # testing so testers can exercise paid features; set false at launch if
+    # test purchases should not grant real call minutes.
+    revenuecat_accept_sandbox: bool = True
+
+    # Public legal pages (/legal/privacy, /legal/terms, /legal/delete-account).
+    # Google Play shows these to users, so set them to real, monitored values.
+    # Defaults are the operating company's details; override per deployment.
+    legal_contact_email: str = "info@mldynamic.com"
+    # Grievance Officer mailbox shown on the privacy policy (DPDP Act). Empty hides the line.
+    legal_grievance_email: str = "rishi@mldynamic.com"
+    legal_operator_name: str = "M L Dynamic Solutions Private Limited"
+    # Registered office, as published on mldynamic.com/privacy.html.
+    legal_postal_address: str = (
+        "606, 6th Floor, Gowra Fountainhead, Patrika Nagar, Madhapur, "
+        "Hi-Tech City, Hyderabad, Telangana - 500081, India"
+    )
 
     class Config:
         env_file = ".env"
@@ -125,6 +160,8 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+_FIREBASE_PROJECT_RE = re.compile(r"[a-z][a-z0-9-]{4,29}")
 
 def database_password(url: str) -> str:
     """Return the password embedded in a SQLAlchemy URL, or ""."""
@@ -137,24 +174,31 @@ def database_password(url: str) -> str:
 
 
 def validate_production_settings(s: Settings) -> None:
-    """Refuse to start in production without safe authentication or secrets."""
+    """Refuse to start in production without a way to verify sign-in tokens.
+
+    Sangam mints no tokens. Firebase (the Android app) or self-hosted Zitadel
+    (the web dashboard) issues them, and at least one must be configured, or
+    every request would be a 401. Fixture mode returns canned payment and AI
+    responses and must not run as production.
+    """
     if s.environment.strip().lower() != "production":
         return
 
     problems = []
-    secret = s.jwt_secret or ""
-    lowered = secret.lower()
-    weak = len(secret) < _MIN_SECRET_LENGTH or any(marker in lowered for marker in _WEAK_JWT_MARKERS)
-    if not s.zitadel_issuer and weak:
+    firebase_project = (s.firebase_project_id or "").strip()
+    issuer = (s.zitadel_issuer or "").strip()
+    if not firebase_project and not issuer:
         problems.append(
-            f"JWT_SECRET must be a random value of at least {_MIN_SECRET_LENGTH} characters"
+            "Set FIREBASE_PROJECT_ID or ZITADEL_ISSUER so sign-in tokens can be verified"
         )
-    if s.zitadel_issuer:
-        issuer = (s.zitadel_issuer or "").strip()
-        if not issuer.startswith("https://"):
-            problems.append("ZITADEL_ISSUER must be the https URL of the self-hosted Zitadel instance")
-        if not any((s.zitadel_client_id, s.zitadel_android_client_id, s.zitadel_project_id)):
-            problems.append("Set ZITADEL_CLIENT_ID or ZITADEL_PROJECT_ID so access-token audiences can be checked")
+    if firebase_project and not _FIREBASE_PROJECT_RE.fullmatch(firebase_project):
+        problems.append("FIREBASE_PROJECT_ID must be a Firebase project id such as my-app-1234")
+    if issuer and not issuer.startswith("https://"):
+        problems.append("ZITADEL_ISSUER must be the https URL of the self-hosted Zitadel instance")
+    if s.zitadel_client_id and not issuer:
+        problems.append("ZITADEL_CLIENT_ID is set but ZITADEL_ISSUER is missing")
+    if issuer and not any((s.zitadel_client_id, s.zitadel_android_client_id, s.zitadel_project_id)):
+        problems.append("Set ZITADEL_CLIENT_ID or ZITADEL_PROJECT_ID so access-token audiences can be checked")
     if s.use_fixtures:
         problems.append("USE_FIXTURES must be false")
     if s.debug:
@@ -163,3 +207,40 @@ def validate_production_settings(s: Settings) -> None:
         problems.append("DATABASE_URL must not use the default Postgres password")
     if problems:
         raise RuntimeError("Unsafe production configuration: " + "; ".join(problems))
+    _warn_on_placeholder_legal_details(s)
+
+
+_PLACEHOLDER_LEGAL_EMAIL = "dpo@sangamitra.in"
+
+
+def _warn_on_placeholder_legal_details(s: Settings) -> None:
+    """Warn, but do not refuse to boot, on settings that are fine for testing but not for launch.
+
+    Covers placeholder legal details, canned AI replies and sandbox purchases.
+
+    Play and the DPDP Act expect a monitored grievance contact. A missing
+    mailbox should not take the API down, so this is a loud log line only.
+    """
+    import logging
+
+    log = logging.getLogger(__name__)
+    if s.legal_contact_email.strip().lower() == _PLACEHOLDER_LEGAL_EMAIL:
+        log.warning(
+            "LEGAL_CONTACT_EMAIL is still the placeholder %s; set a monitored mailbox "
+            "before the privacy policy is shown on Google Play",
+            _PLACEHOLDER_LEGAL_EMAIL,
+        )
+    if not (s.sarvam_api_key or "").strip():
+        log.warning(
+            "SARVAM_API_KEY is not set; voice agents answer with canned fixture replies, "
+            "not real speech or language models"
+        )
+    if s.revenuecat_accept_sandbox:
+        log.warning(
+            "REVENUECAT_ACCEPT_SANDBOX is on; Play license-tester purchases credit real wallets. "
+            "Turn it off before the public launch"
+        )
+    if not s.firebase_require_verified_email and (s.firebase_project_id or "").strip():
+        log.warning("FIREBASE_REQUIRE_VERIFIED_EMAIL is off; unverified email accounts can sign in")
+    if not s.legal_postal_address.strip():
+        log.warning("LEGAL_POSTAL_ADDRESS is empty; the public legal pages show no postal address")

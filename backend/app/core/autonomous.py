@@ -92,7 +92,7 @@ async def auto_approve_low_risk(
             action="auto_approved",
             resource_type="approval",
             resource_id=str(approval.id),
-            workflow_id=str(workflow.id),
+            workflow_id=workflow.id,
             details={"risk_score": risk_score, "condition": approval.condition},
         )
 
@@ -220,7 +220,7 @@ async def agent_auto_execute(
             if next_phase and next_phase in (workflow.phases or []):
                 from app.core.coordinator import Coordinator
                 coord = Coordinator(session)
-                await coord.transition_phase(workflow, next_phase, str(agent.id))
+                await coord.transition_phase(workflow, next_phase, agent.id)
                 logger.info("Agent auto-transitioned %s to %s", workflow_id, next_phase)
                 return True
 

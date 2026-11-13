@@ -24,4 +24,8 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Behind a load balancer, set FORWARDED_ALLOW_IPS to the balancer's address
+# range (or "*" on a private network) so rate limits key on the real client IP
+# from X-Forwarded-For, not the balancer. WEB_CONCURRENCY sets worker count.
+ENV FORWARDED_ALLOW_IPS=127.0.0.1
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]

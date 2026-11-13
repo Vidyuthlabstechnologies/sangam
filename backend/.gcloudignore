@@ -1,0 +1,30 @@
+# Used by `gcloud run deploy --source`. Mirrors .dockerignore so local secrets
+# and databases never leave this machine.
+.gcloudignore
+.git/
+.remember/
+.ruff_cache/
+.env
+.env.*
+!.env.example
+*.db
+*.sqlite*
+*.pem
+*.key
+*.p12
+*.jks
+*.log
+*.sql
+*.dump
+*adminsdk*.json
+serviceAccount*.json
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+tests/
+*_results.json
+test_*.py
+stress_test.py
+locustfile.py

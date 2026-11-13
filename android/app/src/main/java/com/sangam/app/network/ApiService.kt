@@ -584,13 +584,16 @@ object ApiClient {
         chain.proceed(request)
     }
 
+    // Release builds log nothing; debug never prints the bearer token.
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
+        level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
+        redactHeader("Authorization")
     }
 
     private val httpClient = OkHttpClient.Builder()
         .addInterceptor(dynamicUrlInterceptor)
         .addInterceptor(AuthInterceptor())
+        .authenticator(TokenRefreshAuthenticator())
         .addInterceptor(loggingInterceptor)
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)

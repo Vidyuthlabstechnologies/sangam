@@ -274,6 +274,67 @@ class BillingService:
         )
         return await self.serialize(wallet)
 
+    async def reverse_payment(self, tenant_id: str, payment_id: str, reversal_id: str) -> Dict[str, Any]:
+        """Take back what a refunded PLAN or TOPUP credited. Idempotent on `reversal_id`.
+
+        Removes the call credit the payment added, but never below zero: credit
+        already spent on calls cannot be recovered from the wallet. A refunded
+        plan also loses the validity days it added. Unknown payment ids are a
+        no-op, so a refund for a purchase this server never credited changes nothing.
+        """
+        wallet = await self.get_wallet(tenant_id, lock=True)
+        original = await self._ledger_entry(payment_id)
+        if wallet is None or original is None or original.tenant_id != tenant_id:
+            return {"status": "not_found", "reversed_paise": 0}
+        if original.kind not in PAYMENT_KINDS:
+            raise BillingError("Only plan and top-up payments can be reversed", 400)
+        if await self._ledger_entry(reversal_id) is not None:
+            res = await self.serialize(wallet, idempotent_replay=True)
+            res["status"] = "already_reversed"
+            return res
+
+        credited = int(round(original.call_credit_delta_inr * 100))
+        gross = int(round(original.gross_amount_inr * 100))
+        profit = int(round(original.platform_profit_60_inr * 100))
+        pool = int(round(original.backend_pool_40_inr * 100))
+        taken = min(max(credited, 0), max(wallet.call_balance_paise, 0))
+        wallet.call_balance_paise -= taken
+        wallet.total_gross_paid_paise = max(wallet.total_gross_paid_paise - gross, 0)
+        wallet.total_platform_profit_paise = max(wallet.total_platform_profit_paise - profit, 0)
+        wallet.total_sarvam_cogs_paise = max(wallet.total_sarvam_cogs_paise - pool, 0)
+
+        if original.kind == "PLAN" and wallet.plan_valid_until is not None:
+            plan = pricing.get_plan(wallet.plan_id or "")
+            if plan is not None:
+                cut = wallet.plan_valid_until - timedelta(days=plan.validity_days)
+                # A plan with no paid days left expires now instead of running on.
+                wallet.plan_valid_until = cut if cut > _now() else _now() - timedelta(seconds=1)
+        self._refresh_status(wallet)
+
+        note = f"Refund of {original.kind.lower()} payment {payment_id}"
+        if taken < credited:
+            note += f" (Rs. {_inr(credited - taken)} already spent on calls, not recoverable)"
+        await self._add_entry(
+            wallet=wallet,
+            transaction_id=reversal_id,
+            kind="REFUND",
+            gross_paise=-gross,
+            gst_paise=-int(round(original.gst_inr * 100)),
+            profit_paise=-profit,
+            pool_paise=-pool,
+            credit_delta_paise=-taken,
+            description=note,
+        )
+        logger.warning(
+            "payment reversed",
+            extra={"tenant_id": tenant_id, "payment_id": payment_id, "taken_paise": taken, "credited_paise": credited},
+        )
+        res = await self.serialize(wallet)
+        res["status"] = "reversed"
+        res["reversed_paise"] = taken
+        res["unrecovered_paise"] = credited - taken
+        return res
+
     # ------------------------------------------------------------------- usage
     async def meter_call(self, tenant_id: str, duration_seconds: int, call_id: Optional[str]) -> Dict[str, Any]:
         """Debit a finished call. Idempotent per call id. The balance never goes below zero.

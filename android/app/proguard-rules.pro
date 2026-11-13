@@ -5,10 +5,6 @@
 -dontwarn okhttp3.**
 -dontwarn okio.**
 
-# AppAuth (Zitadel PKCE). No client secret is embedded.
--keep class net.openid.appauth.** { *; }
--dontwarn net.openid.appauth.**
-
 # Razorpay Checkout
 -keep class com.razorpay.** { *; }
 -dontwarn com.razorpay.**

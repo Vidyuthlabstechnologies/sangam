@@ -93,6 +93,18 @@ spec:
                   name: sangam-secrets
                   key: smtp_password
                   optional: true
+            - name: FIREBASE_PROJECT_ID
+              value: "sangamitra-ai"
+            - name: FIREBASE_REQUIRE_VERIFIED_EMAIL
+              value: "true"
+            - name: REVENUECAT_WEBHOOK_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: sangam-secrets
+                  key: revenuecat_webhook_auth
+                  optional: true
+            - name: REVENUECAT_ACCEPT_SANDBOX
+              value: "false"
             - name: ZITADEL_ISSUER
               valueFrom:
                 secretKeyRef:

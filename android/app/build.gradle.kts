@@ -11,25 +11,41 @@ android {
     ndkVersion = "27.1.12297006"
 
     defaultConfig {
-        applicationId = "com.sangam.app"
+        // Play listing id. com.sangam.app is taken on Google Play, so the id differs
+        // from `namespace` (the Kotlin package, which stays com.sangam.app).
+        applicationId = "com.mldynamic.sangamitra"
         minSdk = 26
         targetSdk = 35
-        versionCode = 100
-        versionName = "1.0.0"
+        // CI passes VERSION_CODE (it must rise with every Play upload) and VERSION_NAME.
+        versionCode = ((project.findProperty("VERSION_CODE") as String?) ?: System.getenv("VERSION_CODE"))
+            ?.toIntOrNull() ?: 100
+        versionName = (project.findProperty("VERSION_NAME") as String?) ?: System.getenv("VERSION_NAME") ?: "1.0.0"
 
         fun buildConfigString(value: String): String {
             val escaped = value.replace("\\", "\\\\").replace("\"", "\\\"")
             return "\"$escaped\""
         }
-        val zitadelIssuer = (project.findProperty("ZITADEL_ISSUER") as String?)
-            ?: System.getenv("ZITADEL_ISSUER")
+        // Optional fallback for Google Sign-In. Normally read from
+        // default_web_client_id, which google-services.json provides once
+        // Google is enabled as a Firebase Authentication provider.
+        val googleWebClientId = (project.findProperty("GOOGLE_WEB_CLIENT_ID") as String?)
+            ?: System.getenv("GOOGLE_WEB_CLIENT_ID")
             ?: ""
-        val zitadelClientId = (project.findProperty("ZITADEL_CLIENT_ID") as String?)
-            ?: System.getenv("ZITADEL_CLIENT_ID")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", buildConfigString(googleWebClientId))
+
+        // RevenueCat public Android SDK key (goog_...). It is a public key, safe
+        // in the app. Empty disables in-app purchases instead of crashing.
+        val revenueCatKey = (project.findProperty("REVENUECAT_ANDROID_KEY") as String?)
+            ?: System.getenv("REVENUECAT_ANDROID_KEY")
             ?: ""
-        buildConfigField("String", "ZITADEL_ISSUER", buildConfigString(zitadelIssuer))
-        buildConfigField("String", "ZITADEL_CLIENT_ID", buildConfigString(zitadelClientId))
-        manifestPlaceholders["appAuthRedirectScheme"] = "com.sangam.app"
+        buildConfigField("String", "REVENUECAT_ANDROID_KEY", buildConfigString(revenueCatKey))
+
+        // Public legal pages linked from the login and settings screens. Empty
+        // falls back to the privacy page the backend serves.
+        fun urlSetting(name: String) = (project.findProperty(name) as String?) ?: System.getenv(name) ?: ""
+        buildConfigField("String", "PRIVACY_POLICY_URL", buildConfigString(urlSetting("PRIVACY_POLICY_URL")))
+        buildConfigField("String", "TERMS_URL", buildConfigString(urlSetting("TERMS_URL")))
+        buildConfigField("String", "ACCOUNT_DELETION_URL", buildConfigString(urlSetting("ACCOUNT_DELETION_URL")))
     }
 
     val releaseStorePassword = (project.findProperty("SANGAM_KEYSTORE_PASSWORD") as String?)
@@ -155,7 +171,10 @@ dependencies {
     // Sarvam Voice SDK (for speech-to-text)
     // implementation("ai.sarvam:sarvam-android:1.0.0")
 
-    // Razorpay
+    // Google Play Billing through RevenueCat (Billing Library 8)
+    implementation("com.revenuecat.purchases:purchases:9.29.1")
+
+    // Razorpay (web and non-Play builds only; Play builds sell through Google Play Billing)
     implementation("com.razorpay:checkout:1.6.41")
 
     // Room
@@ -171,9 +190,6 @@ dependencies {
     // Core
     implementation("androidx.core:core-ktx:1.15.0")
 
-    // Zitadel authorization code + PKCE in Custom Tabs. No client secret.
-    implementation("net.openid:appauth:0.11.1")
-    implementation("androidx.browser:browser:1.8.0")
 
     // Encrypted token store. EncryptedSharedPreferences is deprecated; the call sites
     // read the JWT synchronously from an OkHttp interceptor, so DataStore would need

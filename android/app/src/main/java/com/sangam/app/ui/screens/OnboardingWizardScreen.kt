@@ -38,7 +38,9 @@ import com.razorpay.Checkout
 import com.sangam.app.R
 import com.sangam.app.network.*
 import com.sangam.app.ui.theme.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.sangam.app.billing.Billing
 import org.json.JSONObject
 
 data class MascotOption(
@@ -143,6 +145,7 @@ fun MascotAvatar(
 fun OnboardingWizardScreen(
     onBack: () -> Unit = {},
     onOpenCallInbox: () -> Unit = {},
+    onAccountDeleted: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -285,6 +288,47 @@ fun OnboardingWizardScreen(
         }
     }
 
+    /**
+     * Google Play purchase through RevenueCat. The backend credits the wallet
+     * when RevenueCat's webhook confirms the payment, so poll briefly for it.
+     */
+    fun buyOnPlay(productId: String) {
+        val activity = context as? ComponentActivity
+        if (activity == null) {
+            statusBanner = "Could not open Google Play from this screen."
+            return
+        }
+        scope.launch {
+            val before = walletBalanceInr
+            try {
+                Billing.purchase(activity, productId)
+            } catch (e: Billing.BillingFailure) {
+                statusBanner = e.message ?: "The purchase did not complete."
+                return@launch
+            } catch (e: Exception) {
+                statusBanner = "The purchase did not complete: ${e.message ?: "unknown error"}"
+                return@launch
+            }
+            statusBanner = "Payment received by Google Play. Activating..."
+            repeat(15) {
+                delay(2_000)
+                try {
+                    val w = ApiClient.onboardingApi.getMyWallet()
+                    val bal = (w["call_balance_inr"] as? Number)?.toDouble()
+                    val active = (w["deployment_status"] as? String) == "ACTIVE"
+                    if (bal != null && bal != before) {
+                        walletBalanceInr = bal
+                        isStarterActive = active
+                        statusBanner = "Done. Your plan is active."
+                        return@launch
+                    }
+                } catch (_: Exception) {
+                }
+            }
+            statusBanner = "Google Play confirmed the payment. Activation can take a minute; pull to refresh or reopen this screen."
+        }
+    }
+
     fun playVoiceSample(assetPath: String, label: String) {
         try {
             mediaPlayer?.release()
@@ -373,6 +417,8 @@ fun OnboardingWizardScreen(
                             try {
                                 ApiClient.onboardingApi.deleteAccount(actorId)
                                 statusBanner = "This account's voice and wallet data were deleted."
+                                FirebaseSession.deleteLoginAndSignOut(context)
+                                onAccountDeleted()
                             } catch (e: Exception) {
                                 statusBanner = "Could not delete the account: ${e.message ?: "request failed"}"
                             }
@@ -991,6 +1037,8 @@ fun OnboardingWizardScreen(
                             }
                         }
 
+                        // UPI autopay is a Razorpay mandate. Play builds renew through Google Play instead.
+                        if (!Billing.isEnabled) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1017,10 +1065,15 @@ fun OnboardingWizardScreen(
                                 },
                             )
                         }
+                        }
 
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(
                                 onClick = {
+                                    if (Billing.isEnabled) {
+                                        buyOnPlay(selectedPlanId)
+                                        return@Button
+                                    }
                                     scope.launch {
                                         try {
                                             val order = ApiClient.onboardingApi.createWalletOrder(
@@ -1039,11 +1092,18 @@ fun OnboardingWizardScreen(
                                 colors = ButtonDefaults.buttonColors(containerColor = SangamObsidian),
                                 modifier = Modifier.weight(1f),
                             ) {
-                                Text("Activate ${activePlan.name} (₹${activePlan.price_inr.toInt()})")
+                                Text(
+                                    if (Billing.isEnabled) "Activate ${activePlan.name}"
+                                    else "Activate ${activePlan.name} (₹${activePlan.price_inr.toInt()})"
+                                )
                             }
 
                             OutlinedButton(
                                 onClick = {
+                                    if (Billing.isEnabled) {
+                                        buyOnPlay(Billing.TOPUP_PRODUCT)
+                                        return@OutlinedButton
+                                    }
                                     scope.launch {
                                         try {
                                             val order = ApiClient.onboardingApi.createWalletOrder(
@@ -1060,6 +1120,29 @@ fun OnboardingWizardScreen(
                                 border = BorderStroke(1.dp, SangamObsidian),
                             ) {
                                 Text("+ ₹500 Top-Up")
+                            }
+                        }
+
+                        if (Billing.isEnabled) {
+                            Text(
+                                "Paid securely through Google Play. Prices shown on the Google Play sheet include taxes.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SangamMuted,
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(onClick = {
+                                    scope.launch {
+                                        statusBanner = try {
+                                            Billing.restore()
+                                            "Purchases restored. Your plan updates within a minute."
+                                        } catch (e: Exception) {
+                                            e.message ?: "Could not restore purchases."
+                                        }
+                                    }
+                                }) { Text("Restore purchases") }
+                                TextButton(onClick = { Billing.openManageSubscriptions(context) }) {
+                                    Text("Manage subscription")
+                                }
                             }
                         }
 

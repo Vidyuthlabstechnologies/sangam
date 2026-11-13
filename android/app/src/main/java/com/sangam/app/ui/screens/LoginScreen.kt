@@ -1,6 +1,5 @@
 package com.sangam.app.ui.screens
 
-import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -28,24 +27,21 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.CommonStatusCodes
+import com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.sangam.app.R
-import com.sangam.app.network.ApiClient
-import com.sangam.app.network.LoginRequest
+import com.sangam.app.network.FirebaseSession
 import com.sangam.app.network.RealtimeClient
-import com.sangam.app.network.RegisterRequest
-import com.sangam.app.network.TokenManager
-import com.sangam.app.network.TokenResponse
+import com.sangam.app.ui.components.LegalFooter
 import kotlinx.coroutines.launch
-import retrofit2.HttpException
 
 @Composable
-fun LoginScreen(onLoginSuccess: () -> Unit) {
+fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
@@ -57,68 +53,50 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
     var isPasswordFocused by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var info by remember { mutableStateOf<String?>(null) }
 
-    // Google Sign-In Client
-    val googleSignInClient = remember {
-        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestEmail()
-            .requestProfile()
-            .build()
-        GoogleSignIn.getClient(context, gso)
+    fun finishSignIn(result: FirebaseSession.Result, provider: String) {
+        syncFirestoreProfile(result.actorId, result.email.orEmpty(), result.name, provider)
+        RealtimeClient.start()
+        onLoginSuccess(result.isNewUser)
     }
 
-    // Google Sign-In Activity Result Launcher
+    // Google Sign-In asks for an ID token that Firebase exchanges for a session.
+    val googleSignInClient = remember {
+        FirebaseSession.googleSignInOptions(context)?.let { GoogleSignIn.getClient(context, it) }
+    }
+
     val googleLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-        try {
-            val account = task.getResult(ApiException::class.java)
-            if (account != null) {
-                scope.launch {
-                    loading = true
-                    error = null
-                    try {
-                        val accountName = account.displayName ?: account.givenName ?: "Google User"
-                        val accountEmail = account.email?.trim().orEmpty()
-                        if (accountEmail.isEmpty()) {
-                            error = "Google did not share an email address. Sign in with email and password."
-                            return@launch
-                        }
-                        val secret = TokenManager.googleLinkSecret(accountEmail)
-                        if (secret.isEmpty()) {
-                            error = "Could not store this sign-in on the device."
-                            return@launch
-                        }
-                        val resp = try {
-                            linkGoogleAccount(accountEmail, accountName, secret)
-                        } catch (e: Exception) {
-                            error = friendlyAuthError(e)
-                            return@launch
-                        }
-                        syncFirestoreProfile(resp.actor_id, accountEmail, resp.name, "google")
-                        TokenManager.saveToken(resp.access_token, resp.actor_id, resp.name, accountEmail)
-                        try {
-                            RealtimeClient.start()
-                        } catch (_: Exception) {}
-                        onLoginSuccess()
-                    } catch (e: Exception) {
-                        error = friendlyAuthError(e)
-                    } finally {
-                        loading = false
-                    }
-                }
-            }
+        val account = try {
+            GoogleSignIn.getSignedInAccountFromIntent(result.data).getResult(ApiException::class.java)
         } catch (e: ApiException) {
-            error = if (e.statusCode == 10) {
-                "Google Sign-In is pending activation in Firebase Console. Please sign in below using your Email and Password."
-            } else if (e.statusCode == 12501) {
-                "Sign-in was cancelled."
-            } else {
-                "Google Sign-In error (${e.statusCode}): ${e.localizedMessage ?: "Failed"}"
+            error = when (e.statusCode) {
+                GoogleSignInStatusCodes.SIGN_IN_CANCELLED -> null
+                CommonStatusCodes.NETWORK_ERROR -> "No internet connection. Check your network and try again."
+                CommonStatusCodes.DEVELOPER_ERROR ->
+                    "Google Sign-In is not set up for this build of the app. Please sign in with email for now."
+                else -> "Google Sign-In did not complete (code ${e.statusCode}). Please try again."
             }
-        } catch (e: Exception) {
-            error = "Google Sign-In failed: ${e.message}"
+            return@rememberLauncherForActivityResult
+        }
+        val idToken = account?.idToken
+        if (idToken.isNullOrBlank()) {
+            error = "Google did not return a sign-in token. Please try again."
+            return@rememberLauncherForActivityResult
+        }
+        scope.launch {
+            loading = true
+            error = null
+            try {
+                finishSignIn(FirebaseSession.signInWithGoogle(idToken), "google")
+            } catch (e: Exception) {
+                googleSignInClient?.signOut()
+                error = e.message ?: "Google Sign-In failed. Please try again."
+            } finally {
+                loading = false
+            }
         }
     }
 
@@ -202,7 +180,16 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                     OutlinedButton(
                         onClick = {
                             error = null
-                            googleLauncher.launch(googleSignInClient.signInIntent)
+                            info = null
+                            val client = googleSignInClient
+                            if (client == null) {
+                                error = "Google Sign-In is not set up for this build of the app. Please sign in with email for now."
+                            } else {
+                                // Start from a clean slate so the account picker always shows.
+                                client.signOut().addOnCompleteListener {
+                                    googleLauncher.launch(client.signInIntent)
+                                }
+                            }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -298,35 +285,59 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
-
+                    val displayInfo = info
+                    if (displayInfo != null && displayError == null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = displayInfo,
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Button(
                         onClick = {
-                            if (email.isBlank() || password.isBlank()) {
-                                error = "Please enter email and password"
-                                return@Button
-                            }
-                            if (!isLogin && name.isBlank()) {
-                                error = "Please enter your name"
-                                return@Button
+                            val cleanEmail = email.trim()
+                            val cleanName = name.trim()
+                            error = null
+                            info = null
+                            when {
+                                cleanEmail.isEmpty() || password.isEmpty() -> {
+                                    error = "Please enter email and password"
+                                    return@Button
+                                }
+                                !android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches() -> {
+                                    error = "Enter a valid email address."
+                                    return@Button
+                                }
+                                !isLogin && cleanName.isEmpty() -> {
+                                    error = "Please enter your name"
+                                    return@Button
+                                }
+                                !isLogin && password.length < 8 -> {
+                                    error = "Use at least 8 characters for your password."
+                                    return@Button
+                                }
                             }
                             loading = true
-                            error = null
                             scope.launch {
                                 try {
-                                    val resp: TokenResponse = if (isLogin) {
-                                        ApiClient.authApi.login(LoginRequest(email.trim(), password))
+                                    val result = if (isLogin) {
+                                        FirebaseSession.signInWithEmail(cleanEmail, password)
                                     } else {
-                                        ApiClient.authApi.register(RegisterRequest(name.trim(), email.trim(), password))
+                                        FirebaseSession.signUpWithEmail(cleanName, cleanEmail, password)
                                     }
-                                    TokenManager.saveToken(resp.access_token, resp.actor_id, resp.name, email.trim())
-                                    try {
-                                        RealtimeClient.start()
-                                    } catch (_: Exception) {}
-                                    onLoginSuccess()
+                                    finishSignIn(result, "password")
+                                } catch (e: FirebaseSession.VerificationPending) {
+                                    // Show the sign-in form so the user can sign in after tapping the link.
+                                    isLogin = true
+                                    password = ""
+                                    error = e.message
                                 } catch (e: Exception) {
-                                    error = friendlyAuthError(e)
+                                    error = e.message ?: "Sign-in failed. Please try again."
                                 } finally {
                                     loading = false
                                 }
@@ -351,12 +362,39 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    if (isLogin) {
+                        TextButton(
+                            onClick = {
+                                val cleanEmail = email.trim()
+                                error = null
+                                info = null
+                                if (!android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches()) {
+                                    error = "Enter your email above, then tap Forgot password."
+                                    return@TextButton
+                                }
+                                scope.launch {
+                                    try {
+                                        FirebaseSession.sendPasswordReset(cleanEmail)
+                                        info = "If an account exists for $cleanEmail, a reset link is on its way."
+                                    } catch (e: Exception) {
+                                        error = e.message
+                                    }
+                                }
+                            },
+                            enabled = !loading,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Forgot password?", style = MaterialTheme.typography.bodySmall)
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
 
                     TextButton(
                         onClick = {
                             isLogin = !isLogin
                             error = null
+                            info = null
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
@@ -368,23 +406,15 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                 }
             }
 
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "By continuing you agree to the Terms of use and Privacy policy.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            LegalFooter()
         }
-    }
-}
-
-private suspend fun linkGoogleAccount(email: String, name: String, secret: String): TokenResponse {
-    try {
-        return ApiClient.authApi.login(LoginRequest(email = email, password = secret))
-    } catch (loginError: HttpException) {
-        if (loginError.code() != 401) throw loginError
-    }
-    try {
-        return ApiClient.authApi.register(RegisterRequest(name = name, email = email, password = secret))
-    } catch (registerError: HttpException) {
-        if (registerError.code() == 409) {
-            throw IllegalStateException("This email already has a password. Sign in with email instead.")
-        }
-        throw registerError
     }
 }
 
@@ -408,19 +438,5 @@ private fun syncFirestoreProfile(actorId: String, email: String, name: String, p
             .document(firebaseUser.uid)
             .set(userDoc, SetOptions.merge())
     } catch (_: Exception) {
-    }
-}
-
-private fun friendlyAuthError(e: Exception): String {
-    val raw = when (e) {
-        is HttpException -> e.response()?.errorBody()?.string()?.let { body ->
-            Regex(""""detail"\s*:\s*"([^"]+)"""").find(body)?.groupValues?.get(1)
-        } ?: e.message
-        else -> e.message
-    } ?: "Authentication failed"
-    return if (raw.contains("10.0.2.2") || raw.contains("CLEARTEXT", ignoreCase = true) || raw.contains("failed to connect")) {
-        "Could not reach backend at ${TokenManager.getServerUrl()}. On a phone, open Server Connection Settings and enter your computer's http:// address."
-    } else {
-        raw
     }
 }

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" role="img" aria-label="Sangamitra AI">
+  <title>Sangamitra AI</title>
+  <!-- Two visible streams keep their own colour as they flow into one channel.
+       The dotted line between them is the third, unseen river of the Triveni Sangam. -->
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M29 24C29 50 50 47 50 70V84" stroke="#F59E0B" stroke-width="8"/>
+    <path d="M79 24C79 50 58 47 58 70V84" stroke="#E6EEF0" stroke-width="8"/>
+    <path d="M54 24V52" stroke="#E6EEF0" stroke-opacity=".7" stroke-width="6" stroke-dasharray="0 13"/>
+  </g>
+</svg>
