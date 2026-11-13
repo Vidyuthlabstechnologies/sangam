@@ -35,6 +35,7 @@ fun DashboardScreen(
     onNavigateToActors: () -> Unit = {},
     onNavigateToAIAssistant: () -> Unit = {},
     onNavigateToVoiceWorkflow: () -> Unit = {},
+    onNavigateToVoiceAgents: () -> Unit = {},
     onNavigateToVendors: () -> Unit = {},
     onOpenWorkflow: (String) -> Unit = {},
     onSignOut: () -> Unit = {},
@@ -351,6 +352,32 @@ fun DashboardScreen(
                             Text("Create with speech", style = MaterialTheme.typography.bodySmall,
                                  color = MaterialTheme.colorScheme.onSurfaceVariant,
                                  textAlign = TextAlign.Center)
+                        }
+                    }
+                }
+            }
+
+            item {
+                ElevatedCard(
+                    onClick = onNavigateToVoiceAgents,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Default.Call,
+                            contentDescription = "Voice agents",
+                            modifier = Modifier.size(32.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text("Voice Agents", fontWeight = FontWeight.Bold)
+                            Text("Talk to your agent live or have it call a customer",
+                                 style = MaterialTheme.typography.bodySmall,
+                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }

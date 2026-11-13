@@ -19,6 +19,7 @@ object Routes {
     const val ACTORS = "actors"
     const val AI_ASSISTANT = "ai_assistant"
     const val VOICE_WORKFLOW = "voice_workflow"
+    const val VOICE_AGENTS = "voice_agents"
     const val PAYMENT = "payment/{workflowId}/{workflowName}"
     const val VENDORS = "vendors"
     const val VENDOR_ADD = "vendors/add"
@@ -57,6 +58,7 @@ fun SangamNavHost(
                 onNavigateToActors = { navController.navigate(Routes.ACTORS) },
                 onNavigateToAIAssistant = { navController.navigate(Routes.AI_ASSISTANT) },
                 onNavigateToVoiceWorkflow = { navController.navigate(Routes.VOICE_WORKFLOW) },
+                onNavigateToVoiceAgents = { navController.navigate(Routes.VOICE_AGENTS) },
                 onNavigateToVendors = { navController.navigate(Routes.VENDORS) },
                 onOpenWorkflow = { id -> navController.navigate(Routes.workflowDetail(id)) },
                 onSignOut = {
@@ -146,6 +148,9 @@ fun SangamNavHost(
             AIAssistantScreen(
                 onBack = { navController.popBackStack() },
             )
+        }
+        composable(Routes.VOICE_AGENTS) {
+            VoiceAgentsScreen(onBack = { navController.popBackStack() })
         }
         composable(Routes.VOICE_WORKFLOW) {
             VoiceWorkflowScreen(
