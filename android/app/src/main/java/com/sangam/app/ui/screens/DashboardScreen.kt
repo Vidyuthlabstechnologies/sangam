@@ -45,6 +45,7 @@ fun DashboardScreen(
     onNavigateToAIAssistant: () -> Unit = {},
     onNavigateToVoiceWorkflow: () -> Unit = {},
     onNavigateToVoiceAgents: () -> Unit = {},
+    onNavigateToCampaigns: () -> Unit = {},
     onNavigateToVendors: () -> Unit = {},
     onOpenWorkflow: (String) -> Unit = {},
     onSignOut: () -> Unit = {},
@@ -246,6 +247,7 @@ fun DashboardScreen(
                 ShortcutGrid(
                     listOf(
                         Shortcut(Icons.Default.Call, "Talk to agents", "Test live or place a call", onNavigateToVoiceAgents),
+                        Shortcut(Icons.Default.Campaign, "Call campaigns", "Call a list of customers", onNavigateToCampaigns),
                         Shortcut(Icons.Default.Mic, "Voice workflow", "Speak to create one", onNavigateToVoiceWorkflow),
                         Shortcut(Icons.Default.CheckCircle, "Approvals", "Waiting for you", onNavigateToApprovals),
                         Shortcut(Icons.Default.AutoAwesome, "AI assistant", "Ask or draft", onNavigateToAIAssistant),

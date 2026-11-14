@@ -336,3 +336,15 @@ async def test_other_business_cannot_see_campaign(client, auth_headers, tenant):
     assert (await client.get(f"/campaigns/{c['id']}/live", headers=h)).status_code == 404
     assert (await client.post(f"/campaigns/{c['id']}/start", headers=h)).status_code == 404
     assert (await client.get("/campaigns", headers=h)).json() == []
+
+
+def test_dialling_pauses_when_live_calls_should_cover_the_goal():
+    from app.models.campaign import CallCampaign
+
+    c = CallCampaign(target_count=10, success_count=6)
+    # 40 finished, 6 yes: 15% hit rate. 30 live calls are expected to bring ~4.5 more.
+    assert engine._enough_in_flight(c, {"connected": 20, "no_answer": 20, "dialing": 30}) is not None
+    # Only 10 live: ~1.5 more expected, not enough; keep dialling.
+    assert engine._enough_in_flight(c, {"connected": 20, "no_answer": 20, "dialing": 10}) is None
+    # Too few finished calls to know the hit rate yet.
+    assert engine._enough_in_flight(c, {"connected": 5, "dialing": 30}) is None

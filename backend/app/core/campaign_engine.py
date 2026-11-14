@@ -572,6 +572,25 @@ async def _finish_if_done(session: AsyncSession, campaign: CallCampaign, by_stat
     logger.info("Campaign %s finished: %s (%d successes)", campaign.id, campaign.status, campaign.success_count)
 
 
+def _enough_in_flight(campaign: CallCampaign, by_status: dict[str, int]) -> str | None:
+    """Stop adding calls when the ones already live will likely meet the goal.
+
+    Every extra call past the goal costs money and disturbs someone for nothing,
+    so once the hit rate is known (20+ finished calls), dialling pauses while
+    the expected yeses from live calls cover what is left. If they fall short,
+    the next tick dials again.
+    """
+    finished = sum(by_status.get(s, 0) for s in (ContactStatus.CONNECTED, ContactStatus.NO_ANSWER,
+                                                  ContactStatus.BUSY, ContactStatus.FAILED))
+    live = by_status.get(ContactStatus.DIALING, 0)
+    if finished < 20 or live == 0:
+        return None
+    expected = live * campaign.success_count / finished
+    if campaign.success_count + expected >= campaign.target_count:
+        return "Enough calls are live to reach the goal; waiting for them before dialling more."
+    return None
+
+
 async def _hold(campaign: CallCampaign, session: AsyncSession, now: datetime) -> str | None:
     """Why this campaign may not dial right now, or None."""
     if campaign.mode == "simulation":
@@ -604,7 +623,7 @@ async def advance(session: AsyncSession, campaign_id: Any, webhook_url_for: Webh
         await session.commit()
         return campaign
 
-    hold = await _hold(campaign, session, now)
+    hold = await _hold(campaign, session, now) or _enough_in_flight(campaign, by_status)
     campaign.hold_reason = hold
     free = _max_concurrency(campaign) - by_status.get(ContactStatus.DIALING, 0)
     if hold or free <= 0:
