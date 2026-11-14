@@ -1,5 +1,7 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.ui.components.SecondaryButton
+import com.sangam.app.ui.components.PrimaryButton
 import android.content.Intent
 import android.media.MediaPlayer
 import android.net.Uri
@@ -171,7 +173,7 @@ fun CallInboxScreen(
                             context.startActivity(Intent.createChooser(share, "Export Leads CSV"))
                         }
                     ) {
-                        Icon(Icons.Default.Download, contentDescription = "Share calls as a spreadsheet")
+                        Icon(Icons.Default.Share, contentDescription = "Share calls as a spreadsheet")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = SangamPureWhite),
@@ -281,21 +283,20 @@ fun CallInboxScreen(
                                 Text(lead.callerName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                 Text(
                                     listOf(lead.callerPhone, lead.language).filter { it.isNotBlank() }.joinToString(" · "),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontFamily = FontFamily.Monospace,
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = SangamMuted,
                                 )
                             }
-                            Surface(
-                                color = if (lead.urgency == "urgent") SangamObsidian else SangamAlabaster,
-                                shape = RoundedCornerShape(4.dp),
-                            ) {
-                                Text(
-                                    lead.urgency.uppercase(),
-                                    color = if (lead.urgency == "urgent") SangamPureWhite else SangamObsidian,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                )
+                            // Only urgent calls get a tag; "NORMAL" on every card was noise.
+                            if (lead.urgency.equals("urgent", true)) {
+                                Surface(color = SangamObsidian, shape = RoundedCornerShape(8.dp)) {
+                                    Text(
+                                        "Urgent",
+                                        color = SangamPureWhite,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                    )
+                                }
                             }
                         }
 
@@ -316,7 +317,7 @@ fun CallInboxScreen(
                         }
 
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
+                            PrimaryButton(
                                 onClick = {
                                     val dial = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${lead.callerPhone}"))
                                     context.startActivity(dial)
@@ -329,7 +330,7 @@ fun CallInboxScreen(
                                 Text("Call")
                             }
 
-                            OutlinedButton(
+                            SecondaryButton(
                                 onClick = {
                                     val msg = Uri.encode("Hello ${lead.callerName}, following up on your ${lead.service} enquiry.")
                                     val digits = lead.callerPhone.filter { it.isDigit() }.let { if (it.length == 10) "91$it" else it }
@@ -345,7 +346,7 @@ fun CallInboxScreen(
                             }
 
                             if (lead.audioAsset.isNotBlank()) {
-                                OutlinedButton(
+                                SecondaryButton(
                                     onClick = { playAssetSample(lead.audioAsset) },
                                     border = BorderStroke(1.dp, SangamBorder),
                                 ) {

@@ -161,6 +161,12 @@ interface SangamApi {
     @POST("/workflows/{id}/cancel")
     suspend fun cancelWorkflow(@Path("id") id: String): WorkflowResponse
 
+    @POST("/approvals/{id}/approve")
+    suspend fun approveApproval(@Path("id") id: String): ApprovalResponse
+
+    @POST("/approvals/{id}/reject")
+    suspend fun rejectApproval(@Path("id") id: String): ApprovalResponse
+
     @GET("/actors")
     suspend fun listActors(): List<ActorResponse>
 

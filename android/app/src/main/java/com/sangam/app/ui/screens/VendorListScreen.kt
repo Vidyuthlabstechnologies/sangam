@@ -1,5 +1,6 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.ui.components.ErrorState
 import com.sangam.app.ui.components.friendlyError
 import com.sangam.app.ui.components.BackButton
 import androidx.compose.foundation.clickable
@@ -78,7 +79,7 @@ fun VendorListScreen(
             error != null -> Box(
                 Modifier.fillMaxSize().padding(padding).padding(24.dp),
                 contentAlignment = Alignment.Center,
-            ) { Text(error!!, color = MaterialTheme.colorScheme.error) }
+            ) { ErrorState(error!!, onRetry = null) }
 
             vendors.isEmpty() -> Box(
                 Modifier.fillMaxSize().padding(padding).padding(24.dp),
@@ -114,7 +115,12 @@ private fun VendorCard(vendor: VendorDto, onClick: () -> Unit) {
     val soonest = vendor.licences.mapNotNull { it.days_until_expiry }.minOrNull()
     val colors = statusColor(vendor.status)
 
-    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = CardDefaults.outlinedCardBorder(),
+    ) {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
             Row(
                 Modifier.fillMaxWidth(),
@@ -148,8 +154,12 @@ private fun VendorCard(vendor: VendorDto, onClick: () -> Unit) {
 
             Spacer(Modifier.height(10.dp))
             Text(
-                "${vendor.licences.size} licence(s) on file",
-                style = MaterialTheme.typography.bodySmall,
+                when (vendor.licences.size) {
+                    0 -> "No licences on file"
+                    1 -> "1 licence on file"
+                    else -> "${vendor.licences.size} licences on file"
+                },
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
@@ -164,7 +174,7 @@ private fun VendorCard(vendor: VendorDto, onClick: () -> Unit) {
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        "Licence expired — cannot supply",
+                        "Licence expired. Cannot supply.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                         fontWeight = FontWeight.Medium,

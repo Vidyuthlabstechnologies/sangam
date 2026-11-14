@@ -1,5 +1,7 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.ui.components.SecondaryButton
+import com.sangam.app.ui.components.PrimaryButton
 import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
@@ -403,7 +405,7 @@ fun OnboardingWizardScreen(
                 )
             },
             confirmButton = {
-                Button(
+                PrimaryButton(
                     onClick = {
                         showDeleteConfirmDialog = false
                         scope.launch {
@@ -427,7 +429,7 @@ fun OnboardingWizardScreen(
                 }
             },
             dismissButton = {
-                OutlinedButton(onClick = { showDeleteConfirmDialog = false }) {
+                SecondaryButton(onClick = { showDeleteConfirmDialog = false }) {
                     Text("Cancel")
                 }
             },
@@ -442,7 +444,7 @@ fun OnboardingWizardScreen(
                 Text("Tell us the agent quoted a wrong price, switched to the wrong language, or said something inappropriate. Our team reviews every report.")
             },
             confirmButton = {
-                Button(
+                PrimaryButton(
                     onClick = {
                         showReportAiDialog = false
                         scope.launch {
@@ -465,7 +467,7 @@ fun OnboardingWizardScreen(
                 }
             },
             dismissButton = {
-                OutlinedButton(onClick = { showReportAiDialog = false }) {
+                SecondaryButton(onClick = { showReportAiDialog = false }) {
                     Text("Cancel")
                 }
             },
@@ -480,13 +482,13 @@ fun OnboardingWizardScreen(
                 Text("Your phone dials ##002#, which turns off all call forwarding on this SIM, including any you set up before Sangamitra. Missed calls will no longer reach your agent.")
             },
             confirmButton = {
-                Button(onClick = {
+                PrimaryButton(onClick = {
                     showForwardOffDialog = false
                     context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode("##002#"))))
                 }) { Text("Open dialer") }
             },
             dismissButton = {
-                OutlinedButton(onClick = { showForwardOffDialog = false }) { Text("Cancel") }
+                SecondaryButton(onClick = { showForwardOffDialog = false }) { Text("Cancel") }
             },
         )
     }
@@ -575,7 +577,7 @@ fun OnboardingWizardScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
                         keyboardActions = KeyboardActions(onGo = { if (!isBusy) buildFromUrl() }),
                     )
-                    Button(
+                    PrimaryButton(
                         onClick = { buildFromUrl() },
                         enabled = !isBusy,
                         modifier = Modifier
@@ -600,7 +602,7 @@ fun OnboardingWizardScreen(
                         minLines = 2,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                     )
-                    OutlinedButton(
+                    SecondaryButton(
                         onClick = { buildFromDescription() },
                         enabled = !isBusy,
                         modifier = Modifier
@@ -611,10 +613,9 @@ fun OnboardingWizardScreen(
                     }
 
                     Text("Type of business (optional)", style = MaterialTheme.typography.labelLarge, color = SangamZinc)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
+                    // Wraps instead of scrolling sideways: half-cut chips hid that more existed.
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         VERTICAL_PACK_CHIPS.forEach { (packId, packTitle) ->
@@ -689,7 +690,7 @@ fun OnboardingWizardScreen(
                             Triple("audio/abhishek_te.wav", "Telugu", "తెలుగు"),
                         ).forEach { (asset, langName, nativeLabel) ->
                             val isPlaying = playingAudioAsset == asset
-                            OutlinedButton(
+                            SecondaryButton(
                                 onClick = { playVoiceSample(asset, langName) },
                                 modifier = Modifier.semantics {
                                     contentDescription = (if (isPlaying) "Stop " else "Play ") + "$langName sample"
@@ -770,7 +771,7 @@ fun OnboardingWizardScreen(
                         color = SangamZinc,
                     )
 
-                    Button(
+                    PrimaryButton(
                         onClick = { buyOnPlay(selectedPlanId) },
                         enabled = Billing.isEnabled,
                         modifier = Modifier
@@ -779,7 +780,7 @@ fun OnboardingWizardScreen(
                     ) {
                         Text("Activate ${activePlan.name}", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    OutlinedButton(
+                    SecondaryButton(
                         onClick = { buyOnPlay(Billing.TOPUP_PRODUCT) },
                         enabled = Billing.isEnabled,
                         modifier = Modifier
@@ -869,7 +870,7 @@ fun OnboardingWizardScreen(
                             color = Color(0xFFD4D4D8),
                         )
                         if (dial != null) {
-                            Button(
+                            PrimaryButton(
                                 onClick = { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$dial"))) },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = SangamPureWhite,
@@ -889,7 +890,7 @@ fun OnboardingWizardScreen(
                                 color = Color(0xFFD4D4D8),
                             )
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(
+                                SecondaryButton(
                                     onClick = {
                                         // *61* forwards unanswered calls only; busy and switched-off still ring the owner.
                                         val code = Uri.encode("*61*${dial.removePrefix("+91")}#")
@@ -902,7 +903,7 @@ fun OnboardingWizardScreen(
                                     Spacer(Modifier.width(6.dp))
                                     Text("Turn on forwarding")
                                 }
-                                OutlinedButton(
+                                SecondaryButton(
                                     onClick = { showForwardOffDialog = true },
                                     colors = ButtonDefaults.outlinedButtonColors(contentColor = SangamPureWhite),
                                     border = BorderStroke(1.dp, Color(0xFF71717A)),
@@ -972,7 +973,7 @@ fun OnboardingWizardScreen(
                             style = MaterialTheme.typography.bodyLarge,
                             fontFamily = FontFamily.Monospace,
                         )
-                        OutlinedButton(
+                        SecondaryButton(
                             onClick = {
                                 val line = deployedPhone?.let { " (call it on $it)" }.orEmpty()
                                 val shareText = "Namaste! My business now has a 24/7 AI phone agent from Sangamitra$line. " +
@@ -997,7 +998,7 @@ fun OnboardingWizardScreen(
             // 7. Account and safety (Play policy: report AI output, delete account)
             item {
                 SetupSection(step = "Account", title = "Safety and privacy") {
-                    OutlinedButton(
+                    SecondaryButton(
                         onClick = { showReportAiDialog = true },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1007,7 +1008,7 @@ fun OnboardingWizardScreen(
                         Spacer(Modifier.width(6.dp))
                         Text("Report a wrong answer")
                     }
-                    OutlinedButton(
+                    SecondaryButton(
                         onClick = { showDeleteConfirmDialog = true },
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = SangamCrimson),
                         modifier = Modifier

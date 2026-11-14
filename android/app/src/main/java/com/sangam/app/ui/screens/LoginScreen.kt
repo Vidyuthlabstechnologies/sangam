@@ -1,5 +1,7 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.ui.components.SecondaryButton
+import com.sangam.app.ui.components.PrimaryButton
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -230,7 +232,7 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                 Column(modifier = Modifier.padding(20.dp)) {
 
                     // Google Sign-In Button
-                    OutlinedButton(
+                    SecondaryButton(
                         onClick = {
                             error = null
                             info = null
@@ -372,7 +374,7 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                     }
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Button(
+                    PrimaryButton(
                         onClick = { submit() },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -387,7 +389,7 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                             )
                         } else {
                             Text(
-                                if (isLogin) "Sign In" else "Create Account",
+                                if (isLogin) "Sign in" else "Create account",
                                 style = MaterialTheme.typography.labelLarge,
                             )
                         }
@@ -430,7 +432,7 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(
-                            if (isLogin) "Don't have an account? Sign Up" else "Already have an account? Sign In",
+                            if (isLogin) "Don't have an account? Sign up" else "Already have an account? Sign in",
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }

@@ -1,8 +1,16 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.ui.components.SecondaryButton
+import com.sangam.app.ui.components.PrimaryButton
 import com.sangam.app.ui.components.friendlyError
 import com.sangam.app.ui.components.BackButton
+import android.Manifest
+import android.content.pm.PackageManager
 import android.media.MediaPlayer
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.compose.ui.text.style.TextAlign
 import android.media.MediaRecorder
 import android.os.Build
 import android.util.Base64
@@ -50,10 +58,43 @@ fun VoiceWorkflowScreen(
     var recordingFile by remember { mutableStateOf<File?>(null) }
     var mediaRecorder by remember { mutableStateOf<MediaRecorder?>(null) }
 
+    fun startRecording() {
+        error = ""
+        state = VoiceState.RECORDING
+        scope.launch {
+            try {
+                val dir = context.cacheDir
+                val file = File(dir, "sangam_voice_${System.currentTimeMillis()}.3gp")
+                recordingFile = file
+                val recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    MediaRecorder(context)
+                } else {
+                    @Suppress("DEPRECATION") MediaRecorder()
+                }
+                recorder.setAudioSource(MediaRecorder.AudioSource.MIC)
+                recorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
+                recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
+                recorder.setOutputFile(file.absolutePath)
+                recorder.prepare()
+                recorder.start()
+                mediaRecorder = recorder
+            } catch (e: Exception) {
+                error = "Could not start recording. Check that Sangamitra has microphone permission."
+                state = VoiceState.IDLE
+            }
+        }
+    }
+
+    // Recording without RECORD_AUDIO granted throws, which showed a dead-end error.
+    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        if (ok) startRecording()
+        else error = "Sangamitra needs the microphone to hear you. Allow it in Settings, or type your workflow in the AI assistant."
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Create a workflow by voice") },
+                title = { Text("Voice workflow") },
                 navigationIcon = {
                     BackButton(onBack)
                 },
@@ -72,14 +113,10 @@ fun VoiceWorkflowScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                "Create a workflow using your voice",
-                style = MaterialTheme.typography.headlineSmall,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                "Tap record, describe your workflow, and AI will create it.",
-                style = MaterialTheme.typography.bodyMedium,
+                "Say what should happen, in any Indian language. For example: \"When a caller books a visit, ask me to approve it.\"",
+                style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
             )
             Spacer(modifier = Modifier.height(32.dp))
 
@@ -87,42 +124,22 @@ fun VoiceWorkflowScreen(
                 VoiceState.IDLE -> {
                     FilledTonalButton(
                         onClick = {
-                            error = ""
-                            state = VoiceState.RECORDING
-                            scope.launch {
-                                try {
-                                    val dir = context.cacheDir
-                                    val file = File(dir, "sangam_voice_${System.currentTimeMillis()}.3gp")
-                                    recordingFile = file
-                                    val recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                        MediaRecorder(context)
-                                    } else {
-                                        @Suppress("DEPRECATION") MediaRecorder()
-                                    }
-                                    recorder.setAudioSource(MediaRecorder.AudioSource.MIC)
-                                    recorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
-                                    recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
-                                    recorder.setOutputFile(file.absolutePath)
-                                    recorder.prepare()
-                                    recorder.start()
-                                    mediaRecorder = recorder
-                                } catch (e: Exception) {
-                                    error = "Could not start recording. Check that Sangamitra has microphone permission."
-                                    state = VoiceState.IDLE
-                                }
-                            }
+                            val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                                PackageManager.PERMISSION_GRANTED
+                            if (granted) startRecording() else micPermission.launch(Manifest.permission.RECORD_AUDIO)
                         },
-                        modifier = Modifier.size(130.dp),
+                        modifier = Modifier.size(156.dp),
+                        contentPadding = PaddingValues(12.dp),
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Image(
                                 painter = painterResource(id = R.drawable.mascot_kite_idle),
-                                contentDescription = "Voice Mascot",
+                                contentDescription = null,
                                 modifier = Modifier.size(56.dp),
                                 contentScale = ContentScale.Fit
                             )
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text("Start Speaking", style = MaterialTheme.typography.labelMedium)
+                            Text("Tap to speak", style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
                         }
                     }
                 }
@@ -184,7 +201,8 @@ fun VoiceWorkflowScreen(
                                 }
                             }
                         },
-                        modifier = Modifier.size(130.dp),
+                        modifier = Modifier.size(156.dp),
+                        contentPadding = PaddingValues(12.dp),
                         colors = ButtonDefaults.filledTonalButtonColors(
                             containerColor = MaterialTheme.colorScheme.errorContainer,
                         ),
@@ -192,16 +210,16 @@ fun VoiceWorkflowScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Image(
                                 painter = painterResource(id = R.drawable.mascot_kite_thinking),
-                                contentDescription = "Listening",
+                                contentDescription = null,
                                 modifier = Modifier.size(56.dp),
                                 contentScale = ContentScale.Fit
                             )
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text("Stop & Process", style = MaterialTheme.typography.labelMedium)
+                            Text("Tap when done", style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Listening...", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                    Text("Listening…", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
                 }
 
                 VoiceState.PROCESSING -> {
@@ -214,7 +232,7 @@ fun VoiceWorkflowScreen(
                     Spacer(modifier = Modifier.height(14.dp))
                     CircularProgressIndicator()
                     Spacer(modifier = Modifier.height(14.dp))
-                    Text("Understanding your request...", fontWeight = FontWeight.SemiBold)
+                    Text("Understanding your request…", fontWeight = FontWeight.SemiBold)
                     Text("Turning what you said into workflow steps", style = MaterialTheme.typography.bodySmall,
                          color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -228,7 +246,7 @@ fun VoiceWorkflowScreen(
                             ),
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text("Transcript:", fontWeight = FontWeight.Bold)
+                                Text("You said", fontWeight = FontWeight.Bold)
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(transcript)
                                 if (detectedLang.isNotEmpty()) {
@@ -245,7 +263,7 @@ fun VoiceWorkflowScreen(
                     OutlinedTextField(
                         value = workflowName,
                         onValueChange = { workflowName = it },
-                        label = { Text("Workflow Name") },
+                        label = { Text("Workflow name") },
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -262,7 +280,7 @@ fun VoiceWorkflowScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        OutlinedButton(
+                        SecondaryButton(
                             onClick = {
                                 state = VoiceState.IDLE
                                 transcript = ""
@@ -273,7 +291,7 @@ fun VoiceWorkflowScreen(
                             modifier = Modifier.weight(1f),
                         ) { Text("Cancel") }
 
-                        Button(
+                        PrimaryButton(
                             onClick = {
                                 state = VoiceState.DONE
                                 scope.launch {
@@ -292,7 +310,7 @@ fun VoiceWorkflowScreen(
                                 }
                             },
                             modifier = Modifier.weight(1f),
-                        ) { Text("Create Workflow") }
+                        ) { Text("Create workflow") }
                     }
                 }
 
@@ -314,12 +332,12 @@ fun VoiceWorkflowScreen(
                                 contentScale = ContentScale.Fit
                             )
                             Spacer(modifier = Modifier.height(10.dp))
-                            Text("Workflow created!", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                            Text("Workflow created", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(workflowName, fontWeight = FontWeight.Bold)
                             Spacer(modifier = Modifier.height(16.dp))
-                            Button(onClick = onWorkflowCreated) {
-                                Text("Go to Workflows")
+                            PrimaryButton(onClick = onWorkflowCreated) {
+                                Text("Go to workflows")
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                             TextButton(onClick = {
@@ -327,7 +345,7 @@ fun VoiceWorkflowScreen(
                                 transcript = ""
                                 workflowName = ""
                                 workflowDesc = ""
-                            }) { Text("Create Another") }
+                            }) { Text("Create another") }
                         }
                     }
                 }

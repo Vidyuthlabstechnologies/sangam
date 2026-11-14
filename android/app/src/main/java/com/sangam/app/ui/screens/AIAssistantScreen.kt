@@ -1,5 +1,6 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.ui.components.PrimaryButton
 import com.sangam.app.ui.components.friendlyError
 import com.sangam.app.ui.components.BackButton
 import androidx.compose.foundation.BorderStroke
@@ -79,7 +80,7 @@ fun AIAssistantScreen(
                         enabled = !loading,
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Button(
+                    PrimaryButton(
                         onClick = {
                             val userMsg = inputText.trim()
                             if (userMsg.isNotEmpty() && !loading) {

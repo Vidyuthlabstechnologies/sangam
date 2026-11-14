@@ -51,6 +51,15 @@ private val LightColorScheme = lightColorScheme(
     outline = SangamMuted,
     outlineVariant = SangamBorder,
     error = SangamCrimson,
+    // M3's default surfaceContainer* tokens are lilac. Cards, sheets, menus and the
+    // bottom bar read them, which tinted the whole app purple. Neutral zinc instead.
+    surfaceContainerLowest = SangamPureWhite,
+    surfaceContainerLow = Color(0xFFFAFAFA),
+    surfaceContainer = Color(0xFFF7F7F8),
+    surfaceContainerHigh = Color(0xFFF4F4F5),
+    // Filled cards use this one, so it stays a light wash rather than a grey slab.
+    surfaceContainerHighest = Color(0xFFF1F1F3),
+    surfaceTint = Color.Transparent,
 )
 
 private val DarkColorScheme = darkColorScheme(
@@ -70,6 +79,12 @@ private val DarkColorScheme = darkColorScheme(
     outline = Color(0xFF71717A),
     outlineVariant = Color(0xFF3F3F46),
     error = SangamCrimson,
+    surfaceContainerLowest = SangamObsidian,
+    surfaceContainerLow = Color(0xFF141416),
+    surfaceContainer = SangamCharcoal,
+    surfaceContainerHigh = Color(0xFF202023),
+    surfaceContainerHighest = SangamGraphite,
+    surfaceTint = Color.Transparent,
 )
 
 val SangamTypography = Typography(

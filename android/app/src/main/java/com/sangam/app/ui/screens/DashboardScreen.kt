@@ -396,6 +396,8 @@ fun WorkflowCard(workflow: WorkflowResponse, onClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = CardDefaults.outlinedCardBorder(),
     ) {
         Row(
             modifier = Modifier
