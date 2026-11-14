@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     # Abuse guards on calls that spend money.
     samvaad_max_pending_calls: int = 5
     samvaad_max_session_seconds: int = 900
+    # Bulk campaigns: most calls one campaign keeps live at once. Raise the live
+    # cap only as far as the Samvaad plan and telephony trunk allow.
+    campaign_max_concurrency: int = 50
+    campaign_max_concurrency_sim: int = 300
 
     razorpay_key_id: Optional[str] = None
     razorpay_key_secret: Optional[str] = None

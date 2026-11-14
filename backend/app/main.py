@@ -31,6 +31,7 @@ from app.api.revenuecat import router as revenuecat_router
 from app.api.legal import router as legal_router
 from app.api.voice_agents import router as voice_agents_router
 from app.api.voice_agents import webhook_router as voice_agents_webhook_router
+from app.api.campaigns import router as campaigns_router
 from app.core.health import collect_readiness
 from app.core.middleware import (
     RequestIDMiddleware,
@@ -197,6 +198,7 @@ app.include_router(revenuecat_router)
 app.include_router(legal_router)
 app.include_router(voice_agents_router)
 app.include_router(voice_agents_webhook_router)
+app.include_router(campaigns_router)
 
 
 @app.get("/health")
