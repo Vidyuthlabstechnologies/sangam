@@ -1,5 +1,12 @@
 package com.sangam.app.ui.screens
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
+import com.sangam.app.ui.components.friendlyError
+import com.sangam.app.ui.components.humanize
+import com.sangam.app.ui.components.StatusLabel
+import com.sangam.app.ui.components.ErrorState
+import com.sangam.app.ui.components.PrimaryButton
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -65,7 +72,7 @@ fun VendorDetailScreen(
         val v = vendor
         if (v == null) {
             Box(Modifier.fillMaxSize().padding(padding).padding(24.dp), contentAlignment = Alignment.Center) {
-                Text(error ?: "Vendor not found", color = MaterialTheme.colorScheme.error)
+                ErrorState(error ?: "This vendor could not be found.", onRetry = null)
             }
             return@Scaffold
         }
@@ -78,10 +85,14 @@ fun VendorDetailScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Card(Modifier.fillMaxWidth()) {
+            Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = CardDefaults.outlinedCardBorder(),
+    ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(v.legal_name ?: v.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    v.gstin?.let { Text("GSTIN $it", style = MaterialTheme.typography.bodySmall) }
+                    v.gstin?.let { Text("GSTIN $it", style = MaterialTheme.typography.bodyMedium) }
                     v.address?.let {
                         Text(
                             it,
@@ -90,14 +101,16 @@ fun VendorDetailScreen(
                         )
                     }
                     Spacer(Modifier.height(4.dp))
-                    AssistChip(
-                        onClick = {},
-                        label = { Text(v.status.replace('_', ' ').replaceFirstChar { c -> c.uppercase() }) },
-                    )
+                    StatusLabel(humanize(v.status))
                 }
             }
 
-            Text("Regulatory licences", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(
+                "Regulatory licences",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 4.dp).semantics { heading() },
+            )
 
             if (v.licences.isEmpty()) {
                 Text(
@@ -122,7 +135,7 @@ fun VendorDetailScreen(
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
 
             if (v.status != "pending_qualification" && v.licences.isNotEmpty()) {
-                Button(
+                PrimaryButton(
                     onClick = {
                         scope.launch {
                             busy = true; error = null
@@ -132,7 +145,7 @@ fun VendorDetailScreen(
                                 vendor = ApiClient.api.getVendor(vendorId)
                                 onQualificationSubmitted(res.workflow_id)
                             } catch (e: Exception) {
-                                error = e.message ?: "Could not submit"
+                                error = friendlyError(e, "submit for qualification")
                             }
                             busy = false
                         }
@@ -147,7 +160,11 @@ fun VendorDetailScreen(
 
 @Composable
 private fun LicenceCard(licence: VendorLicenceDto) {
-    Card(Modifier.fillMaxWidth()) {
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = CardDefaults.outlinedCardBorder(),
+    ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -189,7 +206,7 @@ private fun LicenceCard(licence: VendorLicenceDto) {
 
             licence.extraction_confidence?.let {
                 Text(
-                    "Extraction confidence ${"%.2f".format(it)}",
+                    if (it >= 0.9) "Read from photo, high confidence" else "Read from photo. Check the details are right.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

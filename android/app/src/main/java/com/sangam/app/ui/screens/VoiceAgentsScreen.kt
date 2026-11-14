@@ -1,5 +1,7 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.ui.components.SecondaryButton
+import com.sangam.app.ui.components.PrimaryButton
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -83,7 +85,7 @@ fun VoiceAgentsScreen(onBack: () -> Unit = {}) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Voice Agents") },
+                title = { Text("Talk to agents") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -134,7 +136,7 @@ fun VoiceAgentsScreen(onBack: () -> Unit = {}) {
 
             if (agents.isNotEmpty()) {
                 item {
-                    Text("Agent", style = MaterialTheme.typography.titleMedium)
+                    Text("Test your agent", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(8.dp))
                     Picker(
                         label = "Agent",
@@ -151,7 +153,7 @@ fun VoiceAgentsScreen(onBack: () -> Unit = {}) {
                     )
                 }
                 item {
-                    Button(
+                    PrimaryButton(
                         onClick = {
                             val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
                                 PackageManager.PERMISSION_GRANTED
@@ -230,12 +232,12 @@ private fun OutboundCallCard(agent: VoiceAgentDto, language: String, onPlaced: (
             OutlinedTextField(
                 value = phone,
                 onValueChange = { phone = it.filter { c -> c == '+' || c.isDigit() } },
-                label = { Text("Customer phone, with country code") },
+                label = { Text("Customer phone number") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 modifier = Modifier.fillMaxWidth(),
             )
-            Button(
+            PrimaryButton(
                 onClick = {
                     busy = true
                     message = null
@@ -253,6 +255,7 @@ private fun OutboundCallCard(agent: VoiceAgentDto, language: String, onPlaced: (
                     }
                 },
                 enabled = valid && !busy,
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(Icons.Default.Call, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
@@ -265,7 +268,12 @@ private fun OutboundCallCard(agent: VoiceAgentDto, language: String, onPlaced: (
 
 @Composable
 private fun CallRow(call: VoiceAgentCallDto, onClick: () -> Unit) {
-    ElevatedCard(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = CardDefaults.outlinedCardBorder(),
+    ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(call.user_phone, fontWeight = FontWeight.Bold)
@@ -375,7 +383,7 @@ private fun LiveCall(
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
             if (!finished) {
-                OutlinedButton(
+                SecondaryButton(
                     onClick = { session.setMuted(!muted) },
                     enabled = state == VoiceSessionState.Live,
                     modifier = Modifier.weight(1f).height(52.dp),
@@ -384,7 +392,7 @@ private fun LiveCall(
                     Spacer(Modifier.width(8.dp))
                     Text(if (muted) "Unmute" else "Mute")
                 }
-                Button(
+                PrimaryButton(
                     onClick = { session.stop() },
                     colors = ButtonDefaults.buttonColors(containerColor = SangamCrimson),
                     modifier = Modifier.weight(1f).height(52.dp),
@@ -394,7 +402,7 @@ private fun LiveCall(
                     Text("Hang up")
                 }
             } else {
-                Button(onClick = onClose, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                PrimaryButton(onClick = onClose, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                     Text("Done")
                 }
             }

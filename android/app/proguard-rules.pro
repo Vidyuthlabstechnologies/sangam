@@ -5,9 +5,6 @@
 -dontwarn okhttp3.**
 -dontwarn okio.**
 
-# Razorpay Checkout
--keep class com.razorpay.** { *; }
--dontwarn com.razorpay.**
 
 # Firebase & Play Services
 -keep class com.google.firebase.** { *; }

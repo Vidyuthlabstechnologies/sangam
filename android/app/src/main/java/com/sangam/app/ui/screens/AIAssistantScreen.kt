@@ -1,5 +1,8 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.ui.components.PrimaryButton
+import com.sangam.app.ui.components.friendlyError
+import com.sangam.app.ui.components.BackButton
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -34,7 +37,7 @@ fun AIAssistantScreen(
 ) {
     val scope = rememberCoroutineScope()
     var messages by remember { mutableStateOf(listOf(
-        ChatMessage("assistant", "Hello! I'm your Sangam AI assistant powered by Sarvam. I can help you create workflows, answer questions about your workflows, or assist with any task. How can I help?")
+        ChatMessage("assistant", "Namaste! I'm your Sangamitra assistant. I can help you create workflows, answer questions about your workflows, or assist with any task. How can I help?")
     )) }
     var inputText by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
@@ -49,9 +52,9 @@ fun AIAssistantScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("AI Assistant (Sarvam)") },
+                title = { Text("AI assistant") },
                 navigationIcon = {
-                    TextButton(onClick = onBack) { Text("Back") }
+                    BackButton(onBack)
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
@@ -77,7 +80,7 @@ fun AIAssistantScreen(
                         enabled = !loading,
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Button(
+                    PrimaryButton(
                         onClick = {
                             val userMsg = inputText.trim()
                             if (userMsg.isNotEmpty() && !loading) {
@@ -92,7 +95,7 @@ fun AIAssistantScreen(
                                         )
                                         messages = messages + ChatMessage("assistant", response.content)
                                     } catch (e: Exception) {
-                                        messages = messages + ChatMessage("assistant", "Error: ${e.message}")
+                                        messages = messages + ChatMessage("assistant", friendlyError(e, "get an answer"))
                                     }
                                     loading = false
                                 }
@@ -203,7 +206,7 @@ fun AIAssistantScreen(
                                     color = SangamObsidian,
                                 )
                                 Text(
-                                    "Consulting Sarvam AI neural model...",
+                                    "Thinking...",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = SangamMuted,
                                 )

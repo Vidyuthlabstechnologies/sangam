@@ -18,6 +18,15 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
+import com.sangam.app.ui.components.ErrorState
+import com.sangam.app.ui.components.friendlyError
 import com.sangam.app.R
 import com.sangam.app.network.ApiClient
 import com.sangam.app.network.FirebaseSession
@@ -71,7 +80,7 @@ fun DashboardScreen(
             workflows = response.items
             loadError = null
         } catch (e: Exception) {
-            loadError = e.message ?: "Could not load workflows"
+            loadError = friendlyError(e, "load your workflows")
         }
     }
 
@@ -96,20 +105,34 @@ fun DashboardScreen(
         }
     }
 
+    fun retry() {
+        scope.launch {
+            loading = true
+            refresh()
+            loading = false
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("SANGAMITRA", style = MaterialTheme.typography.headlineLarge)
-                        if (wsState.isNotEmpty()) {
+                        Text(
+                            "Sangamitra",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        if (wsState == "OFFLINE") {
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                wsState,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (wsState.contains("LIVE"))
-                                    MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.error,
+                                "Offline",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.error,
+                                maxLines = 1,
                             )
                         }
                     }
@@ -125,81 +148,32 @@ fun DashboardScreen(
             )
         },
         bottomBar = {
+            // Four short, single-line labels. Five long ones broke mid-word ("Workfl-ows")
+            // on 320dp phones with large text. Vendors moved to a card below.
             NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                NavigationBarItem(
-                    selected = true,
-                    onClick = {},
-                    icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                    label = { Text("Home") },
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = onNavigateToOnboarding,
-                    icon = { Icon(Icons.Default.Call, contentDescription = "Voice Agent") },
-                    label = { Text("Voice Agent") },
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = onNavigateToCallInbox,
-                    icon = { Icon(Icons.Default.Inbox, contentDescription = "Call Inbox") },
-                    label = { Text("Call Inbox") },
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = onNavigateToWorkflows,
-                    icon = { Icon(Icons.Default.List, contentDescription = "Workflows") },
-                    label = { Text("Workflows") },
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = onNavigateToVendors,
-                    icon = { Icon(Icons.Default.Business, contentDescription = "Vendors") },
-                    label = { Text("Vendors") },
-                )
+                listOf(
+                    Triple(Icons.Default.Home, "Home", {}),
+                    Triple(Icons.Default.SupportAgent, "Agent", onNavigateToOnboarding),
+                    Triple(Icons.Default.Inbox, "Calls", onNavigateToCallInbox),
+                    Triple(Icons.AutoMirrored.Filled.List, "Workflows", onNavigateToWorkflows),
+                ).forEachIndexed { index, (icon, label, onClick) ->
+                    NavigationBarItem(
+                        selected = index == 0,
+                        onClick = onClick,
+                        icon = { Icon(icon, contentDescription = null) },
+                        label = { Text(label, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
+                    )
+                }
             }
         },
     ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
+                .padding(padding),
+            contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.mascot_kite_idle),
-                            contentDescription = "Kite Voice Co-Pilot",
-                            modifier = Modifier.size(76.dp),
-                            contentScale = ContentScale.Fit
-                        )
-                        Spacer(modifier = Modifier.width(14.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "Voice Co-Pilot",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                "Your voice agent answers calls when you can't. Set it up or change it from the Voice Agent tab.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
             item {
                 Card(
                     onClick = onNavigateToOnboarding,
@@ -209,29 +183,37 @@ fun DashboardScreen(
                         contentColor = MaterialTheme.colorScheme.onPrimary,
                     ),
                 ) {
-                    Column(
-                        modifier = Modifier.padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
-                                "ZERO-PROMPT CALLING AGENT STUDIO",
+                                "Your voice agent",
                                 style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
                             )
-                            Icon(Icons.Default.ArrowForward, contentDescription = "Launch")
+                            Text(
+                                "Answer every call, in your customer's language",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                "Paste your website, pick a plan and get a number your agent answers. Takes about a minute.",
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Set up or change", style = MaterialTheme.typography.labelLarge)
+                                Spacer(Modifier.width(4.dp))
+                                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                            }
                         }
-                        Text(
-                            "Deploy AI Sales & Receptionist Agent in 60s",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Text(
-                            "Choose a mascot, paste your website, and pick a plan. Your line and wallet stay on this account.",
-                            style = MaterialTheme.typography.bodySmall,
+                        Image(
+                            painter = painterResource(id = R.drawable.mascot_kite_idle),
+                            contentDescription = null,
+                            modifier = Modifier.size(72.dp),
+                            contentScale = ContentScale.Fit,
                         )
                     }
                 }
@@ -239,198 +221,124 @@ fun DashboardScreen(
 
             item {
                 Text(
-                    "Command Center",
-                    style = MaterialTheme.typography.displayLarge,
+                    "Overview",
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .semantics { heading() },
                 )
-                Spacer(modifier = Modifier.height(8.dp))
             }
 
             item {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(IntrinsicSize.Min),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     StatCard("Active", workflows.count { it.state == "active" }, MaterialTheme.colorScheme.primary)
-                    StatCard("Pending", workflows.count { it.state in listOf("draft", "paused") }, MaterialTheme.colorScheme.tertiary)
+                    StatCard("Waiting", workflows.count { it.state in listOf("draft", "paused") }, MaterialTheme.colorScheme.tertiary)
                     StatCard("Done", workflows.count { it.state == "completed" }, MaterialTheme.colorScheme.secondary)
                 }
             }
 
             item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    ElevatedCard(
-                        onClick = onNavigateToAIAssistant,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Icon(
-                                Icons.Default.Smartphone,
-                                contentDescription = "AI",
-                                modifier = Modifier.size(32.dp),
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("AI Assistant", fontWeight = FontWeight.Bold)
-                            Text("Chat with Sarvam LLM", style = MaterialTheme.typography.bodySmall,
-                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                 textAlign = TextAlign.Center)
-                        }
-                    }
-                    ElevatedCard(
-                        onClick = onNavigateToApprovals,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Icon(
-                                Icons.Default.CheckCircle,
-                                contentDescription = "Approvals",
-                                modifier = Modifier.size(32.dp),
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("Approvals", fontWeight = FontWeight.Bold)
-                            Text("Waiting decisions", style = MaterialTheme.typography.bodySmall,
-                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                 textAlign = TextAlign.Center)
-                        }
-                    }
-                }
-            }
-
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    ElevatedCard(
-                        onClick = onNavigateToActors,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Icon(
-                                Icons.Default.People,
-                                contentDescription = "Actors",
-                                modifier = Modifier.size(32.dp),
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("Actors", fontWeight = FontWeight.Bold)
-                            Text("People and agents", style = MaterialTheme.typography.bodySmall,
-                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                 textAlign = TextAlign.Center)
-                        }
-                    }
-                    ElevatedCard(
-                        onClick = onNavigateToVoiceWorkflow,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Icon(
-                                Icons.Default.Mic,
-                                contentDescription = "Voice",
-                                modifier = Modifier.size(32.dp),
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("Voice Workflow", fontWeight = FontWeight.Bold)
-                            Text("Create with speech", style = MaterialTheme.typography.bodySmall,
-                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                 textAlign = TextAlign.Center)
-                        }
-                    }
-                }
-            }
-
-            item {
-                ElevatedCard(
-                    onClick = onNavigateToVoiceAgents,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            Icons.Default.Call,
-                            contentDescription = "Voice agents",
-                            modifier = Modifier.size(32.dp),
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column {
-                            Text("Voice Agents", fontWeight = FontWeight.Bold)
-                            Text("Talk to your agent live or have it call a customer",
-                                 style = MaterialTheme.typography.bodySmall,
-                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        "Recent Workflows",
-                        style = MaterialTheme.typography.headlineMedium,
+                ShortcutGrid(
+                    listOf(
+                        Shortcut(Icons.Default.Call, "Talk to agents", "Test live or place a call", onNavigateToVoiceAgents),
+                        Shortcut(Icons.Default.Mic, "Voice workflow", "Speak to create one", onNavigateToVoiceWorkflow),
+                        Shortcut(Icons.Default.CheckCircle, "Approvals", "Waiting for you", onNavigateToApprovals),
+                        Shortcut(Icons.Default.AutoAwesome, "AI assistant", "Ask or draft", onNavigateToAIAssistant),
+                        Shortcut(Icons.Default.People, "People", "Your team and agents", onNavigateToActors),
+                        Shortcut(Icons.Default.Business, "Vendors", "Suppliers and licences", onNavigateToVendors),
                     )
-                    if (wsState.contains("LIVE")) {
-                        Text(
-                            "LIVE",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                }
+                )
+            }
+
+            item {
+                Text(
+                    "Recent workflows",
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .semantics { heading() },
+                )
             }
 
             if (loading) {
                 item {
-                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
                 }
             } else if (loadError != null && workflows.isEmpty()) {
-                item {
-                    Text(loadError!!, color = MaterialTheme.colorScheme.error)
-                }
+                item { ErrorState(loadError!!, onRetry = ::retry) }
             } else if (workflows.isEmpty()) {
                 item {
                     Card(
+                        onClick = onNavigateToVoiceWorkflow,
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     ) {
-                        Text(
-                            "No workflows yet. Try voice creation!",
-                            modifier = Modifier.padding(24.dp),
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
+                        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("No workflows yet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "Tap here and say what should happen, for example \"When a caller books a visit, ask me to approve it\".",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             } else {
-                items(workflows) { wf ->
+                items(workflows, key = { it.id }) { wf ->
                     WorkflowCard(wf, onClick = { onOpenWorkflow(wf.id) })
                 }
+            }
+        }
+    }
+}
+
+private data class Shortcut(
+    val icon: ImageVector,
+    val title: String,
+    val subtitle: String,
+    val onClick: () -> Unit,
+)
+
+/** Two columns of equal-height tiles, so a two-line title never makes a ragged grid. */
+@Composable
+private fun ShortcutGrid(items: List<Shortcut>) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        items.chunked(2).forEach { row ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                row.forEach { item ->
+                    ElevatedCard(
+                        onClick = item.onClick,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Icon(item.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Text(item.title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                item.subtitle,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
     }
@@ -439,59 +347,91 @@ fun DashboardScreen(
 @Composable
 fun RowScope.StatCard(label: String, count: Int, color: Color) {
     Card(
-        modifier = Modifier.weight(1f),
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxHeight()
+            .semantics(mergeDescendants = true) {},
         colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f)),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp, horizontal = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
                 count.toString(),
-                style = MaterialTheme.typography.displayLarge,
-                color = color,
+                style = MaterialTheme.typography.headlineLarge,
+                color = if (color == MaterialTheme.colorScheme.tertiary) Color(0xFF92400E) else color,
                 fontWeight = FontWeight.Bold,
+                maxLines = 1,
             )
             Text(
                 label,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
 }
+
+/** Raw states from the backend ("active", "draft") as words people use. */
+fun workflowStateLabel(state: String): String = when (state.lowercase()) {
+    "active" -> "Running"
+    "draft" -> "Draft"
+    "paused" -> "Paused"
+    "completed" -> "Done"
+    "failed" -> "Failed"
+    else -> state.replaceFirstChar { it.uppercase() }
+}
+
+fun workflowPhaseLabel(phase: String): String =
+    phase.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }
 
 @Composable
 fun WorkflowCard(workflow: WorkflowResponse, onClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = CardDefaults.outlinedCardBorder(),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     workflow.name,
                     style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    "Phase: ${workflow.current_phase}",
+                    "Stage: ${workflowPhaseLabel(workflow.current_phase)}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            AssistChip(
-                onClick = {},
-                label = {
-                    Text(workflow.state, style = MaterialTheme.typography.labelLarge)
-                },
-            )
+            // A status label, not a button: an AssistChip looked tappable and did nothing.
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer,
+            ) {
+                Text(
+                    workflowStateLabel(workflow.state),
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    maxLines = 1,
+                )
+            }
         }
     }
 }

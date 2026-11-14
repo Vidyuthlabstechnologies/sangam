@@ -1,5 +1,6 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.ui.components.PrimaryButton
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -97,7 +98,7 @@ fun AddVendorScreen(
             )
 
             if (vendorId == null) {
-                Button(
+                PrimaryButton(
                     onClick = {
                         scope.launch {
                             busy = true; error = null
@@ -121,7 +122,7 @@ fun AddVendorScreen(
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("Register vendor") }
             } else {
-                Button(
+                PrimaryButton(
                     onClick = {
                         scope.launch {
                             busy = true; error = null
@@ -173,7 +174,7 @@ fun AddVendorScreen(
             extracted?.let { doc ->
                 val vid = vendorId
                 if (vid != null) {
-                    Button(
+                    PrimaryButton(
                         onClick = {
                             scope.launch {
                                 busy = true

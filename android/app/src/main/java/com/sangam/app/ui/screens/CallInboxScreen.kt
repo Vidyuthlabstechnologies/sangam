@@ -1,5 +1,7 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.ui.components.SecondaryButton
+import com.sangam.app.ui.components.PrimaryButton
 import android.content.Intent
 import android.media.MediaPlayer
 import android.net.Uri
@@ -23,6 +25,15 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
+import com.sangam.app.ui.components.BackButton
+import com.sangam.app.ui.components.ErrorState
+import com.sangam.app.ui.components.friendlyError
 import com.sangam.app.R
 import com.sangam.app.network.ApiClient
 import com.sangam.app.ui.theme.*
@@ -41,7 +52,7 @@ data class CallLeadItem(
     val audioAsset: String,
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun CallInboxScreen(
     onBack: () -> Unit = {},
@@ -87,7 +98,11 @@ fun CallInboxScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
+    var reloadKey by remember { mutableStateOf(0) }
+    var actionError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(reloadKey) {
+        loading = true
         try {
             val wallet = ApiClient.onboardingApi.getMyWallet()
             val name = wallet["business_name"]?.toString()?.takeIf { it.isNotBlank() }
@@ -116,7 +131,7 @@ fun CallInboxScreen(
             }
             loadError = null
         } catch (e: Exception) {
-            loadError = e.message ?: "Could not load calls"
+            loadError = friendlyError(e, "load your calls")
         }
         loading = false
     }
@@ -135,17 +150,14 @@ fun CallInboxScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("AI CALL INBOX & LEAD CRM", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text(lineLabel, style = MaterialTheme.typography.bodySmall, color = SangamMuted)
+                        Text("Call inbox", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(lineLabel, style = MaterialTheme.typography.bodySmall, color = SangamZinc, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
+                navigationIcon = { BackButton(onBack) },
                 actions = {
                     IconButton(
+                        enabled = leads.isNotEmpty(),
                         onClick = {
                             val csv = buildString {
                                 appendLine("Caller Name,Phone,Service,Language,Urgency,Preferred Time,Status,Notes")
@@ -161,7 +173,7 @@ fun CallInboxScreen(
                             context.startActivity(Intent.createChooser(share, "Export Leads CSV"))
                         }
                     ) {
-                        Icon(Icons.Default.Download, contentDescription = "Export CSV")
+                        Icon(Icons.Default.Share, contentDescription = "Share calls as a spreadsheet")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = SangamPureWhite),
@@ -176,11 +188,21 @@ fun CallInboxScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            actionError?.let { msg ->
+                item {
+                    Text(
+                        msg,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                    )
+                }
+            }
             item {
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    label = { Text("Search buyer, phone, mineral, or city") },
+                    label = { Text("Search name, phone or notes") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -188,7 +210,10 @@ fun CallInboxScreen(
             }
 
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     listOf("all" to "All (${leads.size})", "new" to "New", "contacted" to "Contacted", "closed" to "Closed").forEach { (key, label) ->
                         FilterChip(
                             selected = selectedFilter == key,
@@ -206,7 +231,7 @@ fun CallInboxScreen(
                     }
                 }
             } else if (loadError != null && leads.isEmpty()) {
-                item { Text(loadError!!, color = MaterialTheme.colorScheme.error) }
+                item { ErrorState(loadError!!, onRetry = { reloadKey++ }) }
             } else if (filteredLeads.isEmpty()) {
                 item {
                     Column(
@@ -218,18 +243,22 @@ fun CallInboxScreen(
                     ) {
                         Image(
                             painter = painterResource(R.drawable.mascot_kite_idle),
-                            contentDescription = "No incoming calls",
+                            contentDescription = null,
                             modifier = Modifier.size(110.dp),
                             contentScale = ContentScale.Fit,
                         )
                         Text(
-                            "All Quiet on the Phone Lines!",
+                            if (leads.isEmpty()) "No calls yet" else "No calls match",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = SangamObsidian,
                         )
                         Text(
-                            "Your Sarvam AI calling agent is on standby with zero missed leads. Sip your chai, we've got the line covered!",
+                            if (leads.isEmpty()) {
+                                "When your agent takes a call, the caller's name, number and what they asked for show up here."
+                            } else {
+                                "Try a different search or filter."
+                            },
                             style = MaterialTheme.typography.bodyMedium,
                             color = SangamMuted,
                             textAlign = TextAlign.Center,
@@ -251,24 +280,23 @@ fun CallInboxScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Column(Modifier.weight(1f)) {
-                                Text(lead.callerName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                                Text(lead.callerName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                 Text(
-                                    "${lead.callerPhone} · ${lead.language}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontFamily = FontFamily.Monospace,
+                                    listOf(lead.callerPhone, lead.language).filter { it.isNotBlank() }.joinToString(" · "),
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = SangamMuted,
                                 )
                             }
-                            Surface(
-                                color = if (lead.urgency == "urgent") SangamObsidian else SangamAlabaster,
-                                shape = RoundedCornerShape(4.dp),
-                            ) {
-                                Text(
-                                    lead.urgency.uppercase(),
-                                    color = if (lead.urgency == "urgent") SangamPureWhite else SangamObsidian,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                )
+                            // Only urgent calls get a tag; "NORMAL" on every card was noise.
+                            if (lead.urgency.equals("urgent", true)) {
+                                Surface(color = SangamObsidian, shape = RoundedCornerShape(8.dp)) {
+                                    Text(
+                                        "Urgent",
+                                        color = SangamPureWhite,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                    )
+                                }
                             }
                         }
 
@@ -279,12 +307,17 @@ fun CallInboxScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("Callback Slot: ${lead.preferredTime}", style = MaterialTheme.typography.bodySmall, color = SangamMuted)
-                            Text("Status: ${lead.status.uppercase()}", style = MaterialTheme.typography.labelLarge)
+                            Text(
+                                if (lead.preferredTime.isNotBlank()) "Call back: ${lead.preferredTime}" else "No callback time given",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SangamZinc,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(lead.status.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelLarge)
                         }
 
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
+                            PrimaryButton(
                                 onClick = {
                                     val dial = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${lead.callerPhone}"))
                                     context.startActivity(dial)
@@ -297,10 +330,10 @@ fun CallInboxScreen(
                                 Text("Call")
                             }
 
-                            OutlinedButton(
+                            SecondaryButton(
                                 onClick = {
                                     val msg = Uri.encode("Hello ${lead.callerName}, following up on your ${lead.service} enquiry.")
-                                    val digits = lead.callerPhone.replace("+", "")
+                                    val digits = lead.callerPhone.filter { it.isDigit() }.let { if (it.length == 10) "91$it" else it }
                                     val wa = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$digits?text=$msg"))
                                     context.startActivity(wa)
                                 },
@@ -313,23 +346,26 @@ fun CallInboxScreen(
                             }
 
                             if (lead.audioAsset.isNotBlank()) {
-                                OutlinedButton(
+                                SecondaryButton(
                                     onClick = { playAssetSample(lead.audioAsset) },
                                     border = BorderStroke(1.dp, SangamBorder),
                                 ) {
                                     Icon(
                                         if (playingAsset == lead.audioAsset) Icons.Default.Stop else Icons.Default.PlayArrow,
-                                        contentDescription = "Play Audio",
+                                        contentDescription = null,
                                         modifier = Modifier.size(16.dp),
                                     )
                                     Spacer(Modifier.width(4.dp))
-                                    Text(if (playingAsset == lead.audioAsset) "Stop" else "Audio")
+                                    Text(if (playingAsset == lead.audioAsset) "Stop" else "Listen")
                                 }
                             }
                         }
 
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf("new" to "Mark New", "contacted" to "Mark Contacted", "closed" to "Mark Closed").forEach { (st, title) ->
+                        // Wraps instead of clipping "Mark closed" off the edge on small phones.
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("new" to "New", "contacted" to "Contacted", "closed" to "Closed")
+                                .filter { it.first != lead.status }
+                                .forEach { (st, title) ->
                                 AssistChip(
                                     onClick = {
                                         scope.launch {
@@ -340,11 +376,11 @@ fun CallInboxScreen(
                                                     leads[idx] = leads[idx].copy(status = st)
                                                 }
                                             } catch (e: Exception) {
-                                                loadError = e.message ?: "Could not update this call"
+                                                actionError = friendlyError(e, "update this call")
                                             }
                                         }
                                     },
-                                    label = { Text(title, style = MaterialTheme.typography.bodySmall) },
+                                    label = { Text("Mark $title".lowercase().replaceFirstChar { it.uppercase() }) },
                                 )
                             }
                         }

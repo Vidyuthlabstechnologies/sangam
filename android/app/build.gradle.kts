@@ -118,6 +118,11 @@ android {
         jvmTarget = "17"
     }
 
+    testOptions {
+        // Robolectric screenshot tests (src/test/.../ScreenshotTest.kt) need real resources.
+        unitTests.isIncludeAndroidResources = true
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
@@ -174,9 +179,6 @@ dependencies {
     // Google Play Billing through RevenueCat (Billing Library 8)
     implementation("com.revenuecat.purchases:purchases:9.29.1")
 
-    // Razorpay (web and non-Play builds only; Play builds sell through Google Play Billing)
-    implementation("com.razorpay:checkout:1.6.41")
-
     // Room
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
@@ -199,4 +201,13 @@ dependencies {
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    // JVM screenshot tests: render screens at small-phone sizes and large font scales
+    // without an emulator. Run: ./gradlew :app:testDebugUnitTest --tests '*ScreenshotTest*'
+    testImplementation(composeBom)
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    testImplementation("androidx.test.ext:junit:1.2.1")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }

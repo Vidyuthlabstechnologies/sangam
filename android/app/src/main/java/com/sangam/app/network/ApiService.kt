@@ -161,6 +161,12 @@ interface SangamApi {
     @POST("/workflows/{id}/cancel")
     suspend fun cancelWorkflow(@Path("id") id: String): WorkflowResponse
 
+    @POST("/approvals/{id}/approve")
+    suspend fun approveApproval(@Path("id") id: String): ApprovalResponse
+
+    @POST("/approvals/{id}/reject")
+    suspend fun rejectApproval(@Path("id") id: String): ApprovalResponse
+
     @GET("/actors")
     suspend fun listActors(): List<ActorResponse>
 
@@ -248,34 +254,6 @@ data class TTSRequest(
     val loudness: Float = 1.0f,
 )
 
-data class InitiatePaymentRequest(
-    val workflow_id: String,
-    val amount: Double,
-    val currency: String = "INR",
-    val description: String? = null,
-    val method: String? = null,
-)
-
-data class InitiatePaymentResponse(
-    val payment_id: String,
-    val razorpay_order_id: String,
-    val razorpay_key_id: String,
-    val amount: Double,
-    val currency: String,
-    val status: String,
-)
-
-data class VerifyPaymentRequest(
-    val razorpay_order_id: String,
-    val razorpay_payment_id: String,
-    val razorpay_signature: String,
-)
-
-data class VerifyPaymentResponse(
-    val status: String,
-    val payment_id: String,
-)
-
 data class PaymentDetailResponse(
     val id: String,
     val workflow_id: String?,
@@ -331,12 +309,6 @@ data class VoicesResponse(
 )
 
 interface SangamPaymentApi {
-    @POST("/payments/initiate")
-    suspend fun initiatePayment(@Body request: InitiatePaymentRequest): InitiatePaymentResponse
-
-    @POST("/payments/verify")
-    suspend fun verifyPayment(@Body request: VerifyPaymentRequest): VerifyPaymentResponse
-
     @GET("/payments/{paymentId}")
     suspend fun getPayment(@Path("paymentId") paymentId: String): PaymentDetailResponse
 
@@ -456,36 +428,6 @@ data class PlansResponseDto(
     val plans: List<PlanDto> = emptyList(),
 )
 
-data class CreateWalletOrderRequestDto(
-    val plan_id: String? = null,
-    val topup_amount_inr: Double? = null,
-    val tenant_id: String? = null,
-    val business_name: String? = null,
-    val mascot_id: String? = null,
-    val primary_language: String? = null,
-    val gstin: String? = null,
-)
-
-data class CreateWalletOrderResponseDto(
-    val order_id: String,
-    val key_id: String? = null,
-    val currency: String = "INR",
-    val tenant_id: String,
-    val purpose: String,
-    val price_inr: Double,
-    val gst_inr: Double,
-    val amount_payable_inr: Double,
-    val amount_paise: Long,
-    val included_minutes: Int,
-    val wallet_credit_inr: Double,
-)
-
-data class VerifyWalletPaymentRequestDto(
-    val razorpay_order_id: String,
-    val razorpay_payment_id: String,
-    val razorpay_signature: String,
-)
-
 interface SangamOnboardingApi {
     @GET("/onboarding/categories")
     suspend fun getCategories(): Map<String, Any>
@@ -514,20 +456,11 @@ interface SangamOnboardingApi {
     @GET("/onboarding/wallet/{userId}")
     suspend fun getWallet(@Path("userId") userId: String): Map<String, Any>
 
-    @POST("/onboarding/wallet/create-order")
-    suspend fun createWalletOrder(@Body request: CreateWalletOrderRequestDto): CreateWalletOrderResponseDto
-
-    @POST("/onboarding/wallet/verify-payment")
-    suspend fun verifyWalletPayment(@Body request: VerifyWalletPaymentRequestDto): Map<String, Any>
-
     @POST("/onboarding/wallet/activate-starter-499")
     suspend fun activateStarter499(@Body request: StarterPackActivateRequestDto): Map<String, Any>
 
     @POST("/onboarding/wallet/topup")
     suspend fun topupWallet(@Body request: WalletTopupRequestDto): Map<String, Any>
-
-    @POST("/onboarding/wallet/autopay")
-    suspend fun configureAutopay(@Body request: Map<String, Any>): Map<String, Any>
 
     @POST("/onboarding/wallet/referral")
     suspend fun claimReferralBonus(@Body request: Map<String, String>): Map<String, Any>

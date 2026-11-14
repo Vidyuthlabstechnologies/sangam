@@ -1,5 +1,11 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.ui.components.friendlyError
+import com.sangam.app.ui.components.BackButton
+import com.sangam.app.ui.components.ErrorState
+import com.sangam.app.ui.components.StatusLabel
+import com.sangam.app.ui.components.humanize
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,13 +26,14 @@ import kotlinx.coroutines.launch
 data class ApprovalListItem(
     val id: String,
     val workflow_id: String,
+    val workflow_name: String,
     val status: String,
     val required_actors: List<String>,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ApprovalsScreen(onWorkflowClick: (String) -> Unit) {
+fun ApprovalsScreen(onWorkflowClick: (String) -> Unit, onBack: () -> Unit = {}) {
     val scope = rememberCoroutineScope()
     var approvals by remember { mutableStateOf<List<ApprovalListItem>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
@@ -35,11 +42,14 @@ fun ApprovalsScreen(onWorkflowClick: (String) -> Unit) {
     suspend fun refresh() {
         try {
             val resp = ApiClient.api.listWorkflows(pageSize = 50)
+            // Gson ignores Kotlin defaults, so a missing list arrives as null.
             approvals = resp.items.flatMap { wf ->
-                wf.approvals.map { ApprovalListItem(it.id, wf.id, it.status, it.required_actors) }
+                @Suppress("USELESS_ELVIS")
+                (wf.approvals ?: emptyList()).map { ApprovalListItem(it.id, wf.id, wf.name, it.status, it.required_actors) }
             }
+            error = null
         } catch (e: Exception) {
-            error = e.message
+            error = friendlyError(e, "load approvals")
         }
         loading = false
     }
@@ -57,6 +67,7 @@ fun ApprovalsScreen(onWorkflowClick: (String) -> Unit) {
         topBar = {
             TopAppBar(
                 title = { Text("Approvals") },
+                navigationIcon = { BackButton(onBack) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
@@ -72,7 +83,13 @@ fun ApprovalsScreen(onWorkflowClick: (String) -> Unit) {
             error != null -> Box(
                 Modifier.fillMaxSize().padding(padding),
                 contentAlignment = Alignment.Center,
-            ) { Text("Error: $error", color = MaterialTheme.colorScheme.error) }
+            ) {
+                ErrorState(error!!, onRetry = {
+                    loading = true
+                    error = null
+                    scope.launch { refresh() }
+                })
+            }
 
             approvals.isEmpty() -> Box(
                 Modifier.fillMaxSize().padding(padding),
@@ -84,20 +101,20 @@ fun ApprovalsScreen(onWorkflowClick: (String) -> Unit) {
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.mascot_kite_adjudicator),
-                        contentDescription = "All Approvals Cleared",
+                        contentDescription = null,
                         modifier = Modifier.size(130.dp),
                         contentScale = ContentScale.Fit
                     )
                     Spacer(Modifier.height(14.dp))
                     Text(
-                        "All Quorums Cleared!",
+                        "Nothing to approve",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Your Sarvam AI calling agents are handling all customer calls autonomously.",
-                        style = MaterialTheme.typography.bodySmall,
+                        "Requests that need your decision will show up here.",
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
@@ -108,38 +125,40 @@ fun ApprovalsScreen(onWorkflowClick: (String) -> Unit) {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding)
-                        .padding(16.dp),
+                        .padding(padding),
+                    contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(approvals) { a ->
+                    items(approvals, key = { it.id }) { a ->
                         Card(
                             onClick = { onWorkflowClick(a.workflow_id) },
                             modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = CardDefaults.outlinedCardBorder(),
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(16.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        "Approval",
+                                        a.workflow_name,
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.SemiBold,
+                                        maxLines = 3,
+                                        overflow = TextOverflow.Ellipsis,
                                     )
+                                    Spacer(Modifier.height(2.dp))
                                     Text(
-                                        "Workflow: ${a.workflow_id.take(8)}...",
-                                        style = MaterialTheme.typography.bodySmall,
+                                        if (a.status.equals("pending", true)) "Tap to review and decide" else "Tap to see details",
+                                        style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
-                                AssistChip(
-                                    onClick = {},
-                                    label = { Text(a.status) },
-                                )
+                                StatusLabel(approvalStatusLabel(a.status))
                             }
                         }
                     }
@@ -147,4 +166,13 @@ fun ApprovalsScreen(onWorkflowClick: (String) -> Unit) {
             }
         }
     }
+}
+
+/** "pending" -> "Waiting", the words an owner uses. */
+fun approvalStatusLabel(status: String): String = when (status.lowercase()) {
+    "pending" -> "Waiting"
+    "approved" -> "Approved"
+    "rejected" -> "Rejected"
+    "escalated" -> "Escalated"
+    else -> humanize(status)
 }
