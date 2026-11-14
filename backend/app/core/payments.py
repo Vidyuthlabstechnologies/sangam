@@ -564,3 +564,18 @@ class PaymentManager:
             payment.status = PaymentStatus.FAILED
         
         await self.session.commit()
+
+
+def require_razorpay() -> None:
+    """Refuse Razorpay routes when Razorpay is not configured.
+
+    The app sells through Google Play Billing (RevenueCat). Without keys these
+    routes would only run in fixture mode and hand out canned orders, so in a
+    deployment without Razorpay they answer 410 instead. Fixture mode (tests,
+    local dev) keeps them working.
+    """
+    from fastapi import HTTPException
+
+    if settings.use_fixtures or (settings.razorpay_key_id and settings.razorpay_key_secret):
+        return
+    raise HTTPException(status_code=410, detail="Payments are made through Google Play in the app")

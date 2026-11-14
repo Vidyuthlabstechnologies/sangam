@@ -23,6 +23,7 @@ import threading
 import time
 from typing import Any, Optional, cast
 
+import anyio
 import httpx
 import jwt
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
@@ -59,6 +60,35 @@ class InvalidAccessToken(Exception):
     """The bearer token is missing, forged, expired, or not an org member."""
 
 
+class _NetworkNeeded(Exception):
+    """Verification needs a JWKS fetch; retry off the event loop."""
+
+
+def websocket_token(headers: Any, query_token: str) -> str:
+    """The bearer token for a WebSocket: the Authorization header, else ?token=.
+
+    Prefer the header. A token in the URL ends up in Cloud Run's request logs.
+    The query parameter stays for app versions already installed.
+    """
+    auth = headers.get("authorization", "") if headers is not None else ""
+    if auth[:7].lower() == "bearer " and auth[7:].strip():
+        return auth[7:].strip()
+    return query_token or ""
+
+
+async def verify_access_token_async(token: str) -> dict[str, Any]:
+    """verify_access_token for async code.
+
+    The JWKS fetch is a blocking HTTP call. Run inline from the cache, and only
+    move to a worker thread when a fetch is needed, so a slow key endpoint
+    cannot freeze every request and live call on the instance.
+    """
+    try:
+        return verify_access_token(token, allow_network=False)
+    except _NetworkNeeded:
+        return await anyio.to_thread.run_sync(verify_access_token, token)
+
+
 def install_test_jwks(jwks: Optional[dict]) -> None:
     """Point verification at a local key set. Tests use this so nothing is fetched."""
     global _test_jwks
@@ -72,7 +102,7 @@ def clear_jwks_cache() -> None:
         _jwks_cache.clear()
 
 
-def verify_access_token(token: str) -> dict[str, Any]:
+def verify_access_token(token: str, *, allow_network: bool = True) -> dict[str, Any]:
     """Return verified claims, or raise InvalidAccessToken. Never calls the network
     unless an issuer is configured and no test key set is installed.
     """
@@ -88,23 +118,24 @@ def verify_access_token(token: str) -> dict[str, Any]:
 
     firebase_issuer = _firebase_issuer()
     if firebase_issuer and unverified.get("iss") == firebase_issuer:
-        return _verify_firebase(token, header, firebase_issuer)
-    return _verify_zitadel(token, header)
+        return _verify_firebase(token, header, firebase_issuer, allow_network)
+    return _verify_zitadel(token, header, allow_network)
 
 
-def _verify_zitadel(token: str, header: dict) -> dict[str, Any]:
+def _verify_zitadel(token: str, header: dict, allow_network: bool = True) -> dict[str, Any]:
     claims = _decode(
         token,
         header,
         jwks_url=_zitadel_jwks_url(),
         audience=_audiences(),
         issuer=_issuer(),
+        allow_network=allow_network,
     )
     organization_id_from_claims(claims)
     return claims
 
 
-def _verify_firebase(token: str, header: dict, issuer: str) -> dict[str, Any]:
+def _verify_firebase(token: str, header: dict, issuer: str, allow_network: bool = True) -> dict[str, Any]:
     project_id = issuer[len(FIREBASE_ISSUER_PREFIX):]
     claims = _decode(
         token,
@@ -113,6 +144,7 @@ def _verify_firebase(token: str, header: dict, issuer: str) -> dict[str, Any]:
         audience=[project_id],
         issuer=issuer,
         require=["exp", "iat", "sub", "iss", "aud", "auth_time"],
+        allow_network=allow_network,
     )
     now = time.time()
     auth_time = claims.get("auth_time")
@@ -147,8 +179,9 @@ def _decode(
     audience: list[str],
     issuer: str,
     require: Optional[list[str]] = None,
+    allow_network: bool = True,
 ) -> dict[str, Any]:
-    jwk = _select_key(header.get("kid"), jwks_url)
+    jwk = _select_key(header.get("kid"), jwks_url, allow_network)
     try:
         public_key = cast(RSAPublicKey, RSAAlgorithm.from_jwk(json.dumps(jwk)))
         claims = jwt.decode(
@@ -219,7 +252,7 @@ def _firebase_issuer() -> Optional[str]:
     return FIREBASE_ISSUER_PREFIX + project_id if project_id else None
 
 
-def _load_jwks(url: Optional[str], *, force: bool = False) -> dict:
+def _load_jwks(url: Optional[str], *, force: bool = False, allow_network: bool = True) -> dict:
     with _lock:
         if _test_jwks is not None:
             return _test_jwks
@@ -232,6 +265,8 @@ def _load_jwks(url: Optional[str], *, force: bool = False) -> dict:
             age = now - fetched_at
             if age < _JWKS_TTL_SECONDS and not (force and age >= _JWKS_MIN_REFRESH_SECONDS):
                 return document
+    if not allow_network:
+        raise _NetworkNeeded()
     try:
         response = httpx.get(url, timeout=5.0)
         response.raise_for_status()
@@ -267,11 +302,11 @@ def _matching_keys(kid: Optional[str], document: dict) -> list[dict]:
     return keys
 
 
-def _select_key(kid: Optional[str], jwks_url: Optional[str]) -> dict:
-    keys = _matching_keys(kid, _load_jwks(jwks_url))
+def _select_key(kid: Optional[str], jwks_url: Optional[str], allow_network: bool = True) -> dict:
+    keys = _matching_keys(kid, _load_jwks(jwks_url, allow_network=allow_network))
     if not keys and kid:
         # The issuer may have rotated keys since the last fetch.
-        keys = _matching_keys(kid, _load_jwks(jwks_url, force=True))
+        keys = _matching_keys(kid, _load_jwks(jwks_url, force=True, allow_network=allow_network))
     if not keys:
         raise InvalidAccessToken("Invalid or expired token")
     return keys[0]

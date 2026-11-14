@@ -57,7 +57,7 @@ from app.api.dependencies import get_current_actor
 from app.api.onboarding import _is_admin, resolve_tenant
 from app.config import settings
 from app.core.billing_service import STATUS_PAUSED_ZERO, BillingService
-from app.core.oidc import InvalidAccessToken, link_actor, verify_access_token
+from app.core.oidc import InvalidAccessToken, link_actor, verify_access_token_async, websocket_token
 from app.core.samvaad import (
     LANGUAGE_NAMES,
     SamvaadClient,
@@ -636,7 +636,7 @@ async def voice_session_proxy(
 ):
     """Talk to an agent from the app. The Samvaad session runs here, never on the phone."""
     try:
-        actor = await link_actor(session, verify_access_token(token))
+        actor = await link_actor(session, await verify_access_token_async(websocket_token(ws.headers, token)))
     except InvalidAccessToken:
         await ws.close(code=status.WS_1008_POLICY_VIOLATION)
         return
@@ -649,10 +649,18 @@ async def voice_session_proxy(
         binding = await _binding_for(session, tid, app_id)
         await _require_balance(session, tid)
     except HTTPException as exc:
+        await session.close()
         await ws.accept()
         await ws.send_text(json.dumps({"type": "error", "status": exc.status_code, "detail": exc.detail}))
         await ws.close(code=status.WS_1008_POLICY_VIOLATION)
         return
+
+    # Hand the DB connection back before the call starts. A live session lasts
+    # minutes; holding a pooled connection for it let a handful of calls
+    # exhaust the pool and stall every other request on the instance. The
+    # session reconnects on its own for the metering write at the end.
+    binding_app_id, binding_app_version, actor_id = binding.app_id, binding.app_version, actor.id
+    await session.close()
 
     await ws.accept()
     send_lock = asyncio.Lock()
@@ -677,9 +685,9 @@ async def voice_session_proxy(
 
     try:
         agent = open_voice_session(
-            app_id=binding.app_id,
-            app_version=binding.app_version,
-            user_identifier=f"{tid}:{actor.id}",
+            app_id=binding_app_id,
+            app_version=binding_app_version,
+            user_identifier=f"{tid}:{actor_id}",
             on_transcript=on_transcript,
             on_audio=on_audio,
             on_event=on_event,

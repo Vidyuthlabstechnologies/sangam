@@ -150,10 +150,11 @@ class VoiceAgentSession(private val appId: String, private val language: String?
                 .encodedPath("/voice-agents/ws/")
                 .addPathSegment(appId)
                 .query(null)
-                .addQueryParameter("token", token)
                 .apply { if (!language.isNullOrBlank()) addQueryParameter("language", language) }
                 .build()
-            ws = client.newWebSocket(Request.Builder().url(url).build(), listener)
+            // Token in a header, not the URL: URLs land in server request logs.
+            val request = Request.Builder().url(url).header("Authorization", "Bearer $token").build()
+            ws = client.newWebSocket(request, listener)
         }
     }
 

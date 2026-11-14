@@ -40,6 +40,7 @@ async def _visible_actor(session: AsyncSession, current: Actor, actor_id: UUID) 
     return result.scalar_one_or_none()
 
 
+@router.post("", response_model=ActorResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 @router.post("/", response_model=ActorResponse, status_code=status.HTTP_201_CREATED)
 async def create_actor(
     data: ActorCreate,
@@ -63,6 +64,7 @@ async def create_actor(
     return actor
 
 
+@router.get("", response_model=List[ActorResponse], include_in_schema=False)
 @router.get("/", response_model=List[ActorResponse])
 async def list_actors(
     skip: int = 0,

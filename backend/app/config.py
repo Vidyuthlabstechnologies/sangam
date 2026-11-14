@@ -99,6 +99,12 @@ class Settings(BaseSettings):
     rate_limit_enabled: bool = True
     rate_limit_per_minute: int = 60
     rate_limit_per_minute_ai: int = 10
+    # Signed-out requests are limited per IP and path. Carrier NAT puts many
+    # phones behind one address, so this sits well above the per-account rate.
+    rate_limit_per_minute_anonymous: int = 600
+    # Every request from one IP, all paths together. A ceiling against a
+    # single host flooding, loose enough for a carrier-NAT address.
+    rate_limit_per_ip_per_minute: int = 6000
     rate_limit_burst: int = 10
 
     fcm_project_id: str = "sangam-00001"

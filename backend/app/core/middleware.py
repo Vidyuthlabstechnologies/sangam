@@ -1,4 +1,6 @@
 from __future__ import annotations
+import base64
+import json
 import time
 import uuid
 import logging
@@ -88,19 +90,60 @@ def client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def token_subject(request: Request) -> str | None:
+    """The ``sub`` of the bearer token, read WITHOUT verifying it.
+
+    Only used to pick a rate-limit bucket. A forged subject buys an attacker
+    nothing but a fresh bucket of requests that then fail authentication, and
+    the per-IP ceiling still caps them.
+    """
+    auth = request.headers.get("authorization", "")
+    if auth[:7].lower() != "bearer ":
+        return None
+    parts = auth[7:].strip().split(".")
+    if len(parts) != 3 or len(parts[1]) > 4096:
+        return None
+    try:
+        padded = parts[1] + "=" * (-len(parts[1]) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(padded))
+    except (ValueError, TypeError):
+        return None
+    sub = claims.get("sub") if isinstance(claims, dict) else None
+    if not isinstance(sub, str) or not sub or len(sub) > 128:
+        return None
+    return sub
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Per-account limits, with a generous per-IP ceiling.
+
+    Indian mobile networks put thousands of subscribers behind one carrier-NAT
+    address, so a tight per-IP limit would turn away real users. Signed-in
+    requests are limited per account; anonymous ones per IP and path at a
+    higher rate; and every request also counts toward a per-IP total that
+    stops a single host from flooding.
+    """
+
     async def dispatch(self, request: Request, call_next: Callable):
         if not settings.rate_limit_enabled:
             return await call_next(request)
-        if request.url.path in _SKIP_LIMITS:
+        path = request.url.path
+        if path in _SKIP_LIMITS:
             return await call_next(request)
         ip = client_ip(request)
-        path = request.url.path
         is_ai = any(path.startswith(p) for p in AI_PATHS)
-        limit = settings.rate_limit_per_minute_ai if is_ai else settings.rate_limit_per_minute
         limiter = await request_limiter()
-        # The key is not logged. Redis shares it across replicas when configured.
-        allowed = await limiter.allow(f"{ip}:{path}", limit, 60)
+        # Keys are not logged. Redis shares them across replicas when configured.
+        subject = token_subject(request)
+        if subject is not None:
+            key = f"u:{subject}:{path}"
+            limit = settings.rate_limit_per_minute_ai if is_ai else settings.rate_limit_per_minute
+        else:
+            key = f"ip:{ip}:{path}"
+            limit = settings.rate_limit_per_minute_ai if is_ai else settings.rate_limit_per_minute_anonymous
+        allowed = await limiter.allow(f"ipall:{ip}", settings.rate_limit_per_ip_per_minute, 60)
+        if allowed:
+            allowed = await limiter.allow(key, limit, 60)
         if not allowed:
             return JSONResponse(
                 status_code=429,
@@ -109,6 +152,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     "detail": "Too many requests. Please slow down.",
                     "retry_after_seconds": 60,
                 },
+                headers={"Retry-After": "60"},
             )
         return await call_next(request)
 
