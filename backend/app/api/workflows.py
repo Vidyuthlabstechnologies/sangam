@@ -25,6 +25,7 @@ async def _load(session: AsyncSession, actor: Actor, workflow_id: UUID) -> Workf
     return workflow
 
 
+@router.post("", response_model=WorkflowResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 @router.post("/", response_model=WorkflowResponse, status_code=status.HTTP_201_CREATED)
 async def create_workflow(
     data: WorkflowCreate,
@@ -46,6 +47,7 @@ async def create_workflow(
     return workflow
 
 
+@router.get("", response_model=WorkflowListResponse, include_in_schema=False)
 @router.get("/", response_model=WorkflowListResponse)
 async def list_workflows(
     page: int = Query(1, ge=1),

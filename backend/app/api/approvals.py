@@ -58,6 +58,7 @@ class EscalateRequest(BaseModel):
     reason: Optional[str] = None
 
 
+@router.post("", response_model=ApprovalResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 @router.post("/", response_model=ApprovalResponse, status_code=status.HTTP_201_CREATED)
 async def create_approval(
     req: CreateApprovalRequest,

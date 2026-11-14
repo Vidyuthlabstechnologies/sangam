@@ -37,6 +37,7 @@ class TemplateResponse(BaseModel):
     default_actor_types: list[str] = ["human", "agent"]
 
 
+@router.get("", response_model=list[TemplateResponse], include_in_schema=False)
 @router.get("/", response_model=list[TemplateResponse])
 async def list_templates(
     category: Optional[str] = Query(None),

@@ -92,14 +92,15 @@ object RealtimeClient {
             _state.value = RealtimeState.Error("Server URL is not valid")
             return
         }
-        val scheme = if (parsed.scheme == "https") "wss" else "ws"
+        // OkHttp's HttpUrl accepts only http/https and throws on ws/wss.
+        // newWebSocket takes the http(s) URL and upgrades it itself.
         val url = parsed.newBuilder()
-            .scheme(scheme)
             .encodedPath("/ws")
             .query(null)
-            .addQueryParameter("token", token)
             .build()
-        ws = client.newWebSocket(Request.Builder().url(url).build(), callback)
+        // Token in a header, not the URL: URLs land in server request logs.
+        val request = Request.Builder().url(url).header("Authorization", "Bearer $token").build()
+        ws = client.newWebSocket(request, callback)
     }
 
     fun subscribeWorkflow(workflowId: String) {

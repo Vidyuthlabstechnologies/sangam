@@ -23,6 +23,7 @@ from app.models.sangamitra_release import (
     AiSafetyReportModel,
     AccountDeletionAuditModel,
 )
+from app.models.samvaad import SamvaadAgentBinding, SamvaadCallAttempt
 
 __all__ = [
     "Workflow", "WorkflowPhase", "WorkflowState", "WaitingEvent",
@@ -43,4 +44,6 @@ __all__ = [
     "ComposioExecutionLogModel",
     "AiSafetyReportModel",
     "AccountDeletionAuditModel",
+    "SamvaadAgentBinding",
+    "SamvaadCallAttempt",
 ]

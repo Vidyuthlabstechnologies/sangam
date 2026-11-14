@@ -29,12 +29,32 @@
   Public launch settings: sandbox (license-tester) purchases stop crediting wallets.
   Leave it off during closed testing so testers can buy.
 
+.PARAMETER SamvaadOrgId
+  Sarvam Voice Agents organization id (from the Samvaad dashboard URL or Settings).
+  Given once, it stays on the service; later runs can leave it out.
+
+.PARAMETER SamvaadWorkspaceId
+  Sarvam Voice Agents workspace id, same place. Needed with SARVAM_SAMVAAD_API_KEY.
+
+.PARAMETER MinInstances
+  Instances kept warm (default 1). 0 saves the idle cost, but the first caller
+  after a quiet spell waits for a cold start of several seconds.
+
+.PARAMETER MaxInstances
+  Autoscaling ceiling (default 6). Raise it together with -NeonMaxConnections:
+  each instance opens up to (NeonMaxConnections - 10) / MaxInstances connections.
+
+.PARAMETER NeonMaxConnections
+  max_connections of your Neon compute (default 104, the 0.25 CU size). Check it
+  in Neon under Branches > your branch > Computes, or run SHOW max_connections.
+
 .PARAMETER UseLocalNeon
   Take the direct Neon string from .env.local (written by `neon init`) without asking.
 
 .EXAMPLE
   pwsh -File .\deploy\cloudrun\deploy.ps1 -DryRun
   pwsh -File .\deploy\cloudrun\deploy.ps1
+  pwsh -File .\deploy\cloudrun\deploy.ps1 -SamvaadOrgId <org> -SamvaadWorkspaceId <workspace>
 #>
 #requires -Version 7
 [CmdletBinding()]
@@ -50,7 +70,17 @@ param(
     # Use DATABASE_URL_UNPOOLED from .env.local without asking (for unattended runs).
     [switch]$UseLocalNeon,
     # Public launch: stop crediting Play license-tester (sandbox) purchases.
-    [switch]$Launch
+    [switch]$Launch,
+    # Sarvam Voice Agents (Samvaad) scope. Not secrets; stored as plain env vars.
+    [string]$SamvaadOrgId = '',
+    [string]$SamvaadWorkspaceId = '',
+    # Capacity. One instance served ~200 signed-in requests/s, or 300 live voice
+    # calls, in the load test (backend/scripts/load_test.py). See the README.
+    [ValidateRange(0, 100)][int]$MinInstances = 1,
+    [ValidateRange(1, 100)][int]$MaxInstances = 6,
+    # Neon's max_connections for your compute size: 0.25 CU = 104, 0.5 CU = 225,
+    # 1 CU = 450, 2 CU = 901. Every instance's DB pool must fit inside it.
+    [ValidateRange(20, 10000)][int]$NeonMaxConnections = 104
 )
 
 Set-StrictMode -Version Latest
@@ -61,10 +91,13 @@ $DbSecret = 'sangam-database-url'
 $JwtSecret = 'sangam-jwt-secret'
 $WebhookSecret = 'sangam-revenuecat-webhook-auth'
 # Provider keys: env var name -> secret name. Without SARVAM_API_KEY the voice
-# agents answer with canned fixture replies. Razorpay is not used: the app sells
-# through Google Play Billing.
+# agents answer with canned fixture replies. SARVAM_SAMVAAD_API_KEY is the
+# separate Voice Agents key (Settings -> API Key in the Samvaad dashboard); the
+# two are not interchangeable. Without it /voice-agents returns fixtures.
+# Razorpay is not used: the app sells through Google Play Billing.
 $ProviderSecrets = [ordered]@{
     'SARVAM_API_KEY' = 'sangam-sarvam-api-key'
+    'SARVAM_SAMVAAD_API_KEY' = 'sangam-sarvam-samvaad-api-key'
 }
 $ApiServices = 'run.googleapis.com', 'cloudbuild.googleapis.com', 'artifactregistry.googleapis.com', 'secretmanager.googleapis.com'
 
@@ -184,7 +217,7 @@ if (-not (Test-Secret $WebhookSecret)) {
     }
 }
 
-Step 'Storing the Sarvam API key'
+Step 'Storing the Sarvam API keys'
 $providerRefs = @()
 foreach ($envName in $ProviderSecrets.Keys) {
     $secretName = $ProviderSecrets[$envName]
@@ -239,10 +272,34 @@ $acceptSandbox = if ($Launch) { 'false' } else { 'true' }
 $envVars = "ENVIRONMENT=production,FIREBASE_PROJECT_ID=sangamitra-ai,FIREBASE_REQUIRE_VERIFIED_EMAIL=true,REVENUECAT_ACCEPT_SANDBOX=$acceptSandbox,FORWARDED_ALLOW_IPS=*,CLIENT_IP_FORWARDED_HOP=1"
 $secretRefs = "DATABASE_URL=${DbSecret}:latest,JWT_SECRET=${JwtSecret}:latest,REVENUECAT_WEBHOOK_AUTH=${WebhookSecret}:latest"
 foreach ($envName in $providerRefs) { $secretRefs += ",$envName=$($ProviderSecrets[$envName]):latest" }
+foreach ($pair in @(@('SAMVAAD_ORG_ID', $SamvaadOrgId), @('SAMVAAD_WORKSPACE_ID', $SamvaadWorkspaceId))) {
+    $value = $pair[1].Trim()
+    if ($value -and $value -notmatch '^[A-Za-z0-9._-]+$') { throw "$($pair[0]) has unexpected characters." }
+    if ($value) { $envVars += ",$($pair[0])=$value" }
+}
+# Size each instance's DB pool so all instances together stay inside Neon's
+# connection limit, keeping 10 back for the console and migrations. When the
+# pool is full, a request waits DB_POOL_TIMEOUT_SECONDS and then fails, so the
+# ceiling here is the real one.
+$perInstance = [math]::Floor(($NeonMaxConnections - 10) / $MaxInstances)
+if ($perInstance -lt 6) {
+    throw "$MaxInstances instances x 6 connections do not fit in $NeonMaxConnections Neon connections. Lower -MaxInstances or use a larger Neon compute."
+}
+$poolSize = [math]::Max(4, [math]::Floor($perInstance * 2 / 3))
+$poolOverflow = $perInstance - $poolSize
+$envVars += ",DB_POOL_SIZE=$poolSize,DB_MAX_OVERFLOW=$poolOverflow,DB_POOL_TIMEOUT_SECONDS=10"
+Write-Host "  instances: $MinInstances to $MaxInstances; DB connections per instance: $perInstance of $NeonMaxConnections"
 Write-Host "  sandbox purchases credited: $acceptSandbox$(if (-not $Launch) { ' (run with -Launch at the public launch)' })"
-Invoke-Cloud "gcloud run deploy $Service --source backend --port 8000 --min-instances 0 --max-instances 3" {
+# --timeout 3600: live voice calls are WebSockets that last up to
+#   SAMVAAD_MAX_SESSION_SECONDS (15 min). Cloud Run's default 300 s cut them at 5 min.
+# --concurrency 80: requests plus open sockets per instance. Each live call and
+#   each open app (realtime socket) takes one slot.
+# --memory 1Gi: a live call buffers audio both ways; 512Mi left little room.
+# --cpu-boost: faster cold starts.
+Invoke-Cloud "gcloud run deploy $Service --source backend --min-instances $MinInstances --max-instances $MaxInstances --timeout 3600" {
     gcloud run deploy $Service --source (Join-Path $RepoRoot 'backend') --project $ProjectId --region $Region `
-        --port 8000 --allow-unauthenticated --min-instances 0 --max-instances 3 --memory 512Mi `
+        --port 8000 --allow-unauthenticated --min-instances $MinInstances --max-instances $MaxInstances `
+        --memory 1Gi --cpu 1 --concurrency 80 --timeout 3600 --cpu-boost `
         --service-account $runtimeEmail `
         --update-env-vars $envVars --update-secrets $secretRefs
 }
@@ -259,5 +316,13 @@ if (-not $DryRun) {
 }
 if ($missingProviders -contains 'SARVAM_API_KEY') {
     Write-Host "`nSARVAM_API_KEY is not set: voice agents answer with canned replies. Run this again and paste it." -ForegroundColor Yellow
+}
+if ($missingProviders -contains 'SARVAM_SAMVAAD_API_KEY') {
+    Write-Host "`nSARVAM_SAMVAAD_API_KEY is not set: /voice-agents returns canned fixtures. Run this again and paste the Voice Agents key." -ForegroundColor Yellow
+} elseif (-not $DryRun) {
+    $current = gcloud run services describe $Service --project $ProjectId --region $Region --format='value(spec.template.spec.containers[0].env)'
+    if ("$current" -notmatch 'SAMVAAD_WORKSPACE_ID') {
+        Write-Host "`nSAMVAAD_ORG_ID / SAMVAAD_WORKSPACE_ID are not set: /voice-agents answers 503. Run again with -SamvaadOrgId and -SamvaadWorkspaceId." -ForegroundColor Yellow
+    }
 }
 

@@ -174,6 +174,7 @@ async def search_capabilities(
     return [_to_response(row, scores.get(row.id, 1.0)) for row in ordered]
 
 
+@router.get("", response_model=List[CapabilityResponse], include_in_schema=False)
 @router.get("/", response_model=List[CapabilityResponse])
 async def list_capabilities(
     limit: int = Query(100, le=200),

@@ -4,7 +4,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.oidc import InvalidAccessToken, link_actor, verify_access_token
+from app.core.oidc import InvalidAccessToken, link_actor, verify_access_token_async
 from app.db.session import get_session
 from app.models.actor import Actor
 
@@ -21,7 +21,7 @@ async def get_current_actor(
             detail="Invalid or expired token",
         )
     try:
-        claims = verify_access_token(credentials.credentials)
+        claims = await verify_access_token_async(credentials.credentials)
         return await link_actor(session, claims)
     except InvalidAccessToken:
         raise HTTPException(

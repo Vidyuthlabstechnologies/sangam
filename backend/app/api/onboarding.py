@@ -41,7 +41,7 @@ from app.core.onboarding_engine import (
     ingest_voice_or_text_narration,
     ingest_website_and_compile_agent,
 )
-from app.core.payments import RazorpayService
+from app.core.payments import RazorpayService, require_razorpay
 from app.core.sarvam import SarvamAI
 from app.db.session import get_session
 from app.models.actor import Actor
@@ -363,7 +363,7 @@ async def get_tenant_wallet(
     return out
 
 
-@router.post("/wallet/create-order", response_model=Dict[str, Any])
+@router.post("/wallet/create-order", response_model=Dict[str, Any], dependencies=[Depends(require_razorpay)])
 async def create_payment_order(
     req: CreateOrderRequest,
     session: AsyncSession = Depends(get_session),
@@ -443,7 +443,7 @@ async def create_payment_order(
     }
 
 
-@router.post("/wallet/verify-payment", response_model=Dict[str, Any])
+@router.post("/wallet/verify-payment", response_model=Dict[str, Any], dependencies=[Depends(require_razorpay)])
 async def verify_payment_and_credit(
     req: VerifyPaymentRequest,
     session: AsyncSession = Depends(get_session),
@@ -492,7 +492,7 @@ async def verify_payment_and_credit(
     return result
 
 
-@router.post("/wallet/autopay", response_model=Dict[str, Any])
+@router.post("/wallet/autopay", response_model=Dict[str, Any], dependencies=[Depends(require_razorpay)])
 async def configure_autopay(
     req: UpiAutopayRequest,
     session: AsyncSession = Depends(get_session),

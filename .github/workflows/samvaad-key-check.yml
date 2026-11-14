@@ -1,0 +1,48 @@
+name: Samvaad key check
+
+# Manual, read-only check that the SARVAM_SAMVAAD_API_KEY repo secret is a working
+# Voice Agents key for the workspace. It lists one deployment and prints only the
+# HTTP status. It places no calls and spends nothing. Tests never use this key:
+# they run in fixture mode.
+on:
+  workflow_dispatch:
+    inputs:
+      org_id:
+        description: "Samvaad org id (blank = repo variable SAMVAAD_ORG_ID)"
+        required: false
+      workspace_id:
+        description: "Samvaad workspace id (blank = repo variable SAMVAAD_WORKSPACE_ID)"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call the Deployments API
+        env:
+          SAMVAAD_KEY: ${{ secrets.SARVAM_SAMVAAD_API_KEY }}
+          ORG_ID: ${{ inputs.org_id || vars.SAMVAAD_ORG_ID }}
+          WORKSPACE_ID: ${{ inputs.workspace_id || vars.SAMVAAD_WORKSPACE_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SAMVAAD_KEY" ]; then echo "::error::Repo secret SARVAM_SAMVAAD_API_KEY is not set"; exit 1; fi
+          if [ -z "$ORG_ID" ] || [ -z "$WORKSPACE_ID" ]; then
+            echo "::error::Give org_id and workspace_id as inputs, or set repo variables SAMVAAD_ORG_ID and SAMVAAD_WORKSPACE_ID"
+            exit 1
+          fi
+          for v in "$ORG_ID" "$WORKSPACE_ID"; do
+            [[ "$v" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "::error::ids may contain only letters, digits, . _ -"; exit 1; }
+          done
+          url="https://apps.sarvam.ai/api/app-authoring/v1/orgs/${ORG_ID}/workspaces/${WORKSPACE_ID}/deployments?limit=1"
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 -H "X-API-Key: ${SAMVAAD_KEY}" "$url")
+          echo "Samvaad Deployments API -> HTTP $code"
+          case "$code" in
+            200) echo "Key works for this workspace." ;;
+            401) echo "::error::Key rejected. Is it the Voice Agents key (not the regular Sarvam API key)?"; exit 1 ;;
+            403) echo "::error::Key is valid but not for this org/workspace."; exit 1 ;;
+            *) echo "::error::Unexpected status $code"; exit 1 ;;
+          esac

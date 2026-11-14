@@ -5,8 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_session
-from app.core.oidc import InvalidAccessToken, link_actor, verify_access_token
+from app.db.session import async_session_factory, get_session
+from app.core.oidc import InvalidAccessToken, link_actor, verify_access_token_async, websocket_token
 from app.core.streaming import stream_manager
 from app.core.access import actor_can_access_workflow_id
 
@@ -21,16 +21,21 @@ async def websocket_endpoint(
     session: AsyncSession = Depends(get_session),
 ):
     try:
-        actor = await link_actor(session, verify_access_token(token))
+        actor = await link_actor(session, await verify_access_token_async(websocket_token(ws.headers, token)))
     except InvalidAccessToken:
         await ws.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
     actor_id = str(actor.id)
+    # Every open app holds this socket. Return the pooled DB connection now and
+    # open a short session per subscription check, or a few dozen connected
+    # phones would exhaust the pool for the whole instance.
+    await session.close()
 
     async def can_subscribe(connected_actor_id: str, workflow_id: str) -> bool:
         try:
-            return await actor_can_access_workflow_id(session, UUID(connected_actor_id), UUID(str(workflow_id)))
+            async with async_session_factory() as check:
+                return await actor_can_access_workflow_id(check, UUID(connected_actor_id), UUID(str(workflow_id)))
         except Exception:
             return False
 
@@ -54,11 +59,12 @@ async def voice_stream_endpoint(
     session: AsyncSession = Depends(get_session),
 ):
     try:
-        actor = await link_actor(session, verify_access_token(token))
+        actor = await link_actor(session, await verify_access_token_async(websocket_token(ws.headers, token)))
     except InvalidAccessToken:
         await ws.close(code=status.WS_1008_POLICY_VIOLATION)
         return
     actor_id = str(actor.id)
+    await session.close()
     await stream_manager.connect(ws, actor_id)
 
     try:

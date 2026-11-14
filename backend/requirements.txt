@@ -39,6 +39,8 @@ razorpay>=1.4.0
 
 # HTTP / Sarvam AI / Testing
 httpx>=0.28.0
+# Sarvam Voice Agents (Samvaad) real-time sessions. Base package only: no PyAudio on the server.
+sarvam-conv-ai-sdk>=1.1.1,<2
 
 # Utils
 pytz>=2024.2
