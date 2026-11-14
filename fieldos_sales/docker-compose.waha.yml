@@ -1,0 +1,19 @@
+# WAHA: WhatsApp HTTP API on your own machine. Unofficial: use a SEPARATE number.
+#   docker compose -f docker-compose.waha.yml up -d
+#   open http://localhost:3000/dashboard, start the "default" session, scan the QR
+#   with WhatsApp on the sales phone (Linked devices).
+# Set the same WAHA_API_KEY and WA_WEBHOOK_TOKEN here and in .env.
+services:
+  waha:
+    image: devlikeapro/waha
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"   # only reachable from this machine
+    environment:
+      WAHA_API_KEY: ${WAHA_API_KEY}
+      WHATSAPP_HOOK_URL: http://host.docker.internal:8090/wa/waha?token=${WA_WEBHOOK_TOKEN}
+      WHATSAPP_HOOK_EVENTS: message
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./waha-sessions:/app/.sessions
