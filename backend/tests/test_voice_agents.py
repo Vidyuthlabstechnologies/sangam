@@ -362,7 +362,7 @@ async def test_live_session_proxy_relays_audio_and_text(client):
 
     app.dependency_overrides[get_session] = fresh_session
     with TestClient(app) as tc:
-        with tc.websocket_connect(f"/voice-agents/ws/{APP_ID}?token={token}") as ws:
+        with tc.websocket_connect(f"/voice-agents/ws/{APP_ID}", headers={"Authorization": f"Bearer {token}"}) as ws:
             assert ws.receive_json()["event"] == "interaction_connected"
             greeting = ws.receive_json()
             assert greeting == {"type": "transcript", "role": "agent", "content": greeting["content"]}

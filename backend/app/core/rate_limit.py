@@ -29,11 +29,37 @@ class CounterClient(Protocol):
 
 
 class MemoryWindow:
+    """Fixed-window counters held in this process.
+
+    Expired windows are swept so the table cannot grow without bound: keys
+    include the request path, and a client sending endless distinct paths
+    would otherwise grow it until the instance ran out of memory.
+    """
+
+    SWEEP_EVERY_SECONDS = 30.0
+    MAX_KEYS = 200_000
+
     def __init__(self) -> None:
         self._buckets: dict[str, tuple[float, int]] = {}
+        self._last_sweep = time.monotonic()
+        self._longest_window = 60
+
+    def _sweep(self, now: float) -> None:
+        horizon = self._longest_window
+        self._buckets = {k: v for k, v in self._buckets.items() if now - v[0] <= horizon}
+        if len(self._buckets) > self.MAX_KEYS:
+            # Still over after dropping expired windows: a flood of distinct
+            # keys. Start over rather than run out of memory; limits fail open
+            # for at most one window.
+            logger.warning("In-process rate limit table full; resetting")
+            self._buckets.clear()
+        self._last_sweep = now
 
     def allow(self, key: str, limit: int, window_seconds: int) -> bool:
         now = time.monotonic()
+        self._longest_window = max(self._longest_window, window_seconds)
+        if now - self._last_sweep > self.SWEEP_EVERY_SECONDS or len(self._buckets) > self.MAX_KEYS:
+            self._sweep(now)
         window_start, count = self._buckets.get(key, (now, 0))
         if now - window_start > window_seconds:
             window_start = now

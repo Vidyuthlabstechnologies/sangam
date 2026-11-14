@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_actor
 from app.core.payment_access import PaymentAccess, payment_access, workflow_initiator
-from app.core.payments import PaymentManager, RazorpayService
+from app.core.payments import PaymentManager, RazorpayService, require_razorpay
 from app.db.session import get_session
 from app.models.actor import Actor
 from app.models.payment import Escrow, Invoice, Payment
@@ -104,7 +104,7 @@ async def _escrow_for(
 # ------------------------------------------------------------------- payments
 
 
-@router.post("/initiate", response_model=dict, status_code=201)
+@router.post("/initiate", response_model=dict, status_code=201, dependencies=[Depends(require_razorpay)])
 async def initiate_payment(
     req: InitiatePaymentRequest,
     session: AsyncSession = Depends(get_session),
@@ -130,7 +130,7 @@ async def initiate_payment(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/verify", response_model=dict)
+@router.post("/verify", response_model=dict, dependencies=[Depends(require_razorpay)])
 async def verify_payment(
     req: VerifyPaymentRequest,
     session: AsyncSession = Depends(get_session),
@@ -159,7 +159,7 @@ async def verify_payment(
     }
 
 
-@router.get("/{payment_id}", response_model=dict)
+@router.get("/{payment_id}", response_model=dict, dependencies=[Depends(require_razorpay)])
 async def get_payment(
     payment_id: UUID,
     session: AsyncSession = Depends(get_session),
@@ -179,7 +179,7 @@ async def get_payment(
     }
 
 
-@router.post("/{payment_id}/refund", response_model=dict)
+@router.post("/{payment_id}/refund", response_model=dict, dependencies=[Depends(require_razorpay)])
 async def refund_payment(
     payment_id: UUID,
     amount: Optional[float] = Query(None, gt=0, allow_inf_nan=False),
@@ -203,7 +203,7 @@ async def refund_payment(
 # --------------------------------------------------------------------- escrow
 
 
-@router.post("/escrow", response_model=dict, status_code=201)
+@router.post("/escrow", response_model=dict, status_code=201, dependencies=[Depends(require_razorpay)])
 async def create_escrow(
     req: CreateEscrowRequest,
     session: AsyncSession = Depends(get_session),
@@ -222,7 +222,7 @@ async def create_escrow(
     return {"id": str(escrow.id), "status": escrow.status.value, "amount": escrow.amount}
 
 
-@router.get("/escrow/{escrow_id}", response_model=dict)
+@router.get("/escrow/{escrow_id}", response_model=dict, dependencies=[Depends(require_razorpay)])
 async def get_escrow(
     escrow_id: UUID,
     session: AsyncSession = Depends(get_session),
@@ -241,7 +241,7 @@ async def get_escrow(
     }
 
 
-@router.post("/escrow/{escrow_id}/release", response_model=dict)
+@router.post("/escrow/{escrow_id}/release", response_model=dict, dependencies=[Depends(require_razorpay)])
 async def release_escrow(
     escrow_id: UUID,
     release_trigger: Optional[str] = None,
@@ -260,7 +260,7 @@ async def release_escrow(
     }
 
 
-@router.post("/escrow/{escrow_id}/dispute", response_model=dict)
+@router.post("/escrow/{escrow_id}/dispute", response_model=dict, dependencies=[Depends(require_razorpay)])
 async def dispute_escrow(
     escrow_id: UUID,
     session: AsyncSession = Depends(get_session),
@@ -278,7 +278,7 @@ async def dispute_escrow(
 # ------------------------------------------------------------------- invoices
 
 
-@router.post("/invoices", response_model=dict, status_code=201)
+@router.post("/invoices", response_model=dict, status_code=201, dependencies=[Depends(require_razorpay)])
 async def create_invoice(
     req: CreateInvoiceRequest,
     session: AsyncSession = Depends(get_session),
@@ -309,7 +309,7 @@ async def create_invoice(
     }
 
 
-@router.get("/invoices/{invoice_id}", response_model=dict)
+@router.get("/invoices/{invoice_id}", response_model=dict, dependencies=[Depends(require_razorpay)])
 async def get_invoice(
     invoice_id: UUID,
     session: AsyncSession = Depends(get_session),
