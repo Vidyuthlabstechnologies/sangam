@@ -585,6 +585,7 @@ class OutboundWebhookIn(BaseModel):
 async def outbound_webhook(
     token: str,
     payload: OutboundWebhookIn,
+    request: Request,
     session: AsyncSession = Depends(get_session),
 ):
     """Samvaad posts here once per outbound attempt. Idempotent; meters the wallet once."""
@@ -618,6 +619,10 @@ async def outbound_webhook(
         )
         await session.commit()
         billed = res.get("last_call_debit_inr")
+    # A campaign call frees a line: record its outcome and dial the next contact.
+    from app.core.campaign_engine import on_call_finished
+
+    await on_call_finished(session, call, lambda t: _webhook_url(request, t))
     return {"ok": True, "billed_inr": billed}
 
 

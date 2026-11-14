@@ -108,6 +108,7 @@ Four integration shapes are easy to get wrong and are documented in code comment
 
 ## Conventions worth preserving
 
+- Bulk calling campaigns (`app/api/campaigns.py`, loop in `app/core/campaign_engine.py`) have no background worker: `advance()` runs on start, on every Samvaad webhook and on every live-board poll, and locks the campaign row so two ticks never dial the same contact. Keep the TRAI guards there (09:00 to 21:00 IST window, DND/consent confirmation before a live start, per-business do-not-call list). Simulation campaigns must never reach `SamvaadClient` or the wallet.
 - Workflow conditions run through `app/core/safe_eval.py` (AST allowlist). Never reintroduce `eval()` — conditions are attacker-influenced data.
 - `POST /payments/webhook` is authenticated solely by its HMAC signature over the **raw** request bytes. Do not parse the body into a Pydantic model before verifying; re-serialising changes the digest.
 - Model classes must be imported in `app/models/__init__.py` or `Base.metadata.create_all` silently skips their tables.

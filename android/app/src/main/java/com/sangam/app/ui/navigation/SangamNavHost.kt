@@ -20,12 +20,15 @@ object Routes {
     const val AI_ASSISTANT = "ai_assistant"
     const val VOICE_WORKFLOW = "voice_workflow"
     const val VOICE_AGENTS = "voice_agents"
+    const val CAMPAIGNS = "campaigns"
+    const val CAMPAIGN_LIVE = "campaigns/{campaignId}"
     const val VENDORS = "vendors"
     const val VENDOR_ADD = "vendors/add"
     const val VENDOR_DETAIL = "vendors/{vendorId}"
 
     fun workflowDetail(id: String) = "workflows/$id"
     fun vendorDetail(id: String) = "vendors/$id"
+    fun campaignLive(id: String) = "campaigns/$id"
 }
 
 @Composable
@@ -57,6 +60,7 @@ fun SangamNavHost(
                 onNavigateToAIAssistant = { navController.navigate(Routes.AI_ASSISTANT) },
                 onNavigateToVoiceWorkflow = { navController.navigate(Routes.VOICE_WORKFLOW) },
                 onNavigateToVoiceAgents = { navController.navigate(Routes.VOICE_AGENTS) },
+                onNavigateToCampaigns = { navController.navigate(Routes.CAMPAIGNS) },
                 onNavigateToVendors = { navController.navigate(Routes.VENDORS) },
                 onOpenWorkflow = { id -> navController.navigate(Routes.workflowDetail(id)) },
                 onSignOut = {
@@ -149,6 +153,21 @@ fun SangamNavHost(
         }
         composable(Routes.VOICE_AGENTS) {
             VoiceAgentsScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Routes.CAMPAIGNS) {
+            CampaignsScreen(
+                onBack = { navController.popBackStack() },
+                onOpenCampaign = { id -> navController.navigate(Routes.campaignLive(id)) },
+            )
+        }
+        composable(
+            route = Routes.CAMPAIGN_LIVE,
+            arguments = listOf(navArgument("campaignId") { type = NavType.StringType }),
+        ) { entry ->
+            CampaignLiveScreen(
+                campaignId = entry.arguments?.getString("campaignId") ?: "",
+                onBack = { navController.popBackStack() },
+            )
         }
         composable(Routes.VOICE_WORKFLOW) {
             VoiceWorkflowScreen(

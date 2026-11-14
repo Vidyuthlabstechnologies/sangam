@@ -24,6 +24,7 @@ from app.models.sangamitra_release import (
     AccountDeletionAuditModel,
 )
 from app.models.samvaad import SamvaadAgentBinding, SamvaadCallAttempt
+from app.models.campaign import CallCampaign, CampaignContact, DoNotCallEntry
 
 __all__ = [
     "Workflow", "WorkflowPhase", "WorkflowState", "WaitingEvent",
@@ -45,5 +46,6 @@ __all__ = [
     "AiSafetyReportModel",
     "AccountDeletionAuditModel",
     "SamvaadAgentBinding",
+    "CallCampaign", "CampaignContact", "DoNotCallEntry",
     "SamvaadCallAttempt",
 ]
