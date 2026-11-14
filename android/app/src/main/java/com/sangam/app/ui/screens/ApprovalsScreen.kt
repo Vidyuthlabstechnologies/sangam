@@ -1,5 +1,7 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.ui.components.friendlyError
+import com.sangam.app.ui.components.BackButton
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,7 +28,7 @@ data class ApprovalListItem(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ApprovalsScreen(onWorkflowClick: (String) -> Unit) {
+fun ApprovalsScreen(onWorkflowClick: (String) -> Unit, onBack: () -> Unit = {}) {
     val scope = rememberCoroutineScope()
     var approvals by remember { mutableStateOf<List<ApprovalListItem>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
@@ -39,7 +41,7 @@ fun ApprovalsScreen(onWorkflowClick: (String) -> Unit) {
                 wf.approvals.map { ApprovalListItem(it.id, wf.id, it.status, it.required_actors) }
             }
         } catch (e: Exception) {
-            error = e.message
+            error = friendlyError(e, "load approvals")
         }
         loading = false
     }
@@ -57,6 +59,7 @@ fun ApprovalsScreen(onWorkflowClick: (String) -> Unit) {
         topBar = {
             TopAppBar(
                 title = { Text("Approvals") },
+                navigationIcon = { BackButton(onBack) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
@@ -72,7 +75,7 @@ fun ApprovalsScreen(onWorkflowClick: (String) -> Unit) {
             error != null -> Box(
                 Modifier.fillMaxSize().padding(padding),
                 contentAlignment = Alignment.Center,
-            ) { Text("Error: $error", color = MaterialTheme.colorScheme.error) }
+            ) { Text("$error", color = MaterialTheme.colorScheme.error) }
 
             approvals.isEmpty() -> Box(
                 Modifier.fillMaxSize().padding(padding),
@@ -90,13 +93,13 @@ fun ApprovalsScreen(onWorkflowClick: (String) -> Unit) {
                     )
                     Spacer(Modifier.height(14.dp))
                     Text(
-                        "All Quorums Cleared!",
+                        "Nothing to approve",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Your Sarvam AI calling agents are handling all customer calls autonomously.",
+                        "Requests that need your decision will show up here.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center

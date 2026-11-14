@@ -1,5 +1,7 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.ui.components.friendlyError
+import com.sangam.app.ui.components.BackButton
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -34,6 +36,7 @@ private fun prettyStatus(s: String) = s.replace('_', ' ').replaceFirstChar { it.
 fun VendorListScreen(
     onVendorClick: (String) -> Unit,
     onAddVendor: () -> Unit,
+    onBack: () -> Unit = {},
 ) {
     var vendors by remember { mutableStateOf<List<VendorDto>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
@@ -43,7 +46,7 @@ fun VendorListScreen(
         try {
             vendors = ApiClient.api.listVendors()
         } catch (e: Exception) {
-            error = e.message ?: "Could not load vendors"
+            error = friendlyError(e, "load vendors")
         }
         loading = false
     }
@@ -52,6 +55,7 @@ fun VendorListScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Vendors") },
+                navigationIcon = { BackButton(onBack) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 ),

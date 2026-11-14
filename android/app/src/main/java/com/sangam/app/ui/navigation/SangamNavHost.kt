@@ -20,14 +20,12 @@ object Routes {
     const val AI_ASSISTANT = "ai_assistant"
     const val VOICE_WORKFLOW = "voice_workflow"
     const val VOICE_AGENTS = "voice_agents"
-    const val PAYMENT = "payment/{workflowId}/{workflowName}"
     const val VENDORS = "vendors"
     const val VENDOR_ADD = "vendors/add"
     const val VENDOR_DETAIL = "vendors/{vendorId}"
 
     fun workflowDetail(id: String) = "workflows/$id"
     fun vendorDetail(id: String) = "vendors/$id"
-    fun payment(workflowId: String, workflowName: String) = "payment/$workflowId/$workflowName"
 }
 
 @Composable
@@ -86,6 +84,7 @@ fun SangamNavHost(
         }
         composable(Routes.VENDORS) {
             VendorListScreen(
+                onBack = { navController.popBackStack() },
                 onVendorClick = { id -> navController.navigate(Routes.vendorDetail(id)) },
                 onAddVendor = { navController.navigate(Routes.VENDOR_ADD) },
             )
@@ -119,6 +118,7 @@ fun SangamNavHost(
         }
         composable(Routes.WORKFLOWS) {
             WorkflowListScreen(
+                onBack = { navController.popBackStack() },
                 onWorkflowClick = { id -> navController.navigate(Routes.workflowDetail(id)) },
                 onVoiceCreate = { navController.navigate(Routes.VOICE_WORKFLOW) },
             )
@@ -131,18 +131,16 @@ fun SangamNavHost(
             WorkflowDetailScreen(
                 workflowId = workflowId,
                 onBack = { navController.popBackStack() },
-                onPay = { wfId, wfName ->
-                    navController.navigate(Routes.payment(wfId, wfName))
-                },
             )
         }
         composable(Routes.APPROVALS) {
             ApprovalsScreen(
+                onBack = { navController.popBackStack() },
                 onWorkflowClick = { id -> navController.navigate(Routes.workflowDetail(id)) },
             )
         }
         composable(Routes.ACTORS) {
-            ActorsScreen()
+            ActorsScreen(onBack = { navController.popBackStack() })
         }
         composable(Routes.AI_ASSISTANT) {
             AIAssistantScreen(
@@ -160,21 +158,6 @@ fun SangamNavHost(
                         popUpTo(Routes.DASHBOARD)
                     }
                 },
-            )
-        }
-        composable(
-            route = Routes.PAYMENT,
-            arguments = listOf(
-                navArgument("workflowId") { type = NavType.StringType },
-                navArgument("workflowName") { type = NavType.StringType },
-            ),
-        ) { backStackEntry ->
-            val workflowId = backStackEntry.arguments?.getString("workflowId") ?: return@composable
-            val workflowName = backStackEntry.arguments?.getString("workflowName") ?: "Workflow"
-            PaymentScreen(
-                workflowId = workflowId,
-                workflowName = workflowName,
-                onBack = { navController.popBackStack() },
             )
         }
     }

@@ -1,5 +1,7 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.ui.components.friendlyError
+import com.sangam.app.ui.components.BackButton
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -21,7 +23,6 @@ import kotlinx.coroutines.launch
 fun WorkflowDetailScreen(
     workflowId: String,
     onBack: () -> Unit,
-    onPay: ((String, String) -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     var wf by remember { mutableStateOf<WorkflowResponse?>(null) }
@@ -32,7 +33,7 @@ fun WorkflowDetailScreen(
         try {
             wf = ApiClient.api.getWorkflow(workflowId)
         } catch (e: Exception) {
-            error = e.message
+            error = friendlyError(e, "load this workflow")
         }
         loading = false
     }
@@ -63,7 +64,7 @@ fun WorkflowDetailScreen(
                     }
                 },
                 navigationIcon = {
-                    TextButton(onClick = onBack) { Text("Back") }
+                    BackButton(onBack)
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
@@ -82,7 +83,7 @@ fun WorkflowDetailScreen(
                 Modifier.fillMaxSize().padding(padding),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("Error: $error", color = MaterialTheme.colorScheme.error)
+                Text("$error", color = MaterialTheme.colorScheme.error)
             }
             wf != null -> {
                 val workflow = wf!!
@@ -137,17 +138,6 @@ fun WorkflowDetailScreen(
                         }
                     }
 
-                    if (onPay != null && workflow.state != "completed") {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = { onPay(workflow.id, workflow.name) },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Icon(Icons.Default.Payment, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Make Payment")
-                        }
-                    }
                 }
             }
         }

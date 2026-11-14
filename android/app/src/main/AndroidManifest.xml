@@ -8,8 +8,8 @@
     <!-- No ads: keep the advertising ID out even if a library asks for it,
          so the Play Data safety and Advertising ID answers stay "No". -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
-    <!-- Pulled in by the Razorpay SDK (used only in non-Play builds). The app
-         never reads phone state or uses NFC, so drop them from the Play listing. -->
+    <!-- The app never reads phone state or uses NFC. Kept as removals so no
+         library can add them back to the Play listing. -->
     <uses-permission android:name="android.permission.READ_BASIC_PHONE_STATE" tools:node="remove" />
     <uses-permission android:name="android.permission.NFC" tools:node="remove" />
 
@@ -30,7 +30,7 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
-        android:label="Sangam"
+        android:label="Sangamitra"
         android:supportsRtl="true"
         android:theme="@style/Theme.Sangam">
 

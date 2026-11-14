@@ -13,7 +13,11 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -33,15 +37,25 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.razorpay.Checkout
+import com.sangam.app.ui.components.BackButton
+import com.sangam.app.ui.components.friendlyError
 import com.sangam.app.R
 import com.sangam.app.network.*
 import com.sangam.app.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.sangam.app.billing.Billing
-import org.json.JSONObject
 
 data class MascotOption(
     val id: String,
@@ -51,7 +65,7 @@ data class MascotOption(
 )
 
 val AVAILABLE_MASCOTS = listOf(
-    MascotOption("kite", "Kite Master", "Aviator Kite with Headset", "Autonomous telecom navigator powered by Sarvam AI"),
+    MascotOption("kite", "Kite Master", "Aviator Kite with Headset", "Friendly aviator with a headset"),
     MascotOption("v1", "Mitra", "Minimalist Editorial Ink", "Crisp ink-brush guide on pure white"),
     MascotOption("v2", "Swar", "Ceramic & Obsidian Voice Pod", "Tactile 3D studio hardware aesthetic"),
     MascotOption("v3", "Vani", "Artisan Flat Vector Concierge", "Warm Indian geometric vector receptionist"),
@@ -97,7 +111,7 @@ fun MascotAvatar(
         ) {
             Image(
                 painter = painterResource(resId),
-                contentDescription = "Kite Master ($pose)",
+                contentDescription = null,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -126,21 +140,54 @@ fun MascotAvatar(
         if (bitmap != null) {
             Image(
                 bitmap = bitmap,
-                contentDescription = "$mascotId $pose",
+                contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
         } else {
             Icon(
                 Icons.Default.RecordVoiceOver,
-                contentDescription = "Mascot",
+                contentDescription = null,
                 tint = SangamObsidian,
             )
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+
+/** Languages a caller can be answered in. Labels are in the language itself so owners find theirs. */
+val AGENT_LANGUAGES = listOf(
+    "hi-IN" to "हिन्दी",
+    "en-IN" to "English",
+    "kn-IN" to "ಕನ್ನಡ",
+    "ta-IN" to "தமிழ்",
+    "te-IN" to "తెలుగు",
+    "ml-IN" to "മലയാളം",
+    "mr-IN" to "मराठी",
+    "bn-IN" to "বাংলা",
+    "gu-IN" to "ગુજરાતી",
+    "pa-IN" to "ਪੰਜਾਬੀ",
+    "od-IN" to "ଓଡ଼ିଆ",
+)
+
+/** Apps the agent can update after a call. Ids are the backend's toolkit names. */
+private val APP_INTEGRATIONS = listOf(
+    Triple("WHATSAPP", "WhatsApp", "Send the caller your catalogue, quote or location"),
+    Triple("GOOGLESHEETS", "Google Sheets", "Add every caller as a new row"),
+    Triple("GOOGLECALENDAR", "Google Calendar", "Book visits and appointments"),
+    Triple("TALLY_PRIME", "Tally Prime", "Create a draft sales order"),
+    Triple("INDIAMART", "IndiaMART", "Call new IndiaMART leads within a minute"),
+    Triple("ZOHO_CRM", "Zoho CRM", "Save the lead and call notes"),
+    Triple("SHOPIFY", "Shopify", "Confirm cash-on-delivery orders by phone"),
+    Triple("SHIPROCKET", "Shiprocket", "Tell callers where their parcel is"),
+    Triple("GMAIL", "Gmail", "Email you a summary after each call"),
+    Triple("TELEGRAM", "Telegram", "Message you when a hot lead calls"),
+)
+
+private fun dialable(phone: String): String? =
+    phone.filter { it.isDigit() || it == '+' }.takeIf { it.count(Char::isDigit) >= 10 }
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun OnboardingWizardScreen(
     onBack: () -> Unit = {},
@@ -153,25 +200,24 @@ fun OnboardingWizardScreen(
 
     var selectedMascot by remember { mutableStateOf(prefs.getString("selected_mascot", "kite") ?: "kite") }
     var currentPose by remember { mutableStateOf("idle") }
-    var selectedPack by remember { mutableStateOf("b2b_minerals") }
+    var selectedPack by remember { mutableStateOf<String?>(null) }
+    var selectedLanguage by remember { mutableStateOf(prefs.getString("agent_language", "hi-IN") ?: "hi-IN") }
     var targetUrl by remember { mutableStateOf("") }
-    var voiceTranscript by remember { mutableStateOf("") }
+    var urlError by remember { mutableStateOf<String?>(null) }
+    var description by remember { mutableStateOf("") }
     var statusBanner by remember {
-        mutableStateOf("Ready: Paste a website URL, scan a shop board photo, or speak in any of 22 Indian languages.")
+        mutableStateOf("Paste your website or Google Maps link, or describe your business, and we'll build your agent.")
     }
     var isBusy by remember { mutableStateOf(false) }
 
-    // Live provisioned agent state
-    var deployedPhone by remember { mutableStateOf("Not assigned") }
-    var deployedBusiness by remember { mutableStateOf("Your business") }
-    var defaultLanguage by remember { mutableStateOf("Not set") }
-    var openingGreeting by remember { mutableStateOf("Your agent greeting will show here after setup.") }
+    // Live provisioned agent state. Null means "not set up yet".
+    var deployedPhone by remember { mutableStateOf<String?>(null) }
+    var deployedBusiness by remember { mutableStateOf<String?>(null) }
+    var defaultLanguage by remember { mutableStateOf<String?>(null) }
 
-    // Audio sample player state
     var playingAudioAsset by remember { mutableStateOf<String?>(null) }
     var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
 
-    // Subscription plans & 60/40 wallet state
     var plans by remember {
         mutableStateOf(
             listOf(
@@ -186,7 +232,6 @@ fun OnboardingWizardScreen(
     var selectedPlanId by remember { mutableStateOf("vyapar") }
     var walletBalanceInr by remember { mutableStateOf(0.0) }
     var isStarterActive by remember { mutableStateOf(false) }
-    var upiAutopayEnabled by remember { mutableStateOf(false) }
     var referralCode by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
@@ -199,93 +244,26 @@ fun OnboardingWizardScreen(
 
         try {
             val w = ApiClient.onboardingApi.getMyWallet()
-            val bal = (w["call_balance_inr"] as? Number)?.toDouble()
-            if (bal != null) walletBalanceInr = bal
-            val active = (w["deployment_status"] as? String) == "ACTIVE"
-            isStarterActive = active
-            val ref = w["referral_code"] as? String
-            if (!ref.isNullOrBlank()) referralCode = ref
-            val phone = w["assigned_did"] as? String
-            if (!phone.isNullOrBlank()) deployedPhone = phone
-            val business = w["business_name"] as? String
-            if (!business.isNullOrBlank()) deployedBusiness = business
-            val language = w["primary_language"] as? String
-            if (!language.isNullOrBlank()) defaultLanguage = language
-            val autopay = w["upi_autopay_enabled"] as? Boolean
-            if (autopay != null) upiAutopayEnabled = autopay
-        } catch (_: Exception) { }
+            (w["call_balance_inr"] as? Number)?.toDouble()?.let { walletBalanceInr = it }
+            isStarterActive = (w["deployment_status"] as? String) == "ACTIVE"
+            (w["referral_code"] as? String)?.takeIf { it.isNotBlank() }?.let { referralCode = it }
+            (w["assigned_did"] as? String)?.takeIf { it.isNotBlank() }?.let { deployedPhone = it }
+            (w["business_name"] as? String)?.takeIf { it.isNotBlank() }?.let { deployedBusiness = it }
+            (w["primary_language"] as? String)?.takeIf { it.isNotBlank() }?.let { defaultLanguage = it }
+        } catch (e: Exception) {
+            statusBanner = friendlyError(e, "load your agent")
+        }
     }
 
-    // Dialog states
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showReportAiDialog by remember { mutableStateOf(false) }
+    var showForwardOffDialog by remember { mutableStateOf(false) }
 
-    // Composio 13-tool state
-    val connectedTools = remember {
-        mutableStateMapOf(
-            "WHATSAPP" to true,
-            "GOOGLESHEETS" to true,
-            "GOOGLECALENDAR" to true,
-            "TALLY_PRIME" to true,
-            "INDIAMART" to true,
-            "RAZORPAY" to true,
-            "ZOHO_CRM" to false,
-            "SHOPIFY" to false,
-            "SHIPROCKET" to false,
-            "GMAIL" to false,
-            "TELEGRAM" to false,
-        )
-    }
+    // Nothing is connected until the owner turns it on here.
+    val connectedTools = remember { mutableStateMapOf<String, Boolean>() }
 
     DisposableEffect(Unit) {
         onDispose { mediaPlayer?.release() }
-    }
-
-    fun beginCheckout(order: CreateWalletOrderResponseDto) {
-        val activity = context as? ComponentActivity
-        val key = order.key_id
-        if (activity == null || key.isNullOrBlank()) {
-            statusBanner = "Order ${order.order_id} was created. Checkout did not open, so nothing was charged."
-            return
-        }
-        RazorpayState.pendingListener = { paymentId, orderId, signature ->
-            scope.launch {
-                try {
-                    ApiClient.onboardingApi.verifyWalletPayment(
-                        VerifyWalletPaymentRequestDto(
-                            razorpay_order_id = orderId,
-                            razorpay_payment_id = paymentId,
-                            razorpay_signature = signature,
-                        )
-                    )
-                    val w = ApiClient.onboardingApi.getMyWallet()
-                    val bal = (w["call_balance_inr"] as? Number)?.toDouble()
-                    if (bal != null) walletBalanceInr = bal
-                    isStarterActive = (w["deployment_status"] as? String) == "ACTIVE"
-                    statusBanner = "Payment verified."
-                } catch (e: Exception) {
-                    statusBanner = "Payment verification failed: ${e.message ?: "request failed"}"
-                }
-            }
-        }
-        RazorpayState.pendingErrorListener = {
-            statusBanner = "Payment cancelled. Nothing was charged."
-        }
-        try {
-            val checkout = Checkout()
-            checkout.setKeyID(key)
-            val options = JSONObject().apply {
-                put("name", "Sangamitra")
-                put("description", order.purpose)
-                put("order_id", order.order_id)
-                put("currency", order.currency)
-                put("amount", order.amount_paise)
-            }
-            checkout.open(activity, options)
-            statusBanner = "Complete the Razorpay payment. The wallet updates after verification."
-        } catch (e: Exception) {
-            statusBanner = "Checkout could not open: ${e.message ?: "request failed"}"
-        }
     }
 
     /**
@@ -294,8 +272,8 @@ fun OnboardingWizardScreen(
      */
     fun buyOnPlay(productId: String) {
         val activity = context as? ComponentActivity
-        if (activity == null) {
-            statusBanner = "Could not open Google Play from this screen."
+        if (activity == null || !Billing.isEnabled) {
+            statusBanner = "Purchases are not available in this version of the app. Update it from Google Play."
             return
         }
         scope.launch {
@@ -305,8 +283,8 @@ fun OnboardingWizardScreen(
             } catch (e: Billing.BillingFailure) {
                 statusBanner = e.message ?: "The purchase did not complete."
                 return@launch
-            } catch (e: Exception) {
-                statusBanner = "The purchase did not complete: ${e.message ?: "unknown error"}"
+            } catch (_: Exception) {
+                statusBanner = "The purchase did not complete. You were not charged."
                 return@launch
             }
             statusBanner = "Payment received by Google Play. Activating..."
@@ -325,7 +303,7 @@ fun OnboardingWizardScreen(
                 } catch (_: Exception) {
                 }
             }
-            statusBanner = "Google Play confirmed the payment. Activation can take a minute; pull to refresh or reopen this screen."
+            statusBanner = "Google Play confirmed the payment. Activation can take a minute; reopen this screen to check."
         }
     }
 
@@ -334,7 +312,6 @@ fun OnboardingWizardScreen(
             mediaPlayer?.release()
             if (playingAudioAsset == assetPath) {
                 playingAudioAsset = null
-                statusBanner = "Stopped audio sample playback."
                 return
             }
             val afd = context.assets.openFd(assetPath)
@@ -348,50 +325,68 @@ fun OnboardingWizardScreen(
             mediaPlayer = mp
             playingAudioAsset = assetPath
             currentPose = "guidance"
-            statusBanner = "Playing live $label sales voice sample (bulbul:v3 + sarvam-105b)..."
+            statusBanner = "Playing a $label sample call."
         } catch (_: Exception) {
             playingAudioAsset = null
         }
     }
 
-    val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia()
-    ) { uri ->
-        if (uri != null) {
-            currentPose = "guidance"
-            statusBanner = "Photo selected (${uri.lastPathSegment ?: "image"}). This build does not read text from the image, so nothing was sent."
+    fun buildFromUrl() {
+        val url = targetUrl.trim().let { if (it.isNotEmpty() && !it.contains("://")) "https://$it" else it }
+        if (url.isEmpty() || !android.util.Patterns.WEB_URL.matcher(url).matches()) {
+            urlError = "Enter a link like yourshop.in or a Google Maps link."
+            return
+        }
+        urlError = null
+        scope.launch {
+            isBusy = true
+            currentPose = "scanning"
+            statusBanner = "Reading your page and building your agent. This takes about a minute."
+            try {
+                val res = ApiClient.onboardingApi.ingestUrl(
+                    UrlIngestRequestDto(
+                        url = url,
+                        languages = listOf(selectedLanguage, "en-IN").distinct(),
+                        mascot_id = selectedMascot,
+                        category_id = selectedPack,
+                    )
+                )
+                currentPose = "celebration"
+                val biz = res["business_name"]?.toString()?.takeIf { it.isNotBlank() }
+                if (biz != null) deployedBusiness = biz
+                statusBanner = "Your agent for ${biz ?: "your business"} is ready. Pick a plan below to get your number."
+            } catch (e: Exception) {
+                currentPose = "guidance"
+                statusBanner = friendlyError(e, "read that link")
+            } finally {
+                isBusy = false
+            }
         }
     }
 
-    val micPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (!granted) {
-            statusBanner = "Microphone permission is required before a narration can be sent."
-            return@rememberLauncherForActivityResult
-        }
-        val transcript = voiceTranscript.trim()
-        if (transcript.isEmpty()) {
-            statusBanner = "This button does not record yet. Type a narration first, or use URL setup."
-            return@rememberLauncherForActivityResult
+    fun buildFromDescription() {
+        val text = description.trim()
+        if (text.length < 20) {
+            statusBanner = "Write a sentence or two about what you sell, your timings and your area."
+            return
         }
         scope.launch {
             isBusy = true
             currentPose = "listening"
-            statusBanner = "Sending the narration..."
+            statusBanner = "Building your agent from your description..."
             try {
                 ApiClient.onboardingApi.ingestVoice(
                     VoiceNarrationRequestDto(
-                        transcript = transcript,
-                        language_code = "kn-IN",
+                        transcript = text,
+                        language_code = selectedLanguage,
                         mascot_id = selectedMascot,
                     )
                 )
                 currentPose = "celebration"
-                statusBanner = "Narration submitted."
+                statusBanner = "Your agent is ready. Pick a plan below to get your number."
             } catch (e: Exception) {
                 currentPose = "guidance"
-                statusBanner = "Voice setup failed: ${e.message ?: "request failed"}"
+                statusBanner = friendlyError(e, "build your agent")
             }
             isBusy = false
         }
@@ -400,9 +395,12 @@ fun OnboardingWizardScreen(
     if (showDeleteConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmDialog = false },
-            title = { Text("Delete Account & All Voice Data?") },
+            title = { Text("Delete your account?") },
             text = {
-                Text("Per DPDP Act 2023 & Google Play Data Safety rules, this permanently deletes your actor profile, call recordings, wallet ledger, Composio OAuth tokens, and releases your DID number.")
+                Text(
+                    "This permanently deletes your profile, call recordings, call balance and connected apps, " +
+                        "and releases your agent's phone number. This cannot be undone."
+                )
             },
             confirmButton = {
                 Button(
@@ -416,17 +414,16 @@ fun OnboardingWizardScreen(
                             }
                             try {
                                 ApiClient.onboardingApi.deleteAccount(actorId)
-                                statusBanner = "This account's voice and wallet data were deleted."
                                 FirebaseSession.deleteLoginAndSignOut(context)
                                 onAccountDeleted()
                             } catch (e: Exception) {
-                                statusBanner = "Could not delete the account: ${e.message ?: "request failed"}"
+                                statusBanner = friendlyError(e, "delete the account")
                             }
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = SangamCrimson),
                 ) {
-                    Text("Delete Permanently")
+                    Text("Delete permanently")
                 }
             },
             dismissButton = {
@@ -440,9 +437,9 @@ fun OnboardingWizardScreen(
     if (showReportAiDialog) {
         AlertDialog(
             onDismissRequest = { showReportAiDialog = false },
-            title = { Text("Report AI Voice Output") },
+            title = { Text("Report a wrong answer") },
             text = {
-                Text("Flag an inaccurate price quote, wrong language switch, or inappropriate AI response for guardrail review.")
+                Text("Tell us the agent quoted a wrong price, switched to the wrong language, or said something inappropriate. Our team reviews every report.")
             },
             confirmButton = {
                 Button(
@@ -457,15 +454,14 @@ fun OnboardingWizardScreen(
                                         reason = "User flagged utterance for guardrail tuning",
                                     )
                                 )
-                                statusBanner = "AI output report logged for review."
+                                statusBanner = "Thanks. Your report was sent for review."
                             } catch (e: Exception) {
-                                statusBanner = "Could not file the report: ${e.message ?: "request failed"}"
+                                statusBanner = friendlyError(e, "send the report")
                             }
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = SangamObsidian),
                 ) {
-                    Text("Submit Report")
+                    Text("Send report")
                 }
             },
             dismissButton = {
@@ -476,40 +472,33 @@ fun OnboardingWizardScreen(
         )
     }
 
+    if (showForwardOffDialog) {
+        AlertDialog(
+            onDismissRequest = { showForwardOffDialog = false },
+            title = { Text("Turn off call forwarding?") },
+            text = {
+                Text("Your phone dials ##002#, which turns off all call forwarding on this SIM, including any you set up before Sangamitra. Missed calls will no longer reach your agent.")
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showForwardOffDialog = false
+                    context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode("##002#"))))
+                }) { Text("Open dialer") }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showForwardOffDialog = false }) { Text("Cancel") }
+            },
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            "SANGAMITRA",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Surface(
-                            color = SangamObsidian,
-                            shape = RoundedCornerShape(4.dp),
-                        ) {
-                            Text(
-                                "v1.0 RELEASE",
-                                color = SangamPureWhite,
-                                style = MaterialTheme.typography.labelSmall,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            )
-                        }
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
+                title = { Text("Voice agent", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                navigationIcon = { BackButton(onBack) },
                 actions = {
-                    TextButton(onClick = onOpenCallInbox) {
-                        Icon(Icons.Default.Inbox, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Call Inbox")
+                    IconButton(onClick = onOpenCallInbox) {
+                        Icon(Icons.Default.Inbox, contentDescription = "Call inbox")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = SangamPureWhite),
@@ -520,52 +509,151 @@ fun OnboardingWizardScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
+                .padding(padding),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // 1. Choose Your AI Mascot (All 3 Mascots Selectable + Persisted)
+            // Status line: the one place every action reports back, read aloud by TalkBack.
             item {
-                Spacer(Modifier.height(4.dp))
-                OutlinedCard(
-                    colors = CardDefaults.outlinedCardColors(containerColor = SangamPureWhite),
+                Surface(
+                    color = SangamAlabaster,
+                    shape = RoundedCornerShape(12.dp),
                     border = BorderStroke(1.dp, SangamBorder),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics { liveRegion = LiveRegionMode.Polite },
                 ) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    "1. SELECT YOUR AI CONCIERGE MASCOT",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = SangamMuted,
-                                )
-                                Text(
-                                    "Choose Kite Master, Mitra, Swar, or Vani",
-                                    style = MaterialTheme.typography.titleLarge,
-                                )
-                            }
-                            MascotAvatar(mascotId = selectedMascot, pose = currentPose, sizeDp = 64)
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        MascotAvatar(mascotId = selectedMascot, pose = currentPose, sizeDp = 48)
+                        Text(
+                            statusBanner,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = SangamObsidian,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (isBusy) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                         }
+                    }
+                }
+            }
 
+            // 1. Business details
+            item {
+                SetupSection(step = "Step 1", title = "Tell us about your business") {
+                    Text("Your agent answers in", style = MaterialTheme.typography.labelLarge, color = SangamZinc)
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(0.dp),
+                    ) {
+                        AGENT_LANGUAGES.forEach { (code, label) ->
+                            FilterChip(
+                                selected = selectedLanguage == code,
+                                onClick = {
+                                    selectedLanguage = code
+                                    prefs.edit().putString("agent_language", code).apply()
+                                },
+                                label = { Text(label) },
+                            )
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = targetUrl,
+                        onValueChange = { targetUrl = it; urlError = null },
+                        label = { Text("Website or Google Maps link") },
+                        placeholder = { Text("yourshop.in") },
+                        leadingIcon = { Icon(Icons.Default.Language, contentDescription = null) },
+                        isError = urlError != null,
+                        supportingText = urlError?.let { msg -> { Text(msg) } },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
+                        keyboardActions = KeyboardActions(onGo = { if (!isBusy) buildFromUrl() }),
+                    )
+                    Button(
+                        onClick = { buildFromUrl() },
+                        enabled = !isBusy,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp),
+                    ) {
+                        Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Build my agent from this link")
+                    }
+
+                    Text(
+                        "No website? Describe your business instead.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = SangamZinc,
+                    )
+                    OutlinedTextField(
+                        value = description,
+                        onValueChange = { description = it },
+                        label = { Text("What you sell, timings, area") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                    )
+                    OutlinedButton(
+                        onClick = { buildFromDescription() },
+                        enabled = !isBusy,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp),
+                    ) {
+                        Text("Build from my description")
+                    }
+
+                    Text("Type of business (optional)", style = MaterialTheme.typography.labelLarge, color = SangamZinc)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        VERTICAL_PACK_CHIPS.forEach { (packId, packTitle) ->
+                            FilterChip(
+                                selected = selectedPack == packId,
+                                onClick = { selectedPack = if (selectedPack == packId) null else packId },
+                                label = { Text(packTitle) },
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 2. Look and voice
+            item {
+                SetupSection(step = "Step 2", title = "Choose how your agent looks") {
+                    // Two per row: four in a row squeezes names into one letter per line on small phones.
+                    AVAILABLE_MASCOTS.chunked(2).forEach { pair ->
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(IntrinsicSize.Min),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            AVAILABLE_MASCOTS.forEach { mascot ->
+                            pair.forEach { mascot ->
                                 val selected = selectedMascot == mascot.id
                                 OutlinedCard(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .clickable {
-                                            selectedMascot = mascot.id
-                                            currentPose = "idle"
-                                            prefs.edit().putString("selected_mascot", mascot.id).apply()
-                                            statusBanner = "Selected ${mascot.name} (${mascot.style}) as your app guide."
-                                        },
+                                        .fillMaxHeight()
+                                        .selectable(
+                                            selected = selected,
+                                            role = Role.RadioButton,
+                                            onClick = {
+                                                selectedMascot = mascot.id
+                                                currentPose = "idle"
+                                                prefs.edit().putString("selected_mascot", mascot.id).apply()
+                                            },
+                                        ),
                                     colors = CardDefaults.outlinedCardColors(
                                         containerColor = if (selected) SangamObsidian else SangamAlabaster,
                                     ),
@@ -574,186 +662,167 @@ fun OnboardingWizardScreen(
                                         color = if (selected) SangamObsidian else SangamBorder,
                                     ),
                                 ) {
-                                    Column(
+                                    Row(
                                         modifier = Modifier.padding(10.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     ) {
-                                        MascotAvatar(mascotId = mascot.id, pose = currentPose, sizeDp = 48)
+                                        MascotAvatar(mascotId = mascot.id, pose = "idle", sizeDp = 40)
                                         Text(
                                             mascot.name,
                                             fontWeight = FontWeight.Bold,
                                             color = if (selected) SangamPureWhite else SangamObsidian,
-                                        )
-                                        Text(
-                                            mascot.style,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = if (selected) Color(0xFFD4D4D8) else SangamMuted,
                                             maxLines = 2,
+                                            modifier = Modifier.weight(1f),
                                         )
                                     }
                                 }
                             }
                         }
+                    }
 
-                        // Expression pose switcher row
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            MASCOT_POSES.forEach { pose ->
-                                FilterChip(
-                                    selected = currentPose == pose,
-                                    onClick = { currentPose = pose },
-                                    label = { Text(pose.replaceFirstChar { it.uppercase() }) },
-                                )
-                            }
-                        }
-
-                        Surface(
-                            color = SangamAlabaster,
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    Text("Hear a sample call", style = MaterialTheme.typography.labelLarge, color = SangamZinc)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(
+                            Triple("audio/abhishek_kn.wav", "Kannada", "ಕನ್ನಡ"),
+                            Triple("audio/abhishek_ml.wav", "Malayalam", "മലയാളം"),
+                            Triple("audio/abhishek_te.wav", "Telugu", "తెలుగు"),
+                        ).forEach { (asset, langName, nativeLabel) ->
+                            val isPlaying = playingAudioAsset == asset
+                            OutlinedButton(
+                                onClick = { playVoiceSample(asset, langName) },
+                                modifier = Modifier.semantics {
+                                    contentDescription = (if (isPlaying) "Stop " else "Play ") + "$langName sample"
+                                },
                             ) {
-                                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = SangamObsidian)
-                                Text(
-                                    statusBanner,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = SangamObsidian,
+                                Icon(
+                                    if (isPlaying) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
                                 )
+                                Spacer(Modifier.width(6.dp))
+                                Text(nativeLabel)
                             }
                         }
                     }
                 }
             }
 
-            // 2. Zero-Prompt Multimodal Onboarding (URL / Voice / Shop-Board OCR + 24 Vertical Packs)
+            // 3. Plan and payment
             item {
-                OutlinedCard(
-                    colors = CardDefaults.outlinedCardColors(containerColor = SangamPureWhite),
-                    border = BorderStroke(1.dp, SangamBorder),
-                ) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            "2. ZERO-PROMPT MULTIMODAL INGESTION (22 LANGUAGES · 24 VERTICALS)",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = SangamMuted,
-                        )
-                        Text(
-                            "Website URL, Spoken Voice, or Shop-Board Photo OCR",
-                            style = MaterialTheme.typography.titleLarge,
-                        )
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            VERTICAL_PACK_CHIPS.forEach { (packId, packTitle) ->
-                                FilterChip(
-                                    selected = selectedPack == packId,
-                                    onClick = {
-                                        selectedPack = packId
-                                        statusBanner = "Loaded '$packTitle' vertical prompt & tool template."
-                                    },
-                                    label = { Text(packTitle) },
-                                )
-                            }
-                        }
-
-                        OutlinedTextField(
-                            value = voiceTranscript,
-                            onValueChange = { voiceTranscript = it },
-                            label = { Text("Spoken narration (recording is not wired on this screen)") },
-                            modifier = Modifier.fillMaxWidth(),
-                            minLines = 2,
-                        )
-
-                        OutlinedTextField(
-                            value = targetUrl,
-                            onValueChange = { targetUrl = it },
-                            label = { Text("Website, Google Maps, IndiaMART, or Instagram URL") },
-                            leadingIcon = { Icon(Icons.Default.Language, contentDescription = null) },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                        )
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
-                                onClick = {
-                                    scope.launch {
-                                        isBusy = true
-                                        currentPose = "scanning"
-                                        statusBanner = "Scraping $targetUrl & compiling colloquial Kannada B2B Sales Agent..."
-                                        try {
-                                            val res = ApiClient.onboardingApi.ingestUrl(
-                                                UrlIngestRequestDto(
-                                                    url = targetUrl,
-                                                    languages = listOf("kn-IN", "ml-IN", "te-IN"),
-                                                    mascot_id = selectedMascot,
-                                                )
-                                            )
-                                            currentPose = "celebration"
-                                            val biz = res["business_name"]?.toString()?.takeIf { it.isNotBlank() } ?: deployedBusiness
-                                            deployedBusiness = biz
-                                            statusBanner = "Compiled a sales agent for $biz."
-                                        } catch (e: Exception) {
-                                            currentPose = "guidance"
-                                            statusBanner = "URL setup failed: ${e.message ?: "request failed"}"
-                                        } finally {
-                                            isBusy = false
-                                        }
-                                    }
-                                },
-                                enabled = !isBusy,
-                                colors = ButtonDefaults.buttonColors(containerColor = SangamObsidian),
-                                modifier = Modifier.weight(1f),
+                SetupSection(step = "Step 3", title = "Pick a plan") {
+                    Text(
+                        "Call balance: ₹${"%,.2f".format(walletBalanceInr)}",
+                        style = MaterialTheme.typography.headlineMedium,
+                    )
+                    Text(
+                        if (isStarterActive) "Plan active" else "No active plan",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = SangamZinc,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Min)
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        plans.forEach { plan ->
+                            val isSelected = plan.plan_id == selectedPlanId
+                            OutlinedCard(
+                                modifier = Modifier
+                                    .widthIn(min = 150.dp, max = 180.dp)
+                                    .fillMaxHeight()
+                                    .selectable(
+                                        selected = isSelected,
+                                        role = Role.RadioButton,
+                                        onClick = { selectedPlanId = plan.plan_id },
+                                    ),
+                                colors = CardDefaults.outlinedCardColors(
+                                    containerColor = if (isSelected) SangamAlabaster else SangamPureWhite
+                                ),
+                                border = BorderStroke(
+                                    width = if (isSelected) 2.dp else 1.dp,
+                                    color = if (isSelected) SangamObsidian else SangamBorder
+                                ),
                             ) {
-                                Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("URL Setup")
-                            }
-
-                            OutlinedButton(
-                                onClick = {
-                                    micPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
-                                },
-                                enabled = !isBusy,
-                                border = BorderStroke(1.dp, SangamObsidian),
-                            ) {
-                                Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Voice")
-                            }
-
-                            OutlinedButton(
-                                onClick = {
-                                    photoPickerLauncher.launch(
-                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(plan.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
+                                    Text(
+                                        "₹${"%,d".format(plan.price_inr.toInt())}${if (plan.one_time) " for ${plan.validity_days} days" else " / month"}",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.ExtraBold,
                                     )
-                                },
-                                enabled = !isBusy,
-                                border = BorderStroke(1.dp, SangamObsidian),
-                            ) {
-                                Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("OCR")
+                                    Text("About ${plan.included_minutes} minutes of calls", style = MaterialTheme.typography.bodySmall, color = SangamZinc)
+                                    Text(plan.audience, style = MaterialTheme.typography.bodySmall, color = SangamZinc)
+                                }
                             }
                         }
+                    }
+
+                    val activePlan = plans.firstOrNull { it.plan_id == selectedPlanId } ?: plans.first()
+                    Text(
+                        "${activePlan.name}: ₹${"%,.2f".format(activePlan.price_inr)} + 18% GST (₹${"%,.2f".format(activePlan.gst_inr)}) = " +
+                            "₹${"%,.2f".format(activePlan.total_payable_inr)}. Includes a dedicated +91 number and about " +
+                            "${activePlan.included_minutes} minutes. Extra minutes ₹${"%.2f".format(activePlan.overage_rate_per_min_inr)} each.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SangamZinc,
+                    )
+
+                    Button(
+                        onClick = { buyOnPlay(selectedPlanId) },
+                        enabled = Billing.isEnabled,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp),
+                    ) {
+                        Text("Activate ${activePlan.name}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    OutlinedButton(
+                        onClick = { buyOnPlay(Billing.TOPUP_PRODUCT) },
+                        enabled = Billing.isEnabled,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp),
+                    ) {
+                        Text("Add ₹500 call balance")
+                    }
+                    if (Billing.isEnabled) {
+                        Text(
+                            "Paid securely through Google Play. Prices on the Google Play sheet include taxes.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SangamZinc,
+                        )
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = {
+                                scope.launch {
+                                    statusBanner = try {
+                                        Billing.restore()
+                                        "Purchases restored. Your plan updates within a minute."
+                                    } catch (e: Exception) {
+                                        e.message ?: "Could not restore purchases."
+                                    }
+                                }
+                            }) { Text("Restore purchases") }
+                            TextButton(onClick = { Billing.openManageSubscriptions(context) }) {
+                                Text("Manage subscription")
+                            }
+                        }
+                    } else {
+                        Text(
+                            "Purchases are not available in this version of the app. Install Sangamitra from Google Play to buy a plan.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SangamZinc,
+                        )
                     }
                 }
             }
 
-            // 3. Live Provisioned All-India Number + In-App Audio Sample Player
+            // 4. The number and call forwarding
             item {
+                val phone = deployedPhone
+                val dial = phone?.let(::dialable)
                 OutlinedCard(
                     colors = CardDefaults.outlinedCardColors(containerColor = SangamObsidian),
                     border = BorderStroke(1.dp, SangamObsidian),
@@ -761,187 +830,108 @@ fun OnboardingWizardScreen(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                "LIVE DEDICATED ALL-INDIA LINE",
+                                "Step 4 · Your agent's number",
                                 style = MaterialTheme.typography.labelLarge,
-                                color = Color(0xFFA1A1AA),
+                                color = Color(0xFFD4D4D8),
+                                modifier = Modifier.weight(1f),
                             )
-                            Surface(
-                                color = SangamPureWhite,
-                                shape = RoundedCornerShape(4.dp),
-                            ) {
+                            Surface(color = SangamPureWhite, shape = RoundedCornerShape(4.dp)) {
                                 Text(
-                                    if (isStarterActive) "ACTIVE" else "NOT LIVE",
+                                    if (isStarterActive) "LIVE" else "NOT LIVE",
                                     color = SangamObsidian,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                 )
                             }
                         }
-
                         Text(
-                            deployedPhone,
-                            style = MaterialTheme.typography.displayLarge,
+                            phone ?: "No number yet",
+                            style = MaterialTheme.typography.headlineLarge,
                             color = SangamPureWhite,
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = if (phone != null) FontFamily.Monospace else FontFamily.Default,
                         )
                         Text(
-                            "$deployedBusiness · Default: $defaultLanguage",
+                            if (phone == null) {
+                                "You get a dedicated +91 number when a plan is active."
+                            } else {
+                                listOfNotNull(
+                                    deployedBusiness,
+                                    defaultLanguage?.let { code -> AGENT_LANGUAGES.firstOrNull { it.first == code }?.second ?: code },
+                                ).joinToString(" · ")
+                            },
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color(0xFFD4D4D8),
                         )
-
-                        HorizontalDivider(color = Color(0xFF27272A))
-
-                        Text(
-                            "Human Sales Opening (Zero IVR Menu):",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = Color(0xFFA1A1AA),
-                        )
-                        Text(
-                            openingGreeting,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = SangamPureWhite,
-                        )
-
-                        // Hear Live Kannada, Malayalam, Telugu Voice Samples right inside the app
-                        Text(
-                            "Hear Verified Live Voice Samples (bulbul:v3):",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = Color(0xFFA1A1AA),
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf(
-                                Triple("audio/abhishek_kn.wav", "Kannada", "ಕನ್ನಡ"),
-                                Triple("audio/abhishek_ml.wav", "Malayalam", "മലയാളം"),
-                                Triple("audio/abhishek_te.wav", "Telugu", "తెలుగు"),
-                            ).forEach { (asset, langName, nativeLabel) ->
-                                val isPlaying = playingAudioAsset == asset
-                                OutlinedButton(
-                                    onClick = { playVoiceSample(asset, langName) },
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        containerColor = if (isPlaying) SangamPureWhite else Color.Transparent,
-                                        contentColor = if (isPlaying) SangamObsidian else SangamPureWhite,
-                                    ),
-                                    border = BorderStroke(1.dp, Color(0xFF52525B)),
-                                    modifier = Modifier.weight(1f),
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
-                                ) {
-                                    Icon(
-                                        if (isPlaying) Icons.Default.Stop else Icons.Default.VolumeUp,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(14.dp),
-                                    )
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(nativeLabel, style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
-                        }
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (dial != null) {
                             Button(
-                                onClick = {
-                                    val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:+918064270314"))
-                                    context.startActivity(dialIntent)
-                                },
+                                onClick = { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$dial"))) },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = SangamPureWhite,
                                     contentColor = SangamObsidian,
                                 ),
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 48.dp),
                             ) {
                                 Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text("Call +91 80 6427 0314")
+                                Spacer(Modifier.width(8.dp))
+                                Text("Call my agent to test it")
                             }
-
-                            OutlinedButton(
-                                onClick = {
-                                    val ussd = Uri.encode("*61*08064270314#")
-                                    val forwardIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$ussd"))
-                                    context.startActivity(forwardIntent)
-                                },
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = SangamPureWhite),
-                                border = BorderStroke(1.dp, Color(0xFF52525B)),
-                            ) {
-                                Icon(Icons.Default.PhoneForwarded, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("SIM Forward")
-                            }
-
-                            OutlinedButton(
-                                onClick = {
-                                    val resetUssd = Uri.encode("##002#")
-                                    context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$resetUssd")))
-                                },
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = SangamPureWhite),
-                                border = BorderStroke(1.dp, Color(0xFF52525B)),
-                            ) {
-                                Text("Reset")
+                            Text(
+                                "Send missed calls on your own SIM to your agent:",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFFD4D4D8),
+                            )
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(
+                                    onClick = {
+                                        // *61* forwards unanswered calls only; busy and switched-off still ring the owner.
+                                        val code = Uri.encode("*61*${dial.removePrefix("+91")}#")
+                                        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$code")))
+                                    },
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SangamPureWhite),
+                                    border = BorderStroke(1.dp, Color(0xFF71717A)),
+                                ) {
+                                    Icon(Icons.Default.PhoneForwarded, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Turn on forwarding")
+                                }
+                                OutlinedButton(
+                                    onClick = { showForwardOffDialog = true },
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SangamPureWhite),
+                                    border = BorderStroke(1.dp, Color(0xFF71717A)),
+                                ) {
+                                    Text("Turn off")
+                                }
                             }
                         }
                     }
                 }
             }
 
-            // 4. 1-Tap Composio 13-Tool Router
+            // 5. Connected apps
             item {
-                OutlinedCard(
-                    colors = CardDefaults.outlinedCardColors(containerColor = SangamPureWhite),
-                    border = BorderStroke(1.dp, SangamBorder),
-                ) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(
-                            "3. COMPOSIO 1-TAP ACTION ROUTER (13 INTEGRATIONS)",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = SangamMuted,
-                        )
-                        Text(
-                            "Automated Post-Call CRM, Tally, WhatsApp & Sheet Sync",
-                            style = MaterialTheme.typography.titleLarge,
-                        )
-
-                        connectedTools.keys.forEach { toolkit ->
-                            val enabled = connectedTools[toolkit] == true
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                    modifier = Modifier.weight(1f),
-                                ) {
-                                    Icon(Icons.Default.Extension, contentDescription = null, tint = SangamObsidian)
-                                    Column {
-                                        Text(toolkit, fontWeight = FontWeight.SemiBold)
-                                        Text(
-                                            when (toolkit) {
-                                                "WHATSAPP" -> "Send instant catalog PDF, VCard & quote on WhatsApp"
-                                                "GOOGLESHEETS" -> "Append B2B mineral buyer lead row automatically"
-                                                "GOOGLECALENDAR" -> "Book factory visit / sample dispatch slot"
-                                                "TALLY_PRIME" -> "Sync draft B2B sales order into Tally Prime ERP"
-                                                "INDIAMART" -> "Auto-call new IndiaMART leads within 30 seconds"
-                                                "SHOPIFY" -> "Verify D2C Cash-on-Delivery (COD) orders by voice"
-                                                "SHIPROCKET" -> "Live AWB parcel tracking & NDR re-attempt desk"
-                                                "RAZORPAY" -> "Send instant UPI payment link via SMS/WhatsApp"
-                                                else -> "Sync call transcript & lead status"
-                                            },
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = SangamMuted,
-                                        )
-                                    }
-                                }
-                                Switch(
-                                    checked = enabled,
-                                    onCheckedChange = { checked ->
+                SetupSection(step = "Optional", title = "Connect your apps") {
+                    Text(
+                        "After each call, your agent can update these for you.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = SangamZinc,
+                    )
+                    APP_INTEGRATIONS.forEach { (toolkit, name, blurb) ->
+                        val enabled = connectedTools[toolkit] == true
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .toggleable(
+                                    value = enabled,
+                                    role = Role.Switch,
+                                    onValueChange = { checked ->
                                         connectedTools[toolkit] = checked
                                         scope.launch {
                                             try {
@@ -953,266 +943,100 @@ fun OnboardingWizardScreen(
                                                 )
                                             } catch (e: Exception) {
                                                 connectedTools[toolkit] = !checked
-                                                statusBanner = "Could not update $toolkit: ${e.message ?: "request failed"}"
+                                                statusBanner = friendlyError(e, "connect $name")
                                             }
                                         }
                                     },
                                 )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 4. Subscription Plans, 60/40 Wallet Guard, UPI Autopay & Viral Referral Loop
-            item {
-                OutlinedCard(
-                    colors = CardDefaults.outlinedCardColors(containerColor = SangamPureWhite),
-                    border = BorderStroke(1.dp, SangamBorder),
-                ) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(
-                            "4. SUBSCRIPTION PLANS, 60/40 WALLET GUARD & UPI AUTOPAY",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = SangamMuted,
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column {
-                                Text(
-                                    "Prepaid Call Pool: ₹${"%.2f".format(walletBalanceInr)}",
-                                    style = MaterialTheme.typography.headlineMedium,
-                                )
-                                Text(
-                                    "Status: ${if (isStarterActive) "ACTIVE" else "UNPROVISIONED"} · ₹7.50/min",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (isStarterActive) Color(0xFF166534) else SangamMuted,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                            }
-                        }
-
-                        Text("Select Plan Tier (60% Platform Margin + 18% GST):", style = MaterialTheme.typography.labelMedium)
-                        Row(
-                            modifier = Modifier.horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            plans.forEach { plan ->
-                                val isSelected = plan.plan_id == selectedPlanId
-                                OutlinedCard(
-                                    modifier = Modifier
-                                        .width(160.dp)
-                                        .clickable { selectedPlanId = plan.plan_id },
-                                    colors = CardDefaults.outlinedCardColors(
-                                        containerColor = if (isSelected) SangamAlabaster else SangamPureWhite
-                                    ),
-                                    border = BorderStroke(
-                                        width = if (isSelected) 2.dp else 1.dp,
-                                        color = if (isSelected) SangamObsidian else SangamBorder
-                                    ),
-                                ) {
-                                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Text(plan.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                        Text("₹${plan.price_inr.toInt()}${if (plan.one_time) " / 7d" else " / mo"}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
-                                        Text("${plan.included_minutes} mins included", style = MaterialTheme.typography.labelSmall, color = SangamMuted)
-                                        Text(plan.audience, style = MaterialTheme.typography.labelSmall, maxLines = 2)
-                                    }
-                                }
-                            }
-                        }
-
-                        val activePlan = plans.firstOrNull { it.plan_id == selectedPlanId } ?: plans.first()
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = SangamAlabaster),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("${activePlan.name} Breakdown:", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
-                                Text("• Base Price: ₹${"%.2f".format(activePlan.price_inr)} + 18% GST (₹${"%.2f".format(activePlan.gst_inr)}) = Total ₹${"%.2f".format(activePlan.total_payable_inr)}", style = MaterialTheme.typography.bodySmall)
-                                Text("• Included Talktime: ~${activePlan.included_minutes} minutes live AI calls (Dedicated +91 Number)", style = MaterialTheme.typography.bodySmall)
-                                Text("• Economics: 60% Net Platform Profit Locked · 40% Sarvam COGS Pool", style = MaterialTheme.typography.bodySmall, color = Color(0xFF166534), fontWeight = FontWeight.SemiBold)
-                            }
-                        }
-
-                        // UPI autopay is a Razorpay mandate. Play builds renew through Google Play instead.
-                        if (!Billing.isEnabled) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                                .padding(vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Column(Modifier.weight(1f)) {
-                                Text("UPI Autopay Guard (₹299 when < ₹30)", fontWeight = FontWeight.SemiBold)
-                                Text("Prevents your business phone line from pausing mid-day", style = MaterialTheme.typography.bodySmall, color = SangamMuted)
+                                Text(name, fontWeight = FontWeight.SemiBold)
+                                Text(blurb, style = MaterialTheme.typography.bodySmall, color = SangamZinc)
                             }
-                            Switch(
-                                checked = upiAutopayEnabled,
-                                onCheckedChange = { checked ->
-                                    upiAutopayEnabled = checked
-                                    scope.launch {
-                                        try {
-                                            ApiClient.onboardingApi.configureAutopay(
-                                                mapOf("tenant_id" to (TokenManager.getActorId() ?: ""), "enabled" to checked)
-                                            )
-                                        } catch (e: Exception) {
-                                            upiAutopayEnabled = !checked
-                                            statusBanner = "Could not save autopay: ${e.message ?: "request failed"}"
-                                        }
-                                    }
-                                },
-                            )
-                        }
-                        }
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
-                                onClick = {
-                                    if (Billing.isEnabled) {
-                                        buyOnPlay(selectedPlanId)
-                                        return@Button
-                                    }
-                                    scope.launch {
-                                        try {
-                                            val order = ApiClient.onboardingApi.createWalletOrder(
-                                                CreateWalletOrderRequestDto(
-                                                    plan_id = selectedPlanId,
-                                                    business_name = deployedBusiness.takeIf { it != "Your business" },
-                                                    mascot_id = selectedMascot,
-                                                )
-                                            )
-                                            beginCheckout(order)
-                                        } catch (e: Exception) {
-                                            statusBanner = "Could not start the plan payment: ${e.message ?: "request failed"}"
-                                        }
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = SangamObsidian),
-                                modifier = Modifier.weight(1f),
-                            ) {
-                                Text(
-                                    if (Billing.isEnabled) "Activate ${activePlan.name}"
-                                    else "Activate ${activePlan.name} (₹${activePlan.price_inr.toInt()})"
-                                )
-                            }
-
-                            OutlinedButton(
-                                onClick = {
-                                    if (Billing.isEnabled) {
-                                        buyOnPlay(Billing.TOPUP_PRODUCT)
-                                        return@OutlinedButton
-                                    }
-                                    scope.launch {
-                                        try {
-                                            val order = ApiClient.onboardingApi.createWalletOrder(
-                                                CreateWalletOrderRequestDto(
-                                                    topup_amount_inr = 500.0,
-                                                )
-                                            )
-                                            beginCheckout(order)
-                                        } catch (e: Exception) {
-                                            statusBanner = "Could not start the top-up: ${e.message ?: "request failed"}"
-                                        }
-                                    }
-                                },
-                                border = BorderStroke(1.dp, SangamObsidian),
-                            ) {
-                                Text("+ ₹500 Top-Up")
-                            }
-                        }
-
-                        if (Billing.isEnabled) {
-                            Text(
-                                "Paid securely through Google Play. Prices shown on the Google Play sheet include taxes.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = SangamMuted,
-                            )
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                TextButton(onClick = {
-                                    scope.launch {
-                                        statusBanner = try {
-                                            Billing.restore()
-                                            "Purchases restored. Your plan updates within a minute."
-                                        } catch (e: Exception) {
-                                            e.message ?: "Could not restore purchases."
-                                        }
-                                    }
-                                }) { Text("Restore purchases") }
-                                TextButton(onClick = { Billing.openManageSubscriptions(context) }) {
-                                    Text("Manage subscription")
-                                }
-                            }
-                        }
-
-                        HorizontalDivider(color = SangamBorder)
-
-                        // Viral Referral & WhatsApp Status Share
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text("Viral Referral: Give ₹100, Get ₹100", fontWeight = FontWeight.SemiBold)
-                                Text("Code: $referralCode", style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
-                            }
-                            OutlinedButton(
-                                onClick = {
-                                    val shareText = "Namaskara! Our business now uses Sangamitra 24/7 AI Sales Agent ($deployedPhone). Deploy yours in 60s (Plans from ₹799) and get ₹100 free talktime with code $referralCode: https://sangamitra.in/r/$referralCode"
-                                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/plain"
-                                        putExtra(Intent.EXTRA_TEXT, shareText)
-                                    }
-                                    context.startActivity(Intent.createChooser(sendIntent, "Share Referral on WhatsApp"))
-                                },
-                                border = BorderStroke(1.dp, SangamObsidian),
-                            ) {
-                                Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Share & Earn")
-                            }
+                            // The whole row toggles, so the switch itself is not a separate touch target.
+                            Switch(checked = enabled, onCheckedChange = null)
                         }
                     }
                 }
             }
 
-            // 6. Play Store 2026 AI Safety & Account Deletion Compliance
-            item {
-                OutlinedCard(
-                    colors = CardDefaults.outlinedCardColors(containerColor = SangamAlabaster),
-                    border = BorderStroke(1.dp, SangamBorder),
-                ) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // 6. Referral
+            if (referralCode.isNotBlank()) {
+                item {
+                    SetupSection(step = "Refer and earn", title = "Give ₹100, get ₹100") {
                         Text(
-                            "GOOGLE PLAY STORE 2026 AI & DPDP ACT 2023 SAFETY",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = SangamMuted,
+                            "Your code: $referralCode",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontFamily = FontFamily.Monospace,
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(
-                                onClick = { showReportAiDialog = true },
-                                modifier = Modifier.weight(1f),
-                            ) {
-                                Icon(Icons.Default.Flag, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Report AI Output")
-                            }
-
-                            OutlinedButton(
-                                onClick = { showDeleteConfirmDialog = true },
-                                modifier = Modifier.weight(1f),
-                            ) {
-                                Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Delete Account")
-                            }
+                        OutlinedButton(
+                            onClick = {
+                                val line = deployedPhone?.let { " (call it on $it)" }.orEmpty()
+                                val shareText = "Namaste! My business now has a 24/7 AI phone agent from Sangamitra$line. " +
+                                    "Set up yours in a minute and get ₹100 free call balance with code $referralCode: " +
+                                    "https://sangamitra.in/r/$referralCode"
+                                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, shareText)
+                                }
+                                context.startActivity(Intent.createChooser(sendIntent, "Share your code"))
+                            },
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Share code")
                         }
                     }
                 }
-                Spacer(Modifier.height(24.dp))
             }
+
+            // 7. Account and safety (Play policy: report AI output, delete account)
+            item {
+                SetupSection(step = "Account", title = "Safety and privacy") {
+                    OutlinedButton(
+                        onClick = { showReportAiDialog = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp),
+                    ) {
+                        Icon(Icons.Default.Flag, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Report a wrong answer")
+                    }
+                    OutlinedButton(
+                        onClick = { showDeleteConfirmDialog = true },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = SangamCrimson),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp),
+                    ) {
+                        Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Delete account")
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** A titled card. The step label is a heading for TalkBack's heading navigation. */
+@Composable
+private fun SetupSection(step: String, title: String, content: @Composable ColumnScope.() -> Unit) {
+    OutlinedCard(
+        colors = CardDefaults.outlinedCardColors(containerColor = SangamPureWhite),
+        border = BorderStroke(1.dp, SangamBorder),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.semantics(mergeDescendants = true) { heading() }) {
+                Text(step.uppercase(), style = MaterialTheme.typography.labelLarge, color = SangamZinc)
+                Text(title, style = MaterialTheme.typography.titleLarge)
+            }
+            content()
         }
     }
 }

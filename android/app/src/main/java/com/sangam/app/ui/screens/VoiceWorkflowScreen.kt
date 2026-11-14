@@ -1,5 +1,7 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.ui.components.friendlyError
+import com.sangam.app.ui.components.BackButton
 import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.os.Build
@@ -51,9 +53,9 @@ fun VoiceWorkflowScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Voice Workflow Creator") },
+                title = { Text("Create a workflow by voice") },
                 navigationIcon = {
-                    TextButton(onClick = onBack) { Text("Back") }
+                    BackButton(onBack)
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
@@ -105,7 +107,7 @@ fun VoiceWorkflowScreen(
                                     recorder.start()
                                     mediaRecorder = recorder
                                 } catch (e: Exception) {
-                                    error = "Failed to start recording: ${e.message}"
+                                    error = "Could not start recording. Check that Sangamitra has microphone permission."
                                     state = VoiceState.IDLE
                                 }
                             }
@@ -177,7 +179,7 @@ fun VoiceWorkflowScreen(
                                     file.delete()
                                     state = VoiceState.REVIEW
                                 } catch (e: Exception) {
-                                    error = "Processing error: ${e.message}"
+                                    error = friendlyError(e, "understand the recording")
                                     state = VoiceState.IDLE
                                 }
                             }
@@ -199,21 +201,21 @@ fun VoiceWorkflowScreen(
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Listening with Sarvam AI...", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                    Text("Listening...", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
                 }
 
                 VoiceState.PROCESSING -> {
                     Image(
                         painter = painterResource(id = R.drawable.mascot_kite_thinking),
-                        contentDescription = "Sarvam AI Processing",
+                        contentDescription = null,
                         modifier = Modifier.size(110.dp),
                         contentScale = ContentScale.Fit
                     )
                     Spacer(modifier = Modifier.height(14.dp))
                     CircularProgressIndicator()
                     Spacer(modifier = Modifier.height(14.dp))
-                    Text("Processing with Sarvam AI...", fontWeight = FontWeight.SemiBold)
-                    Text("Realtime Speech-to-Text → Intent Extraction", style = MaterialTheme.typography.bodySmall,
+                    Text("Understanding your request...", fontWeight = FontWeight.SemiBold)
+                    Text("Turning what you said into workflow steps", style = MaterialTheme.typography.bodySmall,
                          color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
@@ -284,7 +286,7 @@ fun VoiceWorkflowScreen(
                                             )
                                         )
                                     } catch (e: Exception) {
-                                        error = "Failed to create: ${e.message}"
+                                        error = friendlyError(e, "create the workflow")
                                         state = VoiceState.REVIEW
                                     }
                                 }

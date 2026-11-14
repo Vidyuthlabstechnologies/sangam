@@ -24,6 +24,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -51,6 +57,7 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isPasswordFocused by remember { mutableStateOf(false) }
+    var showPassword by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var info by remember { mutableStateOf<String?>(null) }
@@ -59,6 +66,51 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
         syncFirestoreProfile(result.actorId, result.email.orEmpty(), result.name, provider)
         RealtimeClient.start()
         onLoginSuccess(result.isNewUser)
+    }
+
+    fun submit() {
+        val cleanEmail = email.trim()
+        val cleanName = name.trim()
+        error = null
+        info = null
+        when {
+            cleanEmail.isEmpty() || password.isEmpty() -> {
+                error = "Please enter email and password"
+                return
+            }
+            !android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches() -> {
+                error = "Enter a valid email address."
+                return
+            }
+            !isLogin && cleanName.isEmpty() -> {
+                error = "Please enter your name"
+                return
+            }
+            !isLogin && password.length < 8 -> {
+                error = "Use at least 8 characters for your password."
+                return
+            }
+        }
+        loading = true
+        scope.launch {
+            try {
+                val result = if (isLogin) {
+                    FirebaseSession.signInWithEmail(cleanEmail, password)
+                } else {
+                    FirebaseSession.signUpWithEmail(cleanName, cleanEmail, password)
+                }
+                finishSignIn(result, "password")
+            } catch (e: FirebaseSession.VerificationPending) {
+                // Show the sign-in form so the user can sign in after tapping the link.
+                isLogin = true
+                password = ""
+                error = e.message
+            } catch (e: Exception) {
+                error = e.message ?: "Sign-in failed. Please try again."
+            } finally {
+                loading = false
+            }
+        }
     }
 
     // Google Sign-In asks for an ID token that Firebase exchanges for a session.
@@ -117,8 +169,8 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                "Sangam",
-                style = MaterialTheme.typography.displayMedium,
+                "Sangamitra",
+                style = MaterialTheme.typography.displayLarge,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
             )
@@ -127,6 +179,7 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                 "Deploy Autonomous Voice Agents in Seconds",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
             )
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -160,7 +213,7 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                 painter = painterResource(
                     id = if (isPasswordFocused) R.drawable.mascot_kite_peekaboo else R.drawable.mascot_kite_idle
                 ),
-                contentDescription = "Kite Master Mascot",
+                contentDescription = null,
                 modifier = Modifier
                     .size(120.dp)
                     .padding(bottom = 4.dp),
@@ -191,9 +244,10 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                                 }
                             }
                         },
+                        // heightIn, not height: a fixed 48dp clips the label at large font sizes.
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp),
+                            .heightIn(min = 48.dp),
                         enabled = !loading,
                         colors = ButtonDefaults.outlinedButtonColors(
                             containerColor = MaterialTheme.colorScheme.surface,
@@ -201,7 +255,7 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                     ) {
                         Image(
                             painter = painterResource(R.drawable.ic_google_logo),
-                            contentDescription = "Google",
+                            contentDescription = null,
                             modifier = Modifier.size(20.dp),
                         )
                         Spacer(modifier = Modifier.width(10.dp))
@@ -222,9 +276,10 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                     ) {
                         HorizontalDivider(modifier = Modifier.weight(1f))
                         Text(
-                            "  or continue with email  ",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.outline,
+                            "or continue with email",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp),
                         )
                         HorizontalDivider(modifier = Modifier.weight(1f))
                     }
@@ -239,7 +294,10 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                             leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            keyboardOptions = KeyboardOptions(
+                                capitalization = KeyboardCapitalization.Words,
+                                imeAction = ImeAction.Next,
+                            ),
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                     }
@@ -267,11 +325,23 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                             .fillMaxWidth()
                             .onFocusChanged { isPasswordFocused = it.isFocused },
                         singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
+                        visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showPassword = !showPassword }) {
+                                Icon(
+                                    if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = if (showPassword) "Hide password" else "Show password",
+                                )
+                            }
+                        },
+                        supportingText = if (!isLogin) {
+                            { Text("At least 8 characters") }
+                        } else null,
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Password,
                             imeAction = ImeAction.Done,
                         ),
+                        keyboardActions = KeyboardActions(onDone = { if (!loading) submit() }),
                     )
 
                     val displayError = error
@@ -282,7 +352,9 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .semantics { liveRegion = LiveRegionMode.Assertive },
                         )
                     }
                     val displayInfo = info
@@ -293,59 +365,18 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                             color = MaterialTheme.colorScheme.primary,
                             style = MaterialTheme.typography.bodySmall,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .semantics { liveRegion = LiveRegionMode.Assertive },
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Button(
-                        onClick = {
-                            val cleanEmail = email.trim()
-                            val cleanName = name.trim()
-                            error = null
-                            info = null
-                            when {
-                                cleanEmail.isEmpty() || password.isEmpty() -> {
-                                    error = "Please enter email and password"
-                                    return@Button
-                                }
-                                !android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches() -> {
-                                    error = "Enter a valid email address."
-                                    return@Button
-                                }
-                                !isLogin && cleanName.isEmpty() -> {
-                                    error = "Please enter your name"
-                                    return@Button
-                                }
-                                !isLogin && password.length < 8 -> {
-                                    error = "Use at least 8 characters for your password."
-                                    return@Button
-                                }
-                            }
-                            loading = true
-                            scope.launch {
-                                try {
-                                    val result = if (isLogin) {
-                                        FirebaseSession.signInWithEmail(cleanEmail, password)
-                                    } else {
-                                        FirebaseSession.signUpWithEmail(cleanName, cleanEmail, password)
-                                    }
-                                    finishSignIn(result, "password")
-                                } catch (e: FirebaseSession.VerificationPending) {
-                                    // Show the sign-in form so the user can sign in after tapping the link.
-                                    isLogin = true
-                                    password = ""
-                                    error = e.message
-                                } catch (e: Exception) {
-                                    error = e.message ?: "Sign-in failed. Please try again."
-                                } finally {
-                                    loading = false
-                                }
-                            }
-                        },
+                        onClick = { submit() },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp),
+                            .heightIn(min = 48.dp),
                         enabled = !loading,
                     ) {
                         if (loading) {

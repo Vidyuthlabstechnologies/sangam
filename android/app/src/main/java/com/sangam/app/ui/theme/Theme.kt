@@ -45,7 +45,11 @@ private val LightColorScheme = lightColorScheme(
     onSurface = SangamObsidian,
     surfaceVariant = SangamAlabaster,
     onSurfaceVariant = SangamZinc,
-    outline = SangamBorder,
+    // Outline marks interactive edges (text fields, outlined buttons, an off switch's thumb)
+    // and needs 3:1 against white. E4E4E7 was 1.2:1, so an off switch was nearly invisible.
+    // Purely decorative lines (dividers) use outlineVariant.
+    outline = SangamMuted,
+    outlineVariant = SangamBorder,
     error = SangamCrimson,
 )
 
@@ -63,7 +67,8 @@ private val DarkColorScheme = darkColorScheme(
     onSurface = SangamPureWhite,
     surfaceVariant = SangamGraphite,
     onSurfaceVariant = Color(0xFFA1A1AA),
-    outline = Color(0xFF3F3F46),
+    outline = Color(0xFF71717A),
+    outlineVariant = Color(0xFF3F3F46),
     error = SangamCrimson,
 )
 

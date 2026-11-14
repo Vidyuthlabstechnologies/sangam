@@ -1,5 +1,7 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.ui.components.friendlyError
+import com.sangam.app.ui.components.BackButton
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,6 +24,7 @@ import kotlinx.coroutines.launch
 fun WorkflowListScreen(
     onWorkflowClick: (String) -> Unit,
     onVoiceCreate: (() -> Unit)? = null,
+    onBack: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var workflows by remember { mutableStateOf<List<WorkflowResponse>>(emptyList()) }
@@ -33,7 +36,7 @@ fun WorkflowListScreen(
             val resp = ApiClient.api.listWorkflows(pageSize = 50)
             workflows = resp.items
         } catch (e: Exception) {
-            error = e.message
+            error = friendlyError(e, "load workflows")
         }
         loading = false
     }
@@ -42,6 +45,7 @@ fun WorkflowListScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Workflows") },
+                navigationIcon = { BackButton(onBack) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
@@ -65,7 +69,7 @@ fun WorkflowListScreen(
             }
             error != null -> {
                 Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    Text("Error: $error", color = MaterialTheme.colorScheme.error)
+                    Text("$error", color = MaterialTheme.colorScheme.error)
                 }
             }
             workflows.isEmpty() -> {
@@ -90,9 +94,9 @@ fun WorkflowListScreen(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(wf.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    Text("Phase: ${wf.current_phase}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("Stage: ${workflowPhaseLabel(wf.current_phase)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                                AssistChip(onClick = {}, label = { Text(wf.state) })
+                                Text(workflowStateLabel(wf.state), style = MaterialTheme.typography.labelLarge)
                             }
                         }
                     }
