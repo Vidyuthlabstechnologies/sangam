@@ -1,5 +1,8 @@
 package com.sangam.app.ui.components
 
+import com.sangam.app.R
+import com.sangam.app.ui.components.str
+
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -42,14 +45,14 @@ fun LegalFooter(modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = { LegalLinks.open(context, LegalLinks.privacyPolicy()) }) {
-                Text("Privacy policy", style = MaterialTheme.typography.labelSmall)
+                Text(str(R.string.privacy_policy), style = MaterialTheme.typography.labelSmall)
             }
             TextButton(onClick = { LegalLinks.open(context, LegalLinks.terms()) }) {
-                Text("Terms of use", style = MaterialTheme.typography.labelSmall)
+                Text(str(R.string.terms_of_use), style = MaterialTheme.typography.labelSmall)
             }
         }
         Text(
-            "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+            str(R.string.version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.outline,
         )

@@ -1,5 +1,8 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.R
+import com.sangam.app.ui.components.str
+
 import androidx.compose.ui.text.style.TextOverflow
 import com.sangam.app.ui.components.humanize
 import com.sangam.app.ui.components.StatusLabel
@@ -29,7 +32,7 @@ fun ActorsScreen(onBack: () -> Unit = {}) {
         try {
             actors = ApiClient.api.listActors()
         } catch (e: Exception) {
-            error = friendlyError(e, "load people")
+            error = friendlyError(e, str(R.string.load_people))
         }
         loading = false
     }
@@ -37,7 +40,7 @@ fun ActorsScreen(onBack: () -> Unit = {}) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("People and agents") },
+                title = { Text(str(R.string.people_and_agents)) },
                 navigationIcon = { BackButton(onBack) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
             )
@@ -48,7 +51,7 @@ fun ActorsScreen(onBack: () -> Unit = {}) {
             error != null -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 ErrorState(error!!, onRetry = null)
             }
-            actors.isEmpty() -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { Text("No people or agents yet") }
+            actors.isEmpty() -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { Text(str(R.string.no_people_or_agents_yet)) }
             else -> {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(padding),
@@ -84,10 +87,10 @@ fun ActorsScreen(onBack: () -> Unit = {}) {
                                     }
                                 }
                                 if (a.is_active) {
-                                    StatusLabel("Active")
+                                    StatusLabel(str(R.string.active))
                                 } else {
                                     StatusLabel(
-                                        "Inactive",
+                                        str(R.string.inactive),
                                         container = MaterialTheme.colorScheme.surfaceContainerHigh,
                                         content = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
@@ -102,8 +105,8 @@ fun ActorsScreen(onBack: () -> Unit = {}) {
 }
 
 fun actorTypeLabel(type: String): String = when (type.lowercase()) {
-    "human" -> "Person"
-    "ai_agent" -> "AI agent"
-    "system" -> "Connected app"
+    "human" -> str(R.string.person)
+    "ai_agent" -> str(R.string.ai_agent)
+    "system" -> str(R.string.connected_app)
     else -> humanize(type)
 }

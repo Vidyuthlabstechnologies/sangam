@@ -1,5 +1,8 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.R
+import com.sangam.app.ui.components.str
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -46,7 +49,7 @@ fun WorkflowDetailScreen(
             wf = ApiClient.api.getWorkflow(workflowId)
             error = null
         } catch (e: Exception) {
-            error = friendlyError(e, "load this workflow")
+            error = friendlyError(e, str(R.string.load_this_workflow))
         }
         loading = false
     }
@@ -59,7 +62,7 @@ fun WorkflowDetailScreen(
                 if (approve) ApiClient.api.approveApproval(approval.id) else ApiClient.api.rejectApproval(approval.id)
                 load()
             } catch (e: Exception) {
-                actionError = friendlyError(e, if (approve) "approve this" else "reject this")
+                actionError = friendlyError(e, if (approve) str(R.string.approve_this) else str(R.string.reject_this))
             }
             busyApproval = null
         }
@@ -80,7 +83,7 @@ fun WorkflowDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Workflow", maxLines = 1) },
+                title = { Text(str(R.string.workflow), maxLines = 1) },
                 navigationIcon = { BackButton(onBack) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
@@ -150,33 +153,33 @@ fun WorkflowDetailScreen(
                             border = CardDefaults.outlinedCardBorder(),
                         ) {
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text("Needs your decision", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                Text(str(R.string.needs_your_decision), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                                 Text(
-                                    "Asked of: " + a.required_actors.joinToString { people[it] ?: "a team member" },
+                                    str(R.string.asked_of, a.required_actors.joinToString { people[it] ?: str(R.string.a_team_member) }),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 val busy = busyApproval == a.id
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     SecondaryButton(onClick = { decide(a, false) }, enabled = !busy, modifier = Modifier.weight(1f)) {
-                                        Text("Reject", maxLines = 1)
+                                        Text(str(R.string.reject), maxLines = 1)
                                     }
                                     PrimaryButton(onClick = { decide(a, true) }, enabled = !busy, modifier = Modifier.weight(1f)) {
-                                        Text("Approve", maxLines = 1)
+                                        Text(str(R.string.approve), maxLines = 1)
                                     }
                                 }
                             }
                         }
                     }
 
-                    Section("Progress") {
+                    Section(str(R.string.progress)) {
                         workflow.phases.forEachIndexed { i, phase ->
                             val currentIndex = workflow.phases.indexOfFirst { it.equals(workflow.current_phase, true) }
                             val status = when {
                                 currentIndex < 0 -> ""
-                                i < currentIndex -> "Done"
-                                i == currentIndex -> "Now"
-                                else -> "Next"
+                                i < currentIndex -> str(R.string.done)
+                                i == currentIndex -> str(R.string.now)
+                                else -> str(R.string.next)
                             }
                             DetailRow("${i + 1}. ${workflowPhaseLabel(phase)}", status, emphasise = i == currentIndex)
                         }
@@ -184,10 +187,10 @@ fun WorkflowDetailScreen(
 
                     val decided = approvals.filterNot { it.status.equals("pending", true) }
                     if (decided.isNotEmpty()) {
-                        Section("Decisions") {
+                        Section(str(R.string.decisions)) {
                             decided.forEach { a ->
                                 DetailRow(
-                                    a.required_actors.joinToString { people[it] ?: "Team member" },
+                                    a.required_actors.joinToString { people[it] ?: str(R.string.team_member) },
                                     approvalStatusLabel(a.status),
                                 )
                             }

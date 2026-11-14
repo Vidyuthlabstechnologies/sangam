@@ -34,7 +34,7 @@ class SangamFirebaseService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
-        val title = message.notification?.title ?: message.data["title"] ?: "Sangam"
+        val title = message.notification?.title ?: message.data["title"] ?: "Sangamitra"
         val body = message.notification?.body ?: message.data["body"] ?: ""
         val workflowId = message.data["workflow_id"]
         val event = message.data["event"]
@@ -88,28 +88,28 @@ class SangamFirebaseService : FirebaseMessagingService() {
             manager.createNotificationChannel(
                 NotificationChannel(
                     CHANNEL_GENERAL,
-                    "General Notifications",
+                    getString(R.string.channel_general),
                     NotificationManager.IMPORTANCE_HIGH,
                 ).apply {
-                    description = "Workflow updates, approvals, and alerts"
+                    description = getString(R.string.channel_general_desc)
                 },
             )
             manager.createNotificationChannel(
                 NotificationChannel(
                     CHANNEL_SLA,
-                    "SLA Alerts",
+                    getString(R.string.channel_sla),
                     NotificationManager.IMPORTANCE_HIGH,
                 ).apply {
-                    description = "SLA warnings and breaches"
+                    description = getString(R.string.channel_sla_desc)
                 },
             )
             manager.createNotificationChannel(
                 NotificationChannel(
                     CHANNEL_PAYMENT,
-                    "Payment Updates",
+                    getString(R.string.channel_payment),
                     NotificationManager.IMPORTANCE_DEFAULT,
                 ).apply {
-                    description = "Payment confirmations and refunds"
+                    description = getString(R.string.channel_payment_desc)
                 },
             )
         }

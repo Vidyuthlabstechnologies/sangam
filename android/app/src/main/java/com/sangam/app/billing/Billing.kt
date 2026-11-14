@@ -1,5 +1,7 @@
 package com.sangam.app.billing
 
+import com.sangam.app.R
+import com.sangam.app.ui.components.str
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -92,7 +94,7 @@ object Billing {
             })
         }
         return products.firstOrNull()
-            ?: throw BillingFailure("This plan is not on sale in Google Play yet. Please try again later.")
+            ?: throw BillingFailure(str(R.string.billing_this_plan_is_not_on))
     }
 
     /** Opens the Play purchase sheet. Returns when Google confirms the payment. */
@@ -130,32 +132,32 @@ object Billing {
 
     private fun requireEnabled() {
         if (!isEnabled) {
-            throw BillingFailure("In-app purchases are not available in this build of the app.")
+            throw BillingFailure(str(R.string.billing_in_app_purchases_are_not))
         }
     }
 
     private fun failure(error: PurchasesError, userCancelled: Boolean): BillingFailure {
         if (userCancelled || error.code == PurchasesErrorCode.PurchaseCancelledError) {
-            return BillingFailure("Purchase cancelled. Nothing was charged.", userCancelled = true)
+            return BillingFailure(str(R.string.billing_purchase_cancelled_nothing_was_charged), userCancelled = true)
         }
         val message = when (error.code) {
             PurchasesErrorCode.NetworkError ->
-                "No internet connection. Check your network and try again."
+                str(R.string.billing_no_internet_connection_check_your)
             PurchasesErrorCode.StoreProblemError ->
-                "Google Play had a problem. Please try again in a few minutes."
+                str(R.string.billing_google_play_had_a_problem)
             PurchasesErrorCode.PurchaseNotAllowedError ->
-                "Purchases are not allowed on this device or Google account."
+                str(R.string.billing_purchases_are_not_allowed_on)
             PurchasesErrorCode.PurchaseInvalidError ->
-                "Google Play could not process this purchase. Check your payment method in Play Store."
+                str(R.string.billing_google_play_could_not_process)
             PurchasesErrorCode.ProductNotAvailableForPurchaseError ->
-                "This plan is not on sale in Google Play yet. Please try again later."
+                str(R.string.billing_this_plan_is_not_on)
             PurchasesErrorCode.ProductAlreadyPurchasedError ->
-                "You already own this plan. Tap Restore purchases if it is not showing."
+                str(R.string.billing_you_already_own_this_plan)
             PurchasesErrorCode.PaymentPendingError ->
-                "Payment is pending. Your plan activates as soon as Google confirms it."
+                str(R.string.billing_payment_is_pending_your_plan)
             PurchasesErrorCode.ConfigurationError, PurchasesErrorCode.InvalidCredentialsError ->
-                "In-app purchases are not set up correctly for this build. Please contact support."
-            else -> error.message.ifBlank { "The purchase did not complete. Please try again." }
+                str(R.string.billing_in_app_purchases_are_not)
+            else -> error.message.ifBlank { str(R.string.billing_the_purchase_did_not_complete) }
         }
         return BillingFailure(message)
     }

@@ -1,5 +1,9 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.ui.components.str
+import com.sangam.app.ui.components.LanguageDialog
+import androidx.compose.material.icons.filled.Translate
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -52,20 +56,22 @@ fun DashboardScreen(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var confirmSignOut by remember { mutableStateOf(false) }
+    var showLanguages by remember { mutableStateOf(false) }
+    if (showLanguages) LanguageDialog(onDismiss = { showLanguages = false })
     if (confirmSignOut) {
         AlertDialog(
             onDismissRequest = { confirmSignOut = false },
-            title = { Text("Sign out?") },
-            text = { Text("You can sign back in any time with Google or your email.") },
+            title = { Text(str(R.string.sign_out)) },
+            text = { Text(str(R.string.you_can_sign_back_in_any)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmSignOut = false
                     FirebaseSession.signOut(context)
                     onSignOut()
-                }) { Text("Sign out") }
+                }) { Text(str(R.string.sign_out_2)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmSignOut = false }) { Text("Cancel") }
+                TextButton(onClick = { confirmSignOut = false }) { Text(str(R.string.cancel)) }
             },
         )
     }
@@ -81,7 +87,7 @@ fun DashboardScreen(
             workflows = response.items
             loadError = null
         } catch (e: Exception) {
-            loadError = friendlyError(e, "load your workflows")
+            loadError = friendlyError(e, str(R.string.load_your_workflows))
         }
     }
 
@@ -120,7 +126,7 @@ fun DashboardScreen(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            "Sangamitra",
+                            str(R.string.sangamitra),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
@@ -130,7 +136,7 @@ fun DashboardScreen(
                         if (wsState == "OFFLINE") {
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                "Offline",
+                                str(R.string.offline),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.error,
                                 maxLines = 1,
@@ -139,8 +145,11 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showLanguages = true }) {
+                        Icon(Icons.Default.Translate, contentDescription = str(R.string.app_language))
+                    }
                     IconButton(onClick = { confirmSignOut = true }) {
-                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Sign out")
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = str(R.string.sign_out_2))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -153,10 +162,10 @@ fun DashboardScreen(
             // on 320dp phones with large text. Vendors moved to a card below.
             NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                 listOf(
-                    Triple(Icons.Default.Home, "Home", {}),
-                    Triple(Icons.Default.SupportAgent, "Agent", onNavigateToOnboarding),
-                    Triple(Icons.Default.Inbox, "Calls", onNavigateToCallInbox),
-                    Triple(Icons.AutoMirrored.Filled.List, "Workflows", onNavigateToWorkflows),
+                    Triple(Icons.Default.Home, str(R.string.home), {}),
+                    Triple(Icons.Default.SupportAgent, str(R.string.agent), onNavigateToOnboarding),
+                    Triple(Icons.Default.Inbox, str(R.string.calls), onNavigateToCallInbox),
+                    Triple(Icons.AutoMirrored.Filled.List, str(R.string.workflows), onNavigateToWorkflows),
                 ).forEachIndexed { index, (icon, label, onClick) ->
                     NavigationBarItem(
                         selected = index == 0,
@@ -191,21 +200,21 @@ fun DashboardScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
-                                "Your voice agent",
+                                str(R.string.your_voice_agent),
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
                             )
                             Text(
-                                "Answer every call, in your customer's language",
+                                str(R.string.answer_every_call_in_your_customer),
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.Bold,
                             )
                             Text(
-                                "Paste your website, pick a plan and get a number your agent answers. Takes about a minute.",
+                                str(R.string.paste_your_website_pick_a_plan),
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Set up or change", style = MaterialTheme.typography.labelLarge)
+                                Text(str(R.string.set_up_or_change), style = MaterialTheme.typography.labelLarge)
                                 Spacer(Modifier.width(4.dp))
                                 Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
                             }
@@ -222,7 +231,7 @@ fun DashboardScreen(
 
             item {
                 Text(
-                    "Overview",
+                    str(R.string.overview),
                     style = MaterialTheme.typography.headlineMedium,
                     modifier = Modifier
                         .padding(top = 8.dp)
@@ -237,29 +246,29 @@ fun DashboardScreen(
                         .height(IntrinsicSize.Min),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    StatCard("Active", workflows.count { it.state == "active" }, MaterialTheme.colorScheme.primary)
-                    StatCard("Waiting", workflows.count { it.state in listOf("draft", "paused") }, MaterialTheme.colorScheme.tertiary)
-                    StatCard("Done", workflows.count { it.state == "completed" }, MaterialTheme.colorScheme.secondary)
+                    StatCard(str(R.string.active), workflows.count { it.state == "active" }, MaterialTheme.colorScheme.primary)
+                    StatCard(str(R.string.waiting), workflows.count { it.state in listOf("draft", "paused") }, MaterialTheme.colorScheme.tertiary)
+                    StatCard(str(R.string.done), workflows.count { it.state == "completed" }, MaterialTheme.colorScheme.secondary)
                 }
             }
 
             item {
                 ShortcutGrid(
                     listOf(
-                        Shortcut(Icons.Default.Call, "Talk to agents", "Test live or place a call", onNavigateToVoiceAgents),
-                        Shortcut(Icons.Default.Campaign, "Call campaigns", "Call a list of customers", onNavigateToCampaigns),
-                        Shortcut(Icons.Default.Mic, "Voice workflow", "Speak to create one", onNavigateToVoiceWorkflow),
-                        Shortcut(Icons.Default.CheckCircle, "Approvals", "Waiting for you", onNavigateToApprovals),
-                        Shortcut(Icons.Default.AutoAwesome, "AI assistant", "Ask or draft", onNavigateToAIAssistant),
-                        Shortcut(Icons.Default.People, "People", "Your team and agents", onNavigateToActors),
-                        Shortcut(Icons.Default.Business, "Vendors", "Suppliers and licences", onNavigateToVendors),
+                        Shortcut(Icons.Default.Call, str(R.string.talk_to_agents), str(R.string.test_live_or_place_a_call), onNavigateToVoiceAgents),
+                        Shortcut(Icons.Default.Campaign, str(R.string.call_campaigns), str(R.string.call_a_list_of_customers), onNavigateToCampaigns),
+                        Shortcut(Icons.Default.Mic, str(R.string.voice_workflow), str(R.string.speak_to_create_one), onNavigateToVoiceWorkflow),
+                        Shortcut(Icons.Default.CheckCircle, str(R.string.approvals), str(R.string.waiting_for_you), onNavigateToApprovals),
+                        Shortcut(Icons.Default.AutoAwesome, str(R.string.ai_assistant), str(R.string.ask_or_draft), onNavigateToAIAssistant),
+                        Shortcut(Icons.Default.People, str(R.string.people), str(R.string.your_team_and_agents), onNavigateToActors),
+                        Shortcut(Icons.Default.Business, str(R.string.vendors), str(R.string.suppliers_and_licences), onNavigateToVendors),
                     )
                 )
             }
 
             item {
                 Text(
-                    "Recent workflows",
+                    str(R.string.recent_workflows),
                     style = MaterialTheme.typography.headlineMedium,
                     modifier = Modifier
                         .padding(top = 8.dp)
@@ -283,9 +292,9 @@ fun DashboardScreen(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     ) {
                         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("No workflows yet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text(str(R.string.no_workflows_yet), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Text(
-                                "Tap here and say what should happen, for example \"When a caller books a visit, ask me to approve it\".",
+                                str(R.string.tap_here_and_say_what_should),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -382,16 +391,23 @@ fun RowScope.StatCard(label: String, count: Int, color: Color) {
 
 /** Raw states from the backend ("active", "draft") as words people use. */
 fun workflowStateLabel(state: String): String = when (state.lowercase()) {
-    "active" -> "Running"
-    "draft" -> "Draft"
-    "paused" -> "Paused"
-    "completed" -> "Done"
-    "failed" -> "Failed"
+    "active" -> str(R.string.running)
+    "draft" -> str(R.string.draft)
+    "paused" -> str(R.string.paused)
+    "completed" -> str(R.string.done)
+    "failed" -> str(R.string.failed)
     else -> state.replaceFirstChar { it.uppercase() }
 }
 
-fun workflowPhaseLabel(phase: String): String =
-    phase.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }
+fun workflowPhaseLabel(phase: String): String = when (phase.lowercase()) {
+    "initiation" -> str(R.string.phase_initiation)
+    "approval" -> str(R.string.phase_approval)
+    "execution" -> str(R.string.phase_execution)
+    "verification" -> str(R.string.phase_verification)
+    "settlement" -> str(R.string.phase_settlement)
+    "exception" -> str(R.string.phase_exception)
+    else -> phase.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }
+}
 
 @Composable
 fun WorkflowCard(workflow: WorkflowResponse, onClick: () -> Unit) {
@@ -417,7 +433,7 @@ fun WorkflowCard(workflow: WorkflowResponse, onClick: () -> Unit) {
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    "Stage: ${workflowPhaseLabel(workflow.current_phase)}",
+                    str(R.string.stage, workflowPhaseLabel(workflow.current_phase)),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

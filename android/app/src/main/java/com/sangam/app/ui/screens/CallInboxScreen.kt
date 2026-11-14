@@ -1,5 +1,7 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.ui.components.str
+
 import com.sangam.app.ui.components.SecondaryButton
 import com.sangam.app.ui.components.PrimaryButton
 import android.content.Intent
@@ -66,7 +68,7 @@ fun CallInboxScreen(
     var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
     var loading by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf<String?>(null) }
-    var lineLabel by remember { mutableStateOf("Your calls") }
+    var lineLabel by remember { mutableStateOf(str(R.string.your_calls)) }
 
     val leads = remember { mutableStateListOf<CallLeadItem>() }
 
@@ -107,7 +109,7 @@ fun CallInboxScreen(
             val wallet = ApiClient.onboardingApi.getMyWallet()
             val name = wallet["business_name"]?.toString()?.takeIf { it.isNotBlank() }
             val phone = wallet["assigned_did"]?.toString()?.takeIf { it.isNotBlank() }
-            lineLabel = listOfNotNull(phone, name).joinToString(" · ").ifBlank { "Your calls" }
+            lineLabel = listOfNotNull(phone, name).joinToString(" · ").ifBlank { str(R.string.your_calls) }
         } catch (_: Exception) { }
         try {
             val remote = ApiClient.onboardingApi.listCallbacks()
@@ -117,7 +119,7 @@ fun CallInboxScreen(
                 leads.add(
                     CallLeadItem(
                         id = id,
-                        callerName = row["caller_name"]?.toString()?.ifBlank { null } ?: "Caller",
+                        callerName = row["caller_name"]?.toString()?.ifBlank { null } ?: str(R.string.caller),
                         callerPhone = row["caller_phone"]?.toString().orEmpty(),
                         service = row["service"]?.toString().orEmpty(),
                         language = row["language"]?.toString().orEmpty(),
@@ -131,7 +133,7 @@ fun CallInboxScreen(
             }
             loadError = null
         } catch (e: Exception) {
-            loadError = friendlyError(e, "load your calls")
+            loadError = friendlyError(e, str(R.string.load_your_calls))
         }
         loading = false
     }
@@ -150,7 +152,7 @@ fun CallInboxScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("Call inbox", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(str(R.string.call_inbox), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 1)
                         Text(lineLabel, style = MaterialTheme.typography.bodySmall, color = SangamZinc, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 },
@@ -167,13 +169,13 @@ fun CallInboxScreen(
                             }
                             val share = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/csv"
-                                putExtra(Intent.EXTRA_SUBJECT, "Sangamitra AI Call Leads Export")
+                                putExtra(Intent.EXTRA_SUBJECT, str(R.string.sangamitra_ai_call_leads_export))
                                 putExtra(Intent.EXTRA_TEXT, csv)
                             }
-                            context.startActivity(Intent.createChooser(share, "Export Leads CSV"))
+                            context.startActivity(Intent.createChooser(share, str(R.string.export_leads_csv)))
                         }
                     ) {
-                        Icon(Icons.Default.Share, contentDescription = "Share calls as a spreadsheet")
+                        Icon(Icons.Default.Share, contentDescription = str(R.string.share_calls_as_a_spreadsheet))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = SangamPureWhite),
@@ -202,7 +204,7 @@ fun CallInboxScreen(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    label = { Text("Search name, phone or notes") },
+                    label = { Text(str(R.string.search_name_phone_or_notes)) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -214,7 +216,7 @@ fun CallInboxScreen(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    listOf("all" to "All (${leads.size})", "new" to "New", "contacted" to "Contacted", "closed" to "Closed").forEach { (key, label) ->
+                    listOf("all" to str(R.string.all, leads.size), "new" to str(R.string.label_new), "contacted" to str(R.string.contacted), "closed" to str(R.string.closed)).forEach { (key, label) ->
                         FilterChip(
                             selected = selectedFilter == key,
                             onClick = { selectedFilter = key },
@@ -248,16 +250,16 @@ fun CallInboxScreen(
                             contentScale = ContentScale.Fit,
                         )
                         Text(
-                            if (leads.isEmpty()) "No calls yet" else "No calls match",
+                            if (leads.isEmpty()) str(R.string.no_calls_yet) else str(R.string.no_calls_match),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = SangamObsidian,
                         )
                         Text(
                             if (leads.isEmpty()) {
-                                "When your agent takes a call, the caller's name, number and what they asked for show up here."
+                                str(R.string.when_your_agent_takes_a_call)
                             } else {
-                                "Try a different search or filter."
+                                str(R.string.try_a_different_search_or_filter)
                             },
                             style = MaterialTheme.typography.bodyMedium,
                             color = SangamMuted,
@@ -291,7 +293,7 @@ fun CallInboxScreen(
                             if (lead.urgency.equals("urgent", true)) {
                                 Surface(color = SangamObsidian, shape = RoundedCornerShape(8.dp)) {
                                     Text(
-                                        "Urgent",
+                                        str(R.string.urgent),
                                         color = SangamPureWhite,
                                         style = MaterialTheme.typography.labelLarge,
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
@@ -308,12 +310,12 @@ fun CallInboxScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                if (lead.preferredTime.isNotBlank()) "Call back: ${lead.preferredTime}" else "No callback time given",
+                                if (lead.preferredTime.isNotBlank()) str(R.string.call_back, lead.preferredTime) else str(R.string.no_callback_time_given),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = SangamZinc,
                                 modifier = Modifier.weight(1f),
                             )
-                            Text(lead.status.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelLarge)
+                            Text(when (lead.status) { "new" -> str(R.string.label_new); "contacted" -> str(R.string.contacted); "closed" -> str(R.string.closed); else -> lead.status.replaceFirstChar { it.uppercase() } }, style = MaterialTheme.typography.labelLarge)
                         }
 
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -324,25 +326,27 @@ fun CallInboxScreen(
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = SangamObsidian),
                                 modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 8.dp),
                             ) {
                                 Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(4.dp))
-                                Text("Call")
+                                Text(str(R.string.call))
                             }
 
                             SecondaryButton(
                                 onClick = {
-                                    val msg = Uri.encode("Hello ${lead.callerName}, following up on your ${lead.service} enquiry.")
+                                    val msg = Uri.encode(str(R.string.hello_following_up_on_your_enquiry, lead.callerName, lead.service))
                                     val digits = lead.callerPhone.filter { it.isDigit() }.let { if (it.length == 10) "91$it" else it }
                                     val wa = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$digits?text=$msg"))
                                     context.startActivity(wa)
                                 },
                                 border = BorderStroke(1.dp, SangamObsidian),
                                 modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 8.dp),
                             ) {
                                 Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(4.dp))
-                                Text("WhatsApp")
+                                Text(str(R.string.whatsapp), maxLines = 1, softWrap = false)
                             }
 
                             if (lead.audioAsset.isNotBlank()) {
@@ -356,14 +360,14 @@ fun CallInboxScreen(
                                         modifier = Modifier.size(16.dp),
                                     )
                                     Spacer(Modifier.width(4.dp))
-                                    Text(if (playingAsset == lead.audioAsset) "Stop" else "Listen")
+                                    Text(if (playingAsset == lead.audioAsset) str(R.string.stop) else str(R.string.listen))
                                 }
                             }
                         }
 
                         // Wraps instead of clipping "Mark closed" off the edge on small phones.
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf("new" to "New", "contacted" to "Contacted", "closed" to "Closed")
+                            listOf("new" to str(R.string.label_new), "contacted" to str(R.string.contacted), "closed" to str(R.string.closed))
                                 .filter { it.first != lead.status }
                                 .forEach { (st, title) ->
                                 AssistChip(
@@ -376,11 +380,11 @@ fun CallInboxScreen(
                                                     leads[idx] = leads[idx].copy(status = st)
                                                 }
                                             } catch (e: Exception) {
-                                                actionError = friendlyError(e, "update this call")
+                                                actionError = friendlyError(e, str(R.string.update_this_call))
                                             }
                                         }
                                     },
-                                    label = { Text("Mark $title".lowercase().replaceFirstChar { it.uppercase() }) },
+                                    label = { Text(str(R.string.mark, title).lowercase().replaceFirstChar { it.uppercase() }) },
                                 )
                             }
                         }

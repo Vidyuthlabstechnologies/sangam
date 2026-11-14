@@ -1,5 +1,10 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.ui.components.str
+import com.sangam.app.ui.components.LanguageDialog
+import com.sangam.app.ui.components.TertiaryButton
+import androidx.compose.material.icons.filled.Translate
+
 import com.sangam.app.ui.components.SecondaryButton
 import com.sangam.app.ui.components.PrimaryButton
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -77,19 +82,19 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
         info = null
         when {
             cleanEmail.isEmpty() || password.isEmpty() -> {
-                error = "Please enter email and password"
+                error = str(R.string.please_enter_email_and_password)
                 return
             }
             !android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches() -> {
-                error = "Enter a valid email address."
+                error = str(R.string.enter_a_valid_email_address)
                 return
             }
             !isLogin && cleanName.isEmpty() -> {
-                error = "Please enter your name"
+                error = str(R.string.please_enter_your_name)
                 return
             }
             !isLogin && password.length < 8 -> {
-                error = "Use at least 8 characters for your password."
+                error = str(R.string.use_at_least_8_characters_for)
                 return
             }
         }
@@ -108,7 +113,7 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                 password = ""
                 error = e.message
             } catch (e: Exception) {
-                error = e.message ?: "Sign-in failed. Please try again."
+                error = e.message ?: str(R.string.sign_in_failed_please_try_again)
             } finally {
                 loading = false
             }
@@ -128,16 +133,16 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
         } catch (e: ApiException) {
             error = when (e.statusCode) {
                 GoogleSignInStatusCodes.SIGN_IN_CANCELLED -> null
-                CommonStatusCodes.NETWORK_ERROR -> "No internet connection. Check your network and try again."
+                CommonStatusCodes.NETWORK_ERROR -> str(R.string.no_internet_connection_check_your_network)
                 CommonStatusCodes.DEVELOPER_ERROR ->
-                    "Google Sign-In is not set up for this build of the app. Please sign in with email for now."
-                else -> "Google Sign-In did not complete (code ${e.statusCode}). Please try again."
+                    str(R.string.google_sign_in_is_not_set)
+                else -> str(R.string.google_sign_in_did_not_complete, e.statusCode)
             }
             return@rememberLauncherForActivityResult
         }
         val idToken = account?.idToken
         if (idToken.isNullOrBlank()) {
-            error = "Google did not return a sign-in token. Please try again."
+            error = str(R.string.google_did_not_return_a_sign)
             return@rememberLauncherForActivityResult
         }
         scope.launch {
@@ -147,7 +152,7 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                 finishSignIn(FirebaseSession.signInWithGoogle(idToken), "google")
             } catch (e: Exception) {
                 googleSignInClient?.signOut()
-                error = e.message ?: "Google Sign-In failed. Please try again."
+                error = e.message ?: str(R.string.google_sign_in_failed_please_try)
             } finally {
                 loading = false
             }
@@ -168,17 +173,27 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
+            // Language comes first: someone who cannot read English must be able to switch before anything else.
+            var showLanguages by remember { mutableStateOf(false) }
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                TertiaryButton(onClick = { showLanguages = true }) {
+                    Icon(Icons.Default.Translate, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(str(R.string.app_language))
+                }
+            }
+            if (showLanguages) LanguageDialog(onDismiss = { showLanguages = false })
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                "Sangamitra",
+                str(R.string.sangamitra),
                 style = MaterialTheme.typography.displayLarge,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                "Deploy Autonomous Voice Agents in Seconds",
+                str(R.string.deploy_autonomous_voice_agents_in_seconds),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -196,9 +211,9 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
             ) {
                 Text(
                     text = if (isPasswordFocused) {
-                        "Psst! Enter your master password. I've got my wings over my eyes, totally not peeking!"
+                        str(R.string.psst_enter_your_master_password_i)
                     } else {
-                        "Namaste, ${if (name.isNotBlank()) name else "Boss"}! Ready to deploy autonomous Indian voice agents?"
+                        str(R.string.namaste_ready, if (name.isNotBlank()) name else str(R.string.boss))
                     },
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Medium,
@@ -238,7 +253,7 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                             info = null
                             val client = googleSignInClient
                             if (client == null) {
-                                error = "Google Sign-In is not set up for this build of the app. Please sign in with email for now."
+                                error = str(R.string.google_sign_in_is_not_set)
                             } else {
                                 // Start from a clean slate so the account picker always shows.
                                 client.signOut().addOnCompleteListener {
@@ -262,7 +277,7 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            "Continue with Google",
+                            str(R.string.continue_with_google),
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -278,7 +293,7 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                     ) {
                         HorizontalDivider(modifier = Modifier.weight(1f))
                         Text(
-                            "or continue with email",
+                            str(R.string.or_continue_with_email),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 8.dp),
@@ -292,7 +307,7 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                         OutlinedTextField(
                             value = name,
                             onValueChange = { name = it },
-                            label = { Text("Full Name") },
+                            label = { Text(str(R.string.full_name)) },
                             leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
@@ -307,7 +322,7 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                     OutlinedTextField(
                         value = email,
                         onValueChange = { email = it },
-                        label = { Text("Email") },
+                        label = { Text(str(R.string.email)) },
                         leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
@@ -321,7 +336,7 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
-                        label = { Text("Password") },
+                        label = { Text(str(R.string.password)) },
                         leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -332,12 +347,12 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                             IconButton(onClick = { showPassword = !showPassword }) {
                                 Icon(
                                     if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                    contentDescription = if (showPassword) "Hide password" else "Show password",
+                                    contentDescription = if (showPassword) str(R.string.hide_password) else str(R.string.show_password),
                                 )
                             }
                         },
                         supportingText = if (!isLogin) {
-                            { Text("At least 8 characters") }
+                            { Text(str(R.string.at_least_8_characters)) }
                         } else null,
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Password,
@@ -389,7 +404,7 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                             )
                         } else {
                             Text(
-                                if (isLogin) "Sign in" else "Create account",
+                                if (isLogin) str(R.string.sign_in) else str(R.string.create_account),
                                 style = MaterialTheme.typography.labelLarge,
                             )
                         }
@@ -402,13 +417,13 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                                 error = null
                                 info = null
                                 if (!android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches()) {
-                                    error = "Enter your email above, then tap Forgot password."
+                                    error = str(R.string.enter_your_email_above_then_tap)
                                     return@TextButton
                                 }
                                 scope.launch {
                                     try {
                                         FirebaseSession.sendPasswordReset(cleanEmail)
-                                        info = "If an account exists for $cleanEmail, a reset link is on its way."
+                                        info = str(R.string.if_an_account_exists_for_a, cleanEmail)
                                     } catch (e: Exception) {
                                         error = e.message
                                     }
@@ -417,7 +432,7 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                             enabled = !loading,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text("Forgot password?", style = MaterialTheme.typography.bodySmall)
+                            Text(str(R.string.forgot_password), style = MaterialTheme.typography.bodySmall)
                         }
                     } else {
                         Spacer(modifier = Modifier.height(8.dp))
@@ -432,7 +447,7 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(
-                            if (isLogin) "Don't have an account? Sign up" else "Already have an account? Sign in",
+                            if (isLogin) str(R.string.don_t_have_an_account_sign) else str(R.string.already_have_an_account_sign_in),
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
@@ -441,7 +456,7 @@ fun LoginScreen(onLoginSuccess: (isNewUser: Boolean) -> Unit) {
 
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                "By continuing you agree to the Terms of use and Privacy policy.",
+                str(R.string.by_continuing_you_agree_to_the),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
