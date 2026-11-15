@@ -1,5 +1,8 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.R
+import com.sangam.app.ui.components.str
+
 import com.sangam.app.ui.components.friendlyError
 import com.sangam.app.ui.components.BackButton
 import androidx.compose.foundation.clickable
@@ -36,7 +39,7 @@ fun WorkflowListScreen(
             val resp = ApiClient.api.listWorkflows(pageSize = 50)
             workflows = resp.items
         } catch (e: Exception) {
-            error = friendlyError(e, "load workflows")
+            error = friendlyError(e, str(R.string.load_workflows))
         }
         loading = false
     }
@@ -44,7 +47,7 @@ fun WorkflowListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Workflows") },
+                title = { Text(str(R.string.workflows)) },
                 navigationIcon = { BackButton(onBack) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
@@ -55,8 +58,8 @@ fun WorkflowListScreen(
             if (onVoiceCreate != null) {
                 ExtendedFloatingActionButton(
                     onClick = onVoiceCreate,
-                    icon = { Icon(Icons.Default.Mic, contentDescription = "Voice") },
-                    text = { Text("Voice") },
+                    icon = { Icon(Icons.Default.Mic, contentDescription = str(R.string.voice)) },
+                    text = { Text(str(R.string.voice)) },
                 )
             }
         },
@@ -74,7 +77,7 @@ fun WorkflowListScreen(
             }
             workflows.isEmpty() -> {
                 Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    Text("No workflows found", style = MaterialTheme.typography.bodyLarge)
+                    Text(str(R.string.no_workflows_found), style = MaterialTheme.typography.bodyLarge)
                 }
             }
             else -> {
@@ -94,7 +97,7 @@ fun WorkflowListScreen(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(wf.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    Text("Stage: ${workflowPhaseLabel(wf.current_phase)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(str(R.string.stage, workflowPhaseLabel(wf.current_phase)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Text(workflowStateLabel(wf.state), style = MaterialTheme.typography.labelLarge)
                             }

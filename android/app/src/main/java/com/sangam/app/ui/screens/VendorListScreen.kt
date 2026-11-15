@@ -1,5 +1,8 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.R
+import com.sangam.app.ui.components.str
+
 import com.sangam.app.ui.components.ErrorState
 import com.sangam.app.ui.components.friendlyError
 import com.sangam.app.ui.components.BackButton
@@ -47,7 +50,7 @@ fun VendorListScreen(
         try {
             vendors = ApiClient.api.listVendors()
         } catch (e: Exception) {
-            error = friendlyError(e, "load vendors")
+            error = friendlyError(e, str(R.string.load_vendors))
         }
         loading = false
     }
@@ -55,7 +58,7 @@ fun VendorListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Vendors") },
+                title = { Text(str(R.string.vendors)) },
                 navigationIcon = { BackButton(onBack) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
@@ -66,7 +69,7 @@ fun VendorListScreen(
             ExtendedFloatingActionButton(
                 onClick = onAddVendor,
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("Add vendor") },
+                text = { Text(str(R.string.add_vendor)) },
             )
         },
     ) { padding ->
@@ -86,10 +89,10 @@ fun VendorListScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("No vendors yet", style = MaterialTheme.typography.titleMedium)
+                    Text(str(R.string.no_vendors_yet), style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Add a supplier and photograph their CDSCO licence to begin qualification.",
+                        str(R.string.add_a_supplier_and_photograph_their),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -134,7 +137,7 @@ private fun VendorCard(vendor: VendorDto, onClick: () -> Unit) {
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        vendor.gstin ?: "GSTIN not on file",
+                        vendor.gstin ?: str(R.string.gstin_not_on_file),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -155,9 +158,9 @@ private fun VendorCard(vendor: VendorDto, onClick: () -> Unit) {
             Spacer(Modifier.height(10.dp))
             Text(
                 when (vendor.licences.size) {
-                    0 -> "No licences on file"
-                    1 -> "1 licence on file"
-                    else -> "${vendor.licences.size} licences on file"
+                    0 -> str(R.string.no_licences_on_file_2)
+                    1 -> str(R.string.n_1_licence_on_file)
+                    else -> str(R.string.licences_on_file, vendor.licences.size)
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -174,7 +177,7 @@ private fun VendorCard(vendor: VendorDto, onClick: () -> Unit) {
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        "Licence expired. Cannot supply.",
+                        str(R.string.licence_expired_cannot_supply),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                         fontWeight = FontWeight.Medium,
@@ -191,7 +194,7 @@ private fun VendorCard(vendor: VendorDto, onClick: () -> Unit) {
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        "Licence expires in $soonest days",
+                        str(R.string.licence_expires_in_days, soonest),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.tertiary,
                         fontWeight = FontWeight.Medium,

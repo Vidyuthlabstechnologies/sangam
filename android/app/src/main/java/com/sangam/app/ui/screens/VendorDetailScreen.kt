@@ -1,5 +1,8 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.R
+import com.sangam.app.ui.components.str
+
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import com.sangam.app.ui.components.friendlyError
@@ -42,7 +45,7 @@ fun VendorDetailScreen(
         try {
             vendor = ApiClient.api.getVendor(vendorId)
         } catch (e: Exception) {
-            error = e.message ?: "Could not load vendor"
+            error = e.message ?: str(R.string.could_not_load_vendor)
         }
         loading = false
     }
@@ -50,10 +53,10 @@ fun VendorDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(vendor?.name ?: "Vendor") },
+                title = { Text(vendor?.name ?: str(R.string.vendor)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = str(R.string.back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -72,7 +75,7 @@ fun VendorDetailScreen(
         val v = vendor
         if (v == null) {
             Box(Modifier.fillMaxSize().padding(padding).padding(24.dp), contentAlignment = Alignment.Center) {
-                ErrorState(error ?: "This vendor could not be found.", onRetry = null)
+                ErrorState(error ?: str(R.string.this_vendor_could_not_be_found), onRetry = null)
             }
             return@Scaffold
         }
@@ -92,7 +95,7 @@ fun VendorDetailScreen(
     ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(v.legal_name ?: v.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    v.gstin?.let { Text("GSTIN $it", style = MaterialTheme.typography.bodyMedium) }
+                    v.gstin?.let { Text(str(R.string.gstin, it), style = MaterialTheme.typography.bodyMedium) }
                     v.address?.let {
                         Text(
                             it,
@@ -106,7 +109,7 @@ fun VendorDetailScreen(
             }
 
             Text(
-                "Regulatory licences",
+                str(R.string.regulatory_licences),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(top = 4.dp).semantics { heading() },
@@ -114,7 +117,7 @@ fun VendorDetailScreen(
 
             if (v.licences.isEmpty()) {
                 Text(
-                    "No licences on file.",
+                    str(R.string.no_licences_on_file),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -145,14 +148,14 @@ fun VendorDetailScreen(
                                 vendor = ApiClient.api.getVendor(vendorId)
                                 onQualificationSubmitted(res.workflow_id)
                             } catch (e: Exception) {
-                                error = friendlyError(e, "submit for qualification")
+                                error = friendlyError(e, str(R.string.submit_for_qualification))
                             }
                             busy = false
                         }
                     },
                     enabled = !busy,
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text("Submit for qualification") }
+                ) { Text(str(R.string.submit_for_qualification_2)) }
             }
         }
     }
@@ -176,7 +179,7 @@ private fun LicenceCard(licence: VendorLicenceDto) {
                     Spacer(Modifier.width(6.dp))
                     Icon(
                         Icons.Default.Verified,
-                        contentDescription = "Verified",
+                        contentDescription = str(R.string.verified),
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(16.dp),
                     )
@@ -190,8 +193,8 @@ private fun LicenceCard(licence: VendorLicenceDto) {
             val days = licence.days_until_expiry
             val expiryText = when {
                 licence.is_expired -> "EXPIRED"
-                days != null -> "Valid until ${licence.expiry_date} ($days days)"
-                else -> "Expiry unknown"
+                days != null -> str(R.string.valid_until_days, licence.expiry_date, days)
+                else -> str(R.string.expiry_unknown)
             }
             Text(
                 expiryText,
@@ -206,7 +209,7 @@ private fun LicenceCard(licence: VendorLicenceDto) {
 
             licence.extraction_confidence?.let {
                 Text(
-                    if (it >= 0.9) "Read from photo, high confidence" else "Read from photo. Check the details are right.",
+                    if (it >= 0.9) str(R.string.read_from_photo_high_confidence) else str(R.string.read_from_photo_check_the_details),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

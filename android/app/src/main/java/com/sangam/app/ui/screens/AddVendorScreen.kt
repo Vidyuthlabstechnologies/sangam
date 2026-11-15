@@ -1,5 +1,8 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.R
+import com.sangam.app.ui.components.str
+
 import com.sangam.app.ui.components.PrimaryButton
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -52,10 +55,10 @@ fun AddVendorScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Add vendor") },
+                title = { Text(str(R.string.add_vendor)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = str(R.string.back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -75,7 +78,7 @@ fun AddVendorScreen(
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Vendor name") },
+                label = { Text(str(R.string.vendor_name)) },
                 singleLine = true,
                 enabled = vendorId == null,
                 modifier = Modifier.fillMaxWidth(),
@@ -91,7 +94,7 @@ fun AddVendorScreen(
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
-                label = { Text("Contact email") },
+                label = { Text(str(R.string.contact_email)) },
                 singleLine = true,
                 enabled = vendorId == null,
                 modifier = Modifier.fillMaxWidth(),
@@ -111,22 +114,22 @@ fun AddVendorScreen(
                                     )
                                 )
                                 vendorId = v.id
-                                statusText = "Vendor registered. Now attach their licence."
+                                statusText = str(R.string.vendor_registered_now_attach_their_licence)
                             } catch (e: Exception) {
-                                error = e.message ?: "Could not create vendor"
+                                error = e.message ?: str(R.string.could_not_create_vendor)
                             }
                             busy = false
                         }
                     },
                     enabled = !busy && name.isNotBlank(),
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text("Register vendor") }
+                ) { Text(str(R.string.register_vendor)) }
             } else {
                 PrimaryButton(
                     onClick = {
                         scope.launch {
                             busy = true; error = null
-                            statusText = "Extracting licence with Sarvam…"
+                            statusText = str(R.string.reading_the_licence)
                             try {
                                 val bytes = sampleLicenceBytes()
                                 val part = MultipartBody.Part.createFormData(
@@ -140,7 +143,7 @@ fun AddVendorScreen(
                                 )
                                 statusText = null
                             } catch (e: Exception) {
-                                error = e.message ?: "Extraction failed"
+                                error = e.message ?: str(R.string.extraction_failed)
                                 statusText = null
                             }
                             busy = false
@@ -151,7 +154,7 @@ fun AddVendorScreen(
                 ) {
                     Icon(Icons.Default.Description, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Capture CDSCO licence")
+                    Text(str(R.string.capture_cdsco_licence))
                 }
             }
 
@@ -159,7 +162,7 @@ fun AddVendorScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(10.dp))
-                    Text(statusText ?: "Working…", style = MaterialTheme.typography.bodyMedium)
+                    Text(statusText ?: str(R.string.working), style = MaterialTheme.typography.bodyMedium)
                 }
             } else if (statusText != null) {
                 Text(statusText!!, style = MaterialTheme.typography.bodyMedium)
@@ -184,7 +187,7 @@ fun AddVendorScreen(
                                     }
                                     onDone(vid)
                                 } catch (e: Exception) {
-                                    error = e.message ?: "Could not confirm"
+                                    error = e.message ?: str(R.string.could_not_confirm)
                                 }
                                 busy = false
                             }
@@ -192,7 +195,7 @@ fun AddVendorScreen(
                         enabled = !busy,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text(if (doc.needs_review) "Confirm and continue" else "Continue")
+                        Text(if (doc.needs_review) str(R.string.confirm_and_continue) else str(R.string.label_continue))
                     }
                 }
             }
@@ -215,22 +218,22 @@ private fun ExtractionResultCard(doc: ExtractedDocumentDto) {
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    "Extracted by Sarvam",
+                    str(R.string.read_from_the_photo),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                 )
             }
 
             if (data != null) {
-                ExtractedRow("Licence no.", data["licence_number"]?.toString())
-                ExtractedRow("Vendor", data["vendor_name"]?.toString())
-                ExtractedRow("Authority", data["issuing_authority"]?.toString())
-                ExtractedRow("Valid until", data["expiry_date"]?.toString())
+                ExtractedRow(str(R.string.licence_no), data["licence_number"]?.toString())
+                ExtractedRow(str(R.string.vendor), data["vendor_name"]?.toString())
+                ExtractedRow(str(R.string.authority), data["issuing_authority"]?.toString())
+                ExtractedRow(str(R.string.valid_until), data["expiry_date"]?.toString())
             }
 
             doc.min_confidence?.let {
                 Text(
-                    "Lowest field confidence: ${"%.2f".format(it)}",
+                    str(R.string.lowest_field_confidence, "%.2f".format(it)),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -242,7 +245,7 @@ private fun ExtractionResultCard(doc: ExtractedDocumentDto) {
                     shape = MaterialTheme.shapes.small,
                 ) {
                     Text(
-                        "Some fields were read with low confidence. Check them before confirming.",
+                        str(R.string.some_fields_were_read_with_low),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onTertiaryContainer,
                         modifier = Modifier.padding(10.dp),

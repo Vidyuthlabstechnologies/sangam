@@ -1,5 +1,8 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.R
+import com.sangam.app.ui.components.str
+
 import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -69,15 +72,15 @@ fun CampaignsScreen(onBack: () -> Unit = {}, onOpenCampaign: (String) -> Unit = 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("AI Calling Campaigns") },
+                title = { Text(str(R.string.ai_calling_campaigns)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = str(R.string.back))
                     }
                 },
                 actions = {
                     IconButton(onClick = { scope.launch { refresh() } }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                        Icon(Icons.Default.Refresh, contentDescription = str(R.string.refresh))
                     }
                 },
             )
@@ -87,7 +90,7 @@ fun CampaignsScreen(onBack: () -> Unit = {}, onOpenCampaign: (String) -> Unit = 
                 ExtendedFloatingActionButton(
                     onClick = { creating = true },
                     icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                    text = { Text("New campaign") },
+                    text = { Text(str(R.string.new_campaign)) },
                 )
             }
         },
@@ -113,10 +116,9 @@ fun CampaignsScreen(onBack: () -> Unit = {}, onOpenCampaign: (String) -> Unit = 
             item {
                 ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Hundreds of calls at once", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(str(R.string.hundreds_of_calls_at_once), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text(
-                            "Give your agent a list and a goal, such as 50 site visits booked. It calls everyone in parallel " +
-                                "in Telugu, Hindi or English, and stops the moment the goal is met.",
+                            str(R.string.give_your_agent_a_list_and),
                             style = MaterialTheme.typography.bodyMedium,
                             color = SangamMuted,
                         )
@@ -138,7 +140,7 @@ fun CampaignsScreen(onBack: () -> Unit = {}, onOpenCampaign: (String) -> Unit = 
                         ) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
-                            Text(if (demoBusy) "Starting" else "Try a simulation (no real calls)")
+                            Text(if (demoBusy) str(R.string.starting) else str(R.string.try_a_simulation_no_real_calls))
                         }
                     }
                 }
@@ -148,7 +150,7 @@ fun CampaignsScreen(onBack: () -> Unit = {}, onOpenCampaign: (String) -> Unit = 
             }
             error?.let { item { Text(it, color = SangamCrimson) } }
             if (campaigns.isNotEmpty()) {
-                item { Text("Your campaigns", style = MaterialTheme.typography.titleMedium) }
+                item { Text(str(R.string.your_campaigns), style = MaterialTheme.typography.titleMedium) }
             }
             items(campaigns, key = { it.id }) { c ->
                 CampaignRow(c, onClick = { onOpenCampaign(c.id) })
@@ -171,7 +173,7 @@ private fun CampaignRow(c: CampaignDto, onClick: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(
-                "${c.success_count} of ${c.target_count} ${c.goal.lowercase()}  ·  ${c.contacts_total} contacts",
+                str(R.string.of_contacts, c.success_count, c.target_count, c.goal.lowercase(), c.contacts_total),
                 style = MaterialTheme.typography.bodySmall,
                 color = SangamMuted,
             )
@@ -182,17 +184,17 @@ private fun CampaignRow(c: CampaignDto, onClick: () -> Unit) {
 @Composable
 fun CampaignStatusChip(c: CampaignDto) {
     val label = when (c.status) {
-        "draft" -> "Draft"
-        "running" -> if (c.hold_reason != null) "Waiting" else "Calling"
-        "paused" -> "Paused"
-        "target_reached" -> "Goal reached"
-        "completed" -> "Finished"
-        "cancelled" -> "Cancelled"
+        "draft" -> str(R.string.draft)
+        "running" -> if (c.hold_reason != null) str(R.string.waiting) else str(R.string.calling)
+        "paused" -> str(R.string.paused)
+        "target_reached" -> str(R.string.goal_reached)
+        "completed" -> str(R.string.finished)
+        "cancelled" -> str(R.string.cancelled)
         else -> c.status
     }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (c.isSimulation) {
-            AssistChip(onClick = {}, label = { Text("Simulation") })
+            AssistChip(onClick = {}, label = { Text(str(R.string.simulation)) })
         }
         AssistChip(onClick = {}, label = { Text(label) })
     }
@@ -228,11 +230,11 @@ private fun NewCampaignForm(
             scope.launch {
                 val text = withContext(Dispatchers.IO) { readText(context, uri) }
                 if (text == null) {
-                    message = "Could not read that file."
+                    message = str(R.string.could_not_read_that_file)
                 } else {
                     csv = text
                     val rows = text.lines().count { it.isNotBlank() } - 1
-                    csvLabel = "$rows contacts in file"
+                    csvLabel = str(R.string.contacts_in_file, rows)
                 }
             }
         }
@@ -247,49 +249,49 @@ private fun NewCampaignForm(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item { Text("New campaign", style = MaterialTheme.typography.headlineSmall) }
+        item { Text(str(R.string.new_campaign), style = MaterialTheme.typography.headlineSmall) }
         item {
-            OutlinedTextField(name, { name = it }, label = { Text("Campaign name") }, singleLine = true,
+            OutlinedTextField(name, { name = it }, label = { Text(str(R.string.campaign_name)) }, singleLine = true,
                 modifier = Modifier.fillMaxWidth())
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(goal, { goal = it }, label = { Text("One success is") }, singleLine = true,
+                OutlinedTextField(goal, { goal = it }, label = { Text(str(R.string.one_success_is)) }, singleLine = true,
                     modifier = Modifier.weight(2f))
-                OutlinedTextField(target, { target = it.filter(Char::isDigit).take(5) }, label = { Text("Target") },
+                OutlinedTextField(target, { target = it.filter(Char::isDigit).take(5) }, label = { Text(str(R.string.target)) },
                     singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.weight(1f))
             }
         }
         item {
-            OutlinedTextField(pitch, { pitch = it }, label = { Text("What the agent offers") },
-                placeholder = { Text("Outer Ring Road villa plots") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(pitch, { pitch = it }, label = { Text(str(R.string.what_the_agent_offers)) },
+                placeholder = { Text(str(R.string.outer_ring_road_villa_plots)) }, modifier = Modifier.fillMaxWidth())
         }
         item {
-            OutlinedTextField(business, { business = it }, label = { Text("Calling on behalf of") }, singleLine = true,
+            OutlinedTextField(business, { business = it }, label = { Text(str(R.string.calling_on_behalf_of)) }, singleLine = true,
                 modifier = Modifier.fillMaxWidth())
         }
         item {
-            CampaignPicker("Default language", language, VOICE_AGENT_LANGUAGES) { language = VOICE_AGENT_LANGUAGES[it] }
-            Text("A 'language' column in your file sets it per contact.", style = MaterialTheme.typography.bodySmall,
+            CampaignPicker(str(R.string.default_language), language, VOICE_AGENT_LANGUAGES) { language = VOICE_AGENT_LANGUAGES[it] }
+            Text(str(R.string.a_language_column_in_your_file), style = MaterialTheme.typography.bodySmall,
                 color = SangamMuted)
         }
         item {
-            Text("Calls at once: ${concurrency.toInt()}", fontWeight = FontWeight.Medium)
+            Text(str(R.string.calls_at_once, concurrency.toInt()), fontWeight = FontWeight.Medium)
             Slider(value = concurrency, onValueChange = { concurrency = it }, valueRange = 1f..100f)
         }
         item {
             OutlinedCard(modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Contacts", fontWeight = FontWeight.Bold)
-                    Text("CSV with a header row: phone (required), name, language, and any other columns your agent can use.",
+                    Text(str(R.string.contacts), fontWeight = FontWeight.Bold)
+                    Text(str(R.string.csv_with_a_header_row_phone),
                         style = MaterialTheme.typography.bodySmall, color = SangamMuted)
                     OutlinedButton(onClick = {
                         picker.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain", "application/vnd.ms-excel"))
                     }) {
                         Icon(Icons.Default.UploadFile, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text(csvLabel ?: "Choose CSV file")
+                        Text(csvLabel ?: str(R.string.choose_csv_file))
                     }
                 }
             }
@@ -299,25 +301,25 @@ private fun NewCampaignForm(
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Simulation", fontWeight = FontWeight.Bold)
-                            Text("Plays the calls out without dialling anyone. Free.",
+                            Text(str(R.string.simulation), fontWeight = FontWeight.Bold)
+                            Text(str(R.string.plays_the_calls_out_without_dialling),
                                 style = MaterialTheme.typography.bodySmall, color = SangamMuted)
                         }
                         Switch(checked = simulate, onCheckedChange = { simulate = it || agents.isEmpty() })
                     }
                     if (!simulate) {
-                        CampaignPicker("Voice agent", agent?.label ?: "", agents.map { it.label }) { agent = agents[it] }
+                        CampaignPicker(str(R.string.voice_agent), agent?.label ?: "", agents.map { it.label }) { agent = agents[it] }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = consent, onCheckedChange = { consent = it })
                             Text(
-                                "Every number on this list has opted in or is checked against the DND (NCPR) registry.",
+                                str(R.string.every_number_on_this_list_has),
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
-                        Text("Calls go out only between 9 AM and 9 PM IST and use your call credit.",
+                        Text(str(R.string.calls_go_out_only_between_9),
                             style = MaterialTheme.typography.bodySmall, color = SangamMuted)
                     } else if (agents.isEmpty()) {
-                        Text("Real calls need a voice agent with a phone number linked to your business.",
+                        Text(str(R.string.real_calls_need_a_voice_agent),
                             style = MaterialTheme.typography.bodySmall, color = SangamMuted)
                     }
                 }
@@ -326,7 +328,7 @@ private fun NewCampaignForm(
         message?.let { item { Text(it, color = SangamCrimson) } }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = onCancel) { Text("Cancel") }
+                TextButton(onClick = onCancel) { Text(str(R.string.cancel)) }
                 Button(
                     onClick = {
                         busy = true
@@ -350,8 +352,7 @@ private fun NewCampaignForm(
                                 )
                                 val up = api.uploadContacts(c.id, ContactsUploadRequest(csv))
                                 if (up.added == 0) {
-                                    message = "No callable numbers in that file (${up.invalid_count} not recognised, " +
-                                        "${up.suppressed} on DND)."
+                                    message = str(R.string.no_callable_numbers_in_that_file, up.invalid_count, up.suppressed)
                                 } else {
                                     api.start(c.id)
                                     onStarted(c.id)
@@ -367,7 +368,7 @@ private fun NewCampaignForm(
                 ) {
                     Icon(Icons.Default.Campaign, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text(if (busy) "Starting" else "Start calling")
+                    Text(if (busy) str(R.string.starting) else str(R.string.start_calling))
                 }
             }
         }
@@ -414,12 +415,12 @@ fun describeCampaignError(e: Exception): String = when (e) {
             null
         }
         when (e.code()) {
-            402 -> "Add call credit to run a live campaign."
-            404 -> "That campaign or agent is not available to your business."
-            409, 422 -> detail ?: "Check the campaign details and try again."
-            413 -> detail ?: "That list is too long for one campaign."
-            else -> detail ?: "Something went wrong (${e.code()}). Try again."
+            402 -> str(R.string.add_call_credit_to_run_a)
+            404 -> str(R.string.that_campaign_or_agent_is_not)
+            409, 422 -> detail ?: str(R.string.check_the_campaign_details_and_try)
+            413 -> detail ?: str(R.string.that_list_is_too_long_for)
+            else -> detail ?: str(R.string.something_went_wrong_try_again, e.code())
         }
     }
-    else -> "Could not reach the server. Check your internet and try again."
+    else -> str(R.string.could_not_reach_the_server_check)
 }

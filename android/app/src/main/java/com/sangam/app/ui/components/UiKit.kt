@@ -1,5 +1,7 @@
 package com.sangam.app.ui.components
 
+import com.sangam.app.R
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
@@ -39,17 +41,17 @@ import java.net.SocketTimeoutException
  * Turns an exception into a sentence a shop owner can act on. Raw messages such as
  * "Failed to connect to /10.0.2.2:8000" or "HTTP 500" mean nothing to them.
  */
-fun friendlyError(e: Throwable?, action: String = "load this"): String = when (e) {
-    is SocketTimeoutException -> "The connection is slow. Could not $action. Try again."
-    is IOException -> "No connection to Sangamitra. Check your internet and try again."
+fun friendlyError(e: Throwable?, action: String = str(R.string.load_this)): String = when (e) {
+    is SocketTimeoutException -> str(R.string.the_connection_is_slow_could_not, action)
+    is IOException -> str(R.string.no_connection_to_sangamitra_check_your)
     is HttpException -> when (e.code()) {
-        401, 403 -> "Your session has expired. Sign out and sign in again."
-        404 -> "Could not $action. It may have been removed."
-        429 -> "Too many requests. Wait a minute and try again."
-        in 500..599 -> "Sangamitra is having trouble right now. Could not $action. Try again in a few minutes."
-        else -> "Could not $action (error ${e.code()}). Try again."
+        401, 403 -> str(R.string.your_session_has_expired_sign_out)
+        404 -> str(R.string.could_not_it_may_have_been, action)
+        429 -> str(R.string.too_many_requests_wait_a_minute)
+        in 500..599 -> str(R.string.sangamitra_is_having_trouble_right_now, action)
+        else -> str(R.string.could_not_error_try_again, action, e.code())
     }
-    else -> "Could not $action. Try again."
+    else -> str(R.string.could_not_try_again, action)
 }
 
 /** Full-width error with a retry button, announced by screen readers when it appears. */
@@ -71,7 +73,7 @@ fun ErrorState(message: String, onRetry: (() -> Unit)?, modifier: Modifier = Mod
             textAlign = TextAlign.Center,
         )
         if (onRetry != null) {
-            SecondaryButton(onClick = onRetry) { Text("Try again") }
+            SecondaryButton(onClick = onRetry) { Text(str(R.string.try_again)) }
         }
     }
 }
@@ -80,7 +82,7 @@ fun ErrorState(message: String, onRetry: (() -> Unit)?, modifier: Modifier = Mod
 @Composable
 fun BackButton(onBack: () -> Unit) {
     IconButton(onClick = onBack) {
-        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = str(R.string.back))
     }
 }
 

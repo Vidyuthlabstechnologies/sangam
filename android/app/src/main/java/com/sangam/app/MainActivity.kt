@@ -14,6 +14,11 @@ import com.sangam.app.ui.navigation.SangamNavHost
 import com.sangam.app.ui.theme.SangamTheme
 
 class MainActivity : ComponentActivity() {
+    // Applies the in-app language on Android 12 and older; 13+ handles it natively.
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(com.sangam.app.ui.components.AppLanguage.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

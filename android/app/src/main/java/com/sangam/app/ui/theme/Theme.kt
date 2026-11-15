@@ -141,6 +141,8 @@ fun SangamTheme(
     // Default to editorial pure-white light mode unless explicitly overridden
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
     val view = LocalView.current
+    // str() reads these, so text outside composables follows the chosen language too.
+    com.sangam.app.ui.components.AppText.resources = androidx.compose.ui.platform.LocalContext.current.resources
 
     if (!view.isInEditMode) {
         SideEffect {

@@ -1,5 +1,7 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.ui.components.str
+
 import com.sangam.app.ui.components.PrimaryButton
 import com.sangam.app.ui.components.friendlyError
 import com.sangam.app.ui.components.BackButton
@@ -37,7 +39,7 @@ fun AIAssistantScreen(
 ) {
     val scope = rememberCoroutineScope()
     var messages by remember { mutableStateOf(listOf(
-        ChatMessage("assistant", "Namaste! I'm your Sangamitra assistant. I can help you create workflows, answer questions about your workflows, or assist with any task. How can I help?")
+        ChatMessage("assistant", str(R.string.namaste_i_m_your_sangamitra_assistant))
     )) }
     var inputText by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
@@ -52,7 +54,7 @@ fun AIAssistantScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("AI assistant") },
+                title = { Text(str(R.string.ai_assistant)) },
                 navigationIcon = {
                     BackButton(onBack)
                 },
@@ -76,7 +78,7 @@ fun AIAssistantScreen(
                         value = inputText,
                         onValueChange = { inputText = it },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text("Ask anything...") },
+                        placeholder = { Text(str(R.string.ask_anything)) },
                         enabled = !loading,
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -95,7 +97,7 @@ fun AIAssistantScreen(
                                         )
                                         messages = messages + ChatMessage("assistant", response.content)
                                     } catch (e: Exception) {
-                                        messages = messages + ChatMessage("assistant", friendlyError(e, "get an answer"))
+                                        messages = messages + ChatMessage("assistant", friendlyError(e, str(R.string.get_an_answer)))
                                     }
                                     loading = false
                                 }
@@ -106,7 +108,7 @@ fun AIAssistantScreen(
                         if (loading) {
                             CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                         } else {
-                            Text("Send")
+                            Text(str(R.string.send))
                         }
                     }
                 }
@@ -153,7 +155,7 @@ fun AIAssistantScreen(
                     ) {
                         Image(
                             painter = painterResource(R.drawable.mascot_kite_idle),
-                            contentDescription = "Kite Co-Pilot",
+                            contentDescription = str(R.string.kite_co_pilot),
                             modifier = Modifier.size(36.dp),
                             contentScale = ContentScale.Fit,
                         )
@@ -186,7 +188,7 @@ fun AIAssistantScreen(
                     ) {
                         Image(
                             painter = painterResource(R.drawable.mascot_kite_thinking),
-                            contentDescription = "Kite Thinking",
+                            contentDescription = str(R.string.kite_thinking),
                             modifier = Modifier.size(36.dp),
                             contentScale = ContentScale.Fit,
                         )
@@ -206,7 +208,7 @@ fun AIAssistantScreen(
                                     color = SangamObsidian,
                                 )
                                 Text(
-                                    "Thinking...",
+                                    str(R.string.thinking),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = SangamMuted,
                                 )

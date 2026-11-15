@@ -1,5 +1,8 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.R
+import com.sangam.app.ui.components.str
+
 import com.sangam.app.ui.components.SecondaryButton
 import com.sangam.app.ui.components.PrimaryButton
 import android.Manifest
@@ -52,7 +55,7 @@ fun VoiceAgentsScreen(onBack: () -> Unit = {}) {
     var loading by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var selected by remember { mutableStateOf<VoiceAgentDto?>(null) }
-    var language by remember { mutableStateOf("English") }
+    var language by remember { mutableStateOf(str(R.string.english)) }
     var session by remember { mutableStateOf<VoiceAgentSession?>(null) }
     var transcriptFor by remember { mutableStateOf<VoiceAgentCallDto?>(null) }
 
@@ -79,21 +82,21 @@ fun VoiceAgentsScreen(onBack: () -> Unit = {}) {
     }
 
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) startTalking() else loadError = "Allow the microphone to talk to your agent."
+        if (granted) startTalking() else loadError = str(R.string.allow_the_microphone_to_talk_to)
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Talk to agents") },
+                title = { Text(str(R.string.talk_to_agents)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = str(R.string.back))
                     }
                 },
                 actions = {
                     IconButton(onClick = { scope.launch { refresh() } }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                        Icon(Icons.Default.Refresh, contentDescription = str(R.string.refresh))
                     }
                 },
             )
@@ -103,7 +106,7 @@ fun VoiceAgentsScreen(onBack: () -> Unit = {}) {
         if (active != null) {
             LiveCall(
                 session = active,
-                agentLabel = selected?.label ?: "Agent",
+                agentLabel = selected?.label ?: str(R.string.agent),
                 modifier = Modifier.padding(padding),
                 onClose = {
                     active.release()
@@ -128,7 +131,7 @@ fun VoiceAgentsScreen(onBack: () -> Unit = {}) {
             if (!loading && agents.isEmpty() && loadError == null) {
                 item {
                     Text(
-                        "No voice agent is set up for your business yet. Once your agent is linked, it shows up here.",
+                        str(R.string.no_voice_agent_is_set_up),
                         color = SangamMuted,
                     )
                 }
@@ -136,17 +139,17 @@ fun VoiceAgentsScreen(onBack: () -> Unit = {}) {
 
             if (agents.isNotEmpty()) {
                 item {
-                    Text("Test your agent", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(str(R.string.test_your_agent), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(8.dp))
                     Picker(
-                        label = "Agent",
+                        label = str(R.string.agent),
                         value = selected?.label ?: "",
                         options = agents.map { it.label },
                         onPick = { i -> selected = agents[i] },
                     )
                     Spacer(Modifier.height(8.dp))
                     Picker(
-                        label = "Language",
+                        label = str(R.string.language),
                         value = language,
                         options = VOICE_AGENT_LANGUAGES,
                         onPick = { i -> language = VOICE_AGENT_LANGUAGES[i] },
@@ -164,10 +167,10 @@ fun VoiceAgentsScreen(onBack: () -> Unit = {}) {
                     ) {
                         Icon(Icons.Default.Mic, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Talk to your agent now")
+                        Text(str(R.string.talk_to_your_agent_now))
                     }
                     Text(
-                        "Try it the way your customers will hear it. Calls use your call credit.",
+                        str(R.string.try_it_the_way_your_customers),
                         style = MaterialTheme.typography.bodySmall,
                         color = SangamMuted,
                         modifier = Modifier.padding(top = 4.dp),
@@ -183,7 +186,7 @@ fun VoiceAgentsScreen(onBack: () -> Unit = {}) {
             if (calls.isNotEmpty()) {
                 item {
                     Spacer(Modifier.height(8.dp))
-                    Text("Recent calls", style = MaterialTheme.typography.titleMedium)
+                    Text(str(R.string.recent_calls), style = MaterialTheme.typography.titleMedium)
                 }
                 items(calls, key = { it.id }) { call ->
                     CallRow(call = call, onClick = { transcriptFor = call })
@@ -228,11 +231,11 @@ private fun OutboundCallCard(agent: VoiceAgentDto, language: String, onPlaced: (
 
     OutlinedCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Have the agent call a customer", fontWeight = FontWeight.Bold)
+            Text(str(R.string.have_the_agent_call_a_customer), fontWeight = FontWeight.Bold)
             OutlinedTextField(
                 value = phone,
                 onValueChange = { phone = it.filter { c -> c == '+' || c.isDigit() } },
-                label = { Text("Customer phone number") },
+                label = { Text(str(R.string.customer_phone_number)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 modifier = Modifier.fillMaxWidth(),
@@ -247,7 +250,7 @@ private fun OutboundCallCard(agent: VoiceAgentDto, language: String, onPlaced: (
                                 OutboundCallRequest(agent.app_id, phone.trim(), language)
                             )
                             onPlaced()
-                            "Calling now. The result shows under Recent calls."
+                            str(R.string.calling_now_the_result_shows_under)
                         } catch (e: Exception) {
                             describeError(e)
                         }
@@ -259,7 +262,7 @@ private fun OutboundCallCard(agent: VoiceAgentDto, language: String, onPlaced: (
             ) {
                 Icon(Icons.Default.Call, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text(if (busy) "Placing call" else "Call")
+                Text(if (busy) str(R.string.placing_call) else str(R.string.call))
             }
             message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = SangamMuted) }
         }
@@ -309,14 +312,14 @@ private fun TranscriptDialog(call: VoiceAgentCallDto, onDismiss: () -> Unit) {
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
-        title = { Text("Call with ${call.user_phone}") },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(str(R.string.close)) } },
+        title = { Text(str(R.string.call_with, call.user_phone)) },
         text = {
             val shown = lines
             when {
                 error != null -> Text(error ?: "", color = SangamCrimson)
                 shown == null -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                shown.isEmpty() -> Text("No transcript for this call yet.", color = SangamMuted)
+                shown.isEmpty() -> Text(str(R.string.no_transcript_for_this_call_yet), color = SangamMuted)
                 else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(shown) { TranscriptBubble(it.role, it.content) }
                 }
@@ -346,9 +349,9 @@ private fun LiveCall(
         Text(agentLabel, style = MaterialTheme.typography.headlineSmall)
         Text(
             when (val s = state) {
-                VoiceSessionState.Idle, VoiceSessionState.Connecting -> "Connecting"
-                VoiceSessionState.Live -> if (muted) "Live, you are muted" else "Live, go ahead and speak"
-                is VoiceSessionState.Ended -> "Call ended" + if (s.seconds > 0) " after ${formatSeconds(s.seconds)}" else ""
+                VoiceSessionState.Idle, VoiceSessionState.Connecting -> str(R.string.connecting)
+                VoiceSessionState.Live -> if (muted) str(R.string.live_you_are_muted) else str(R.string.live_go_ahead_and_speak)
+                is VoiceSessionState.Ended -> if (s.seconds > 0) str(R.string.call_ended_after, formatSeconds(s.seconds)) else str(R.string.call_ended)
                 is VoiceSessionState.Failed -> s.message
             },
             color = if (state is VoiceSessionState.Failed) SangamCrimson else SangamMuted,
@@ -368,7 +371,7 @@ private fun LiveCall(
                 OutlinedTextField(
                     value = typed,
                     onValueChange = { typed = it },
-                    placeholder = { Text("Or type a message") },
+                    placeholder = { Text(str(R.string.or_type_a_message)) },
                     singleLine = true,
                     modifier = Modifier.weight(1f),
                 )
@@ -376,7 +379,7 @@ private fun LiveCall(
                     onClick = { session.sendText(typed); typed = "" },
                     enabled = typed.isNotBlank(),
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = str(R.string.send))
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -390,7 +393,7 @@ private fun LiveCall(
                 ) {
                     Icon(if (muted) Icons.Default.MicOff else Icons.Default.Mic, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text(if (muted) "Unmute" else "Mute")
+                    Text(if (muted) str(R.string.unmute) else str(R.string.mute))
                 }
                 PrimaryButton(
                     onClick = { session.stop() },
@@ -399,11 +402,11 @@ private fun LiveCall(
                 ) {
                     Icon(Icons.Default.CallEnd, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Hang up")
+                    Text(str(R.string.hang_up))
                 }
             } else {
                 PrimaryButton(onClick = onClose, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                    Text("Done")
+                    Text(str(R.string.done))
                 }
             }
         }
@@ -424,7 +427,7 @@ private fun TranscriptBubble(role: String, content: String) {
         ) {
             Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                 Text(
-                    if (fromAgent) "Agent" else "You",
+                    if (fromAgent) str(R.string.agent) else str(R.string.you),
                     style = MaterialTheme.typography.labelSmall,
                     color = SangamMuted,
                 )
@@ -435,11 +438,11 @@ private fun TranscriptBubble(role: String, content: String) {
 }
 
 private fun statusLabel(status: String): String = when (status) {
-    "pending", "queued" -> "Dialling"
-    "connected", "completed" -> "Answered"
-    "no_answer" -> "No answer"
-    "busy" -> "Busy"
-    "failed" -> "Failed"
+    "pending", "queued" -> str(R.string.dialling)
+    "connected", "completed" -> str(R.string.answered)
+    "no_answer" -> str(R.string.no_answer)
+    "busy" -> str(R.string.busy)
+    "failed" -> str(R.string.failed)
     else -> status.replace('_', ' ').replaceFirstChar { it.uppercase() }
 }
 
@@ -447,12 +450,12 @@ private fun formatSeconds(total: Int): String = "%d:%02d".format(total / 60, tot
 
 private fun describeError(e: Exception): String = when (e) {
     is HttpException -> when (e.code()) {
-        400, 422 -> "Check the phone number. Use the full number with country code, like +919876543210."
-        402 -> "Add call credit to use your voice agent."
-        404 -> "This agent is not set up for your business yet."
-        429 -> "Too many calls are still ringing. Wait for one to finish."
-        503 -> "Voice agents are not switched on yet. Try again later."
-        else -> "Something went wrong (${e.code()}). Try again."
+        400, 422 -> str(R.string.check_the_phone_number_use_the)
+        402 -> str(R.string.add_call_credit_to_use_your)
+        404 -> str(R.string.this_agent_is_not_set_up)
+        429 -> str(R.string.too_many_calls_are_still_ringing)
+        503 -> str(R.string.voice_agents_are_not_switched_on)
+        else -> str(R.string.something_went_wrong_try_again, e.code())
     }
-    else -> "Could not reach the server. Check your internet and try again."
+    else -> str(R.string.could_not_reach_the_server_check)
 }

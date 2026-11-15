@@ -1,5 +1,7 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.ui.components.str
+
 import com.sangam.app.ui.components.friendlyError
 import com.sangam.app.ui.components.BackButton
 import com.sangam.app.ui.components.ErrorState
@@ -49,7 +51,7 @@ fun ApprovalsScreen(onWorkflowClick: (String) -> Unit, onBack: () -> Unit = {}) 
             }
             error = null
         } catch (e: Exception) {
-            error = friendlyError(e, "load approvals")
+            error = friendlyError(e, str(R.string.load_approvals))
         }
         loading = false
     }
@@ -66,7 +68,7 @@ fun ApprovalsScreen(onWorkflowClick: (String) -> Unit, onBack: () -> Unit = {}) 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Approvals") },
+                title = { Text(str(R.string.approvals)) },
                 navigationIcon = { BackButton(onBack) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
@@ -107,13 +109,13 @@ fun ApprovalsScreen(onWorkflowClick: (String) -> Unit, onBack: () -> Unit = {}) 
                     )
                     Spacer(Modifier.height(14.dp))
                     Text(
-                        "Nothing to approve",
+                        str(R.string.nothing_to_approve),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Requests that need your decision will show up here.",
+                        str(R.string.requests_that_need_your_decision_will),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -153,7 +155,7 @@ fun ApprovalsScreen(onWorkflowClick: (String) -> Unit, onBack: () -> Unit = {}) 
                                     )
                                     Spacer(Modifier.height(2.dp))
                                     Text(
-                                        if (a.status.equals("pending", true)) "Tap to review and decide" else "Tap to see details",
+                                        if (a.status.equals("pending", true)) str(R.string.tap_to_review_and_decide) else str(R.string.tap_to_see_details),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
@@ -170,9 +172,9 @@ fun ApprovalsScreen(onWorkflowClick: (String) -> Unit, onBack: () -> Unit = {}) 
 
 /** "pending" -> "Waiting", the words an owner uses. */
 fun approvalStatusLabel(status: String): String = when (status.lowercase()) {
-    "pending" -> "Waiting"
-    "approved" -> "Approved"
-    "rejected" -> "Rejected"
-    "escalated" -> "Escalated"
+    "pending" -> str(R.string.waiting)
+    "approved" -> str(R.string.approved)
+    "rejected" -> str(R.string.rejected)
+    "escalated" -> str(R.string.escalated)
     else -> humanize(status)
 }

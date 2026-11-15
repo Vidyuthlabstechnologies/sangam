@@ -9,6 +9,7 @@ import com.sangam.app.network.TokenManager
 class SangamApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        com.sangam.app.ui.components.AppText.resources = resources
         // Firebase first: TokenManager.isLoggedIn() asks Firebase for the session.
         try {
             com.google.firebase.FirebaseApp.initializeApp(this)

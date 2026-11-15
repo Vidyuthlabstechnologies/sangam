@@ -1,5 +1,8 @@
 package com.sangam.app.ui.screens
 
+import com.sangam.app.R
+import com.sangam.app.ui.components.str
+
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -85,28 +88,28 @@ fun CampaignLiveScreen(campaignId: String, onBack: () -> Unit = {}) {
         topBar = {
             TopAppBar(
                 title = {
-                    Text(live?.campaign?.name ?: "Campaign", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(live?.campaign?.name ?: str(R.string.campaign), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = str(R.string.back))
                     }
                 },
                 actions = {
                     val c = live?.campaign
                     if (c?.status == "running") {
                         IconButton(onClick = { control { ApiClient.campaignApi.pause(campaignId) } }) {
-                            Icon(Icons.Default.Pause, contentDescription = "Pause")
+                            Icon(Icons.Default.Pause, contentDescription = str(R.string.pause))
                         }
                     }
                     if (c?.status == "paused" || c?.status == "draft") {
                         IconButton(onClick = { control { ApiClient.campaignApi.resume(campaignId) } }) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = "Resume")
+                            Icon(Icons.Default.PlayArrow, contentDescription = str(R.string.resume))
                         }
                     }
                     if (c != null && c.status in setOf("running", "paused", "draft")) {
                         IconButton(onClick = { confirmCancel = true }) {
-                            Icon(Icons.Default.Stop, contentDescription = "Stop campaign")
+                            Icon(Icons.Default.Stop, contentDescription = str(R.string.stop_campaign))
                         }
                     }
                 },
@@ -128,7 +131,7 @@ fun CampaignLiveScreen(campaignId: String, onBack: () -> Unit = {}) {
         ) {
             if (l.simulated) {
                 item {
-                    Banner("Simulation. No real calls are being placed; conversations are scripted examples.", SangamMuted)
+                    Banner(str(R.string.simulation_no_real_calls_are_being), SangamMuted)
                 }
             }
             c.hold_reason?.let { item { Banner(it, LiveAmber) } }
@@ -143,7 +146,7 @@ fun CampaignLiveScreen(campaignId: String, onBack: () -> Unit = {}) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         PulsingDot(LiveAmber)
                         Spacer(Modifier.width(8.dp))
-                        Text("On call now (${c.count("dialing")})", style = MaterialTheme.typography.titleMedium)
+                        Text(str(R.string.on_call_now, c.count("dialing")), style = MaterialTheme.typography.titleMedium)
                     }
                 }
                 items(l.active, key = { "a-" + it.id }) { call ->
@@ -151,7 +154,7 @@ fun CampaignLiveScreen(campaignId: String, onBack: () -> Unit = {}) {
                 }
             }
             if (l.recent.isNotEmpty()) {
-                item { Text("Latest outcomes", style = MaterialTheme.typography.titleMedium) }
+                item { Text(str(R.string.latest_outcomes), style = MaterialTheme.typography.titleMedium) }
                 items(l.recent, key = { "r-" + it.id }) { contact ->
                     OutcomeRow(contact, goal = c.goal, onClick = { openContact = contact.id to contact.name })
                 }
@@ -165,15 +168,15 @@ fun CampaignLiveScreen(campaignId: String, onBack: () -> Unit = {}) {
     if (confirmCancel) {
         AlertDialog(
             onDismissRequest = { confirmCancel = false },
-            title = { Text("Stop this campaign?") },
-            text = { Text("Nobody else on the list is called. Calls already live finish normally.") },
+            title = { Text(str(R.string.stop_this_campaign)) },
+            text = { Text(str(R.string.nobody_else_on_the_list_is)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmCancel = false
                     control { ApiClient.campaignApi.cancel(campaignId) }
-                }) { Text("Stop") }
+                }) { Text(str(R.string.stop)) }
             },
-            dismissButton = { TextButton(onClick = { confirmCancel = false }) { Text("Keep calling") } },
+            dismissButton = { TextButton(onClick = { confirmCancel = false }) { Text(str(R.string.keep_calling)) } },
         )
     }
 }
@@ -202,7 +205,7 @@ private fun GoalCard(l: CampaignLiveDto) {
                 )
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("${c.success_count}", fontSize = 40.sp, fontWeight = FontWeight.Bold)
-                    Text("of ${c.target_count}", style = MaterialTheme.typography.bodyMedium, color = SangamMuted)
+                    Text(str(R.string.of, c.target_count), style = MaterialTheme.typography.bodyMedium, color = SangamMuted)
                 }
             }
             Spacer(Modifier.width(20.dp))
@@ -210,8 +213,8 @@ private fun GoalCard(l: CampaignLiveDto) {
                 Text(c.goal, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 CampaignStatusChip(c)
                 Text(
-                    if (reached) "Goal reached in ${formatDuration(l.versus_telecaller?.ai_elapsed_seconds ?: 0)}"
-                    else "${c.concurrency} lines  ·  ${c.contacts_total} contacts",
+                    if (reached) str(R.string.goal_reached_in, formatDuration(l.versus_telecaller?.ai_elapsed_seconds ?: 0))
+                    else str(R.string.lines_contacts, c.concurrency, c.contacts_total),
                     style = MaterialTheme.typography.bodySmall,
                     color = if (reached) SuccessGreen else SangamMuted,
                 )
@@ -225,10 +228,10 @@ private fun StatsRow(l: CampaignLiveDto) {
     val c = l.campaign
     val finished = listOf("connected", "no_answer", "busy", "failed").sumOf { c.count(it) }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        Stat("On call", c.count("dialing"), LiveAmber, Modifier.weight(1f))
-        Stat("Called", finished, MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
-        Stat("Answered", c.count("connected"), MaterialTheme.colorScheme.primary, Modifier.weight(1f))
-        Stat("Yes", c.success_count, SuccessGreen, Modifier.weight(1f))
+        Stat(str(R.string.on_call), c.count("dialing"), LiveAmber, Modifier.weight(1f))
+        Stat(str(R.string.called), finished, MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
+        Stat(str(R.string.answered), c.count("connected"), MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+        Stat(str(R.string.yes), c.success_count, SuccessGreen, Modifier.weight(1f))
     }
 }
 
@@ -246,20 +249,20 @@ private fun Stat(label: String, value: Int, color: Color, modifier: Modifier) {
 private fun VersusCard(v: VersusTelecallerDto) {
     OutlinedCard(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Versus a telecaller", fontWeight = FontWeight.Bold)
+            Text(str(R.string.versus_a_telecaller), fontWeight = FontWeight.Bold)
             Row {
                 Column(Modifier.weight(1f)) {
-                    Text("Your AI agent", style = MaterialTheme.typography.labelMedium, color = SangamMuted)
+                    Text(str(R.string.your_ai_agent), style = MaterialTheme.typography.labelMedium, color = SangamMuted)
                     Text(formatDuration(v.ai_elapsed_seconds), fontSize = 24.sp, fontWeight = FontWeight.Bold,
                         color = SuccessGreen)
                 }
                 Column(Modifier.weight(1f)) {
-                    Text("One telecaller", style = MaterialTheme.typography.labelMedium, color = SangamMuted)
+                    Text(str(R.string.one_telecaller), style = MaterialTheme.typography.labelMedium, color = SangamMuted)
                     Text(formatDuration(v.one_telecaller_seconds), fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 }
             }
             Text(
-                "${v.calls_finished} calls done. Keeping this pace by hand takes ${v.telecallers_to_match} telecallers dialling at once.",
+                str(R.string.calls_done_keeping_this_pace_by, v.calls_finished, v.telecallers_to_match),
                 style = MaterialTheme.typography.bodyMedium,
             )
             v.assumptions?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = SangamMuted) }
@@ -285,7 +288,7 @@ private fun ActiveCallRow(call: ActiveCallDto, onClick: () -> Unit) {
                     Text(call.name.ifBlank { call.phone }, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f),
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
-                        (if (call.phase == "ringing") "Ringing " else "") + formatClock(call.elapsed_seconds),
+                        if (call.phase == "ringing") str(R.string.ringing_clock, formatClock(call.elapsed_seconds)) else formatClock(call.elapsed_seconds),
                         style = MaterialTheme.typography.labelMedium,
                         color = SangamMuted,
                     )
@@ -293,7 +296,7 @@ private fun ActiveCallRow(call: ActiveCallDto, onClick: () -> Unit) {
                 Text(call.language ?: "", style = MaterialTheme.typography.labelSmall, color = SangamMuted)
                 call.line?.let { line ->
                     Text(
-                        (if (line.role == "agent") "Agent: " else "Customer: ") + line.content,
+                        if (line.role == "agent") str(R.string.agent_line, line.content) else str(R.string.customer_line, line.content),
                         style = MaterialTheme.typography.bodySmall,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
@@ -324,13 +327,13 @@ private fun OutcomeRow(contact: CampaignContactDto, goal: String, onClick: () ->
 
 private fun outcomeLabel(c: CampaignContactDto, goal: String): Pair<String, Color> = when {
     c.succeeded -> goal to SuccessGreen
-    c.opted_out -> "Do not call" to SangamCrimson
-    c.status == "connected" -> "Spoke" to Color(0xFF52525B)
-    c.status == "no_answer" -> "No answer" to SangamMuted
-    c.status == "busy" -> "Busy" to SangamMuted
-    c.status == "failed" -> "Failed" to SangamCrimson
-    c.status == "suppressed" -> "On DND" to SangamMuted
-    c.status == "skipped" -> "Not needed" to SangamMuted
+    c.opted_out -> str(R.string.do_not_call) to SangamCrimson
+    c.status == "connected" -> str(R.string.spoke) to Color(0xFF52525B)
+    c.status == "no_answer" -> str(R.string.no_answer) to SangamMuted
+    c.status == "busy" -> str(R.string.busy) to SangamMuted
+    c.status == "failed" -> str(R.string.failed) to SangamCrimson
+    c.status == "suppressed" -> str(R.string.on_dnd_2) to SangamMuted
+    c.status == "skipped" -> str(R.string.not_needed) to SangamMuted
     else -> c.status to SangamMuted
 }
 
@@ -351,8 +354,8 @@ private fun CallDetailDialog(campaignId: String, contactId: String, name: String
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
-        title = { Text(name.ifBlank { "Call" }) },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(str(R.string.close)) } },
+        title = { Text(name.ifBlank { str(R.string.call) }) },
         text = {
             val d = detail
             when {
@@ -363,7 +366,7 @@ private fun CallDetailDialog(campaignId: String, contactId: String, name: String
                     if (d.transcript.isNullOrEmpty()) {
                         item {
                             Text(
-                                if (d.status == "dialing") "Ringing..." else "No conversation recorded.",
+                                if (d.status == "dialing") str(R.string.ringing_2) else str(R.string.no_conversation_recorded),
                                 color = SangamMuted,
                             )
                         }
@@ -376,7 +379,7 @@ private fun CallDetailDialog(campaignId: String, contactId: String, name: String
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Column(Modifier.padding(10.dp)) {
-                                Text(if (agent) "Agent" else "Customer", style = MaterialTheme.typography.labelSmall,
+                                Text(if (agent) str(R.string.agent) else str(R.string.customer_2), style = MaterialTheme.typography.labelSmall,
                                     color = SangamMuted)
                                 Text(turn.content, style = MaterialTheme.typography.bodyMedium)
                             }
@@ -395,8 +398,8 @@ private fun formatDuration(total: Int): String {
     val m = (total % 3600) / 60
     val s = total % 60
     return when {
-        h > 0 -> "${h} h ${m} min"
-        m > 0 -> "${m} min ${s} s"
-        else -> "${s} s"
+        h > 0 -> str(R.string.h_min, h, m)
+        m > 0 -> str(R.string.min_s, m, s)
+        else -> str(R.string.s, s)
     }
 }

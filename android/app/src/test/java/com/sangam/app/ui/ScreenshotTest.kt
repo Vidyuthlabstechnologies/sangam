@@ -85,3 +85,11 @@ class SmallPhoneLargeFontScreenshotTest : ScreenshotBase("small_320dp_font130", 
 
 @Config(application = Application::class, qualifiers = "w360dp-h3600dp-xhdpi", sdk = [34])
 class RegularPhoneScreenshotTest : ScreenshotBase("regular_360dp", 1.0f)
+
+/** Hindi on the small phone: Devanagari runs longer and taller than English. */
+@Config(application = Application::class, qualifiers = "hi-w320dp-h3600dp-xhdpi", sdk = [34])
+class HindiSmallPhoneScreenshotTest : ScreenshotBase("hi_small_320dp_font130", 1.3f)
+
+/** Tamil has some of the longest words of the supported languages. */
+@Config(application = Application::class, qualifiers = "ta-w360dp-h3600dp-xhdpi", sdk = [34])
+class TamilRegularPhoneScreenshotTest : ScreenshotBase("ta_regular_360dp", 1.0f)
